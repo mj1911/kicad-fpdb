@@ -28,4 +28,6 @@
 * Updated CLAUDE.md's TODO list to reflect the new milestone and known
   follow-up items.
 
-2026-09-13 v0.0.1: Idea born; repo constructed.  First build-wave.
+2026-09-13 v0.0.1:
+
+* Idea born; repo constructed.  First build-wave.

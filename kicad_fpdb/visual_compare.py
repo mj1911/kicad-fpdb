@@ -16,9 +16,25 @@ review.html into --output-dir (default: renders/).
 
 import argparse
 import html
+import re
 import subprocess
 import tempfile
 from pathlib import Path
+
+# Pixels per millimeter used when embedding SVGs in the review page. Both
+# panels for a case are scaled by this same constant (rather than each
+# being independently resized to fit its container) so a real physical
+# size difference between the generated and reference footprint stays
+# visible instead of being scaled away.
+PX_PER_MM = 20.0
+
+# Checkerboard square size, in mm, drawn behind each panel as a scale
+# reference — fine enough to act as a ruler without overpowering the
+# footprint geometry drawn on top of it.
+CHECKER_MM = 0.5
+CHECKER_PX = PX_PER_MM * CHECKER_MM
+
+_SVG_ROOT_SIZE = re.compile(r'width="([\d.]+)mm" height="([\d.]+)mm"')
 
 from kicad_fpdb.pipeline import generate_footprint
 from kicad_fpdb.reference_cases import CASES, FAMILY_TREE_PATH, KICAD_FOOTPRINTS
@@ -94,11 +110,24 @@ def render_all_known_cases(
     return cases
 
 
+def _scale_svg_to_px(svg_markup: str, px_per_mm: float = PX_PER_MM) -> str:
+    """Rewrites the root <svg> element's mm-suffixed width/height (as
+    emitted by kicad-cli) to plain px values at px_per_mm, leaving the
+    viewBox untouched so the same physical size maps to the same pixel
+    size across every embedded footprint."""
+
+    def repl(match: re.Match) -> str:
+        width_mm, height_mm = float(match.group(1)), float(match.group(2))
+        return f'width="{width_mm * px_per_mm:.3f}" height="{height_mm * px_per_mm:.3f}"'
+
+    return _SVG_ROOT_SIZE.sub(repl, svg_markup, count=1)
+
+
 def _inline_svg(svg_path: Path) -> str:
     text = svg_path.read_text()
     start = text.index("<svg")
     end = text.rindex("</svg>") + len("</svg>")
-    return text[start:end]
+    return _scale_svg_to_px(text[start:end])
 
 
 def build_review_html(cases: list[dict], output_path: str) -> Path:
@@ -132,9 +161,19 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   .case {{ display: none; }}
   .case.active {{ display: block; }}
   .panels {{ display: flex; gap: 16px; flex-wrap: wrap; }}
-  .panel {{ flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff; }}
+  .panel {{
+    flex: 1; min-width: 280px; max-width: 420px; max-height: 420px; overflow: auto;
+    border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff;
+    background-image:
+      linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.06) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.06) 75%);
+    background-size: {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
+    background-position: 0 0, 0 {CHECKER_PX:g}px, {CHECKER_PX:g}px -{CHECKER_PX:g}px, -{CHECKER_PX:g}px 0;
+  }}
   .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #555; }}
-  .panel svg {{ width: 100%; height: auto; max-height: 420px; }}
+  .panel svg {{ display: block; }}
   .controls {{ display:flex; gap:8px; align-items:center; margin: 16px 0; flex-wrap: wrap; }}
   button {{ font-size: 1rem; padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; background:#fff; cursor:pointer; }}
   button.pass {{ border-color:#2a2; color:#2a2; }}
