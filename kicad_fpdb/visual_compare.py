@@ -46,6 +46,7 @@ def _export_svg(library_dir: Path, footprint_name: str, output_dir: Path) -> Pat
         [
             "kicad-cli", "fp", "export", "svg",
             "--footprint", footprint_name,
+            "--sketch-pads-on-fab-layers",
             str(library_dir), "-o", str(output_dir),
         ],
         capture_output=True, text=True,
