@@ -5,9 +5,7 @@ import re
 import pytest
 
 from kicad_fpdb.pipeline import generate_footprint
-
-FAMILY_TREE_PATH = "data/kicad-fpdb.yaml"
-KICAD_FOOTPRINTS = "/usr/share/kicad/footprints"
+from kicad_fpdb.reference_cases import CASES, FAMILY_TREE_PATH, KICAD_FOOTPRINTS
 
 pytestmark = pytest.mark.skipif(
     not os.path.isdir(KICAD_FOOTPRINTS),
@@ -38,23 +36,6 @@ def _parse_pads(text: str) -> dict[str, dict]:
             "roundrect_rratio": float(rratio_match.group(1)) if rratio_match else None,
         }
     return pads
-
-
-CASES = [
-    # (descriptor, real reference file, args passed at resolve time)
-    ("DIP-16", "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod"),
-    ("DIP-14", "Package_DIP.pretty/DIP-14_W7.62mm.kicad_mod"),
-    ("DIP-18", "Package_DIP.pretty/DIP-18_W7.62mm.kicad_mod"),
-    ("DIP-16 r", "Package_DIP.pretty/DIP-16_W10.16mm.kicad_mod"),
-    ("SOIC-8", "Package_SO.pretty/SOIC-8_3.9x4.9mm_P1.27mm.kicad_mod"),
-    ("SOIC-14", "Package_SO.pretty/SOIC-14_3.9x8.7mm_P1.27mm.kicad_mod"),
-    ("R-0402", "Resistor_SMD.pretty/R_0402_1005Metric.kicad_mod"),
-    ("R-0603", "Resistor_SMD.pretty/R_0603_1608Metric.kicad_mod"),
-    ("R-0805", "Resistor_SMD.pretty/R_0805_2012Metric.kicad_mod"),
-    ("C-0603", "Capacitor_SMD.pretty/C_0603_1608Metric.kicad_mod"),
-    ("QFP-32", "Package_QFP.pretty/LQFP-32_7x7mm_P0.8mm.kicad_mod"),
-    ("QFP-48", "Package_QFP.pretty/LQFP-48_7x7mm_P0.5mm.kicad_mod"),
-]
 
 
 @pytest.mark.parametrize("descriptor,reference_relpath", CASES)
