@@ -28,10 +28,39 @@ def _build_node(name: str, data: dict) -> FamilyNode:
     return node
 
 
+def _known_generators() -> set:
+    # Deferred import: pipeline.py imports this module at load time, so a
+    # top-level import here would be circular. By call time (after the
+    # package has finished importing) this resolves fine either way, and
+    # it keeps the generator name list defined in exactly one place
+    # (pipeline.GENERATORS) instead of duplicating it here.
+    from kicad_fpdb.pipeline import GENERATORS
+
+    return set(GENERATORS)
+
+
+def _validate_generators(roots: dict) -> None:
+    known = _known_generators()
+
+    def walk(node: FamilyNode):
+        if node.generator is not None and node.generator not in known:
+            raise ValueError(
+                f"family {node.name!r} references unknown generator "
+                f"{node.generator!r}; known generators: {sorted(known)}"
+            )
+        for child in node.children.values():
+            walk(child)
+
+    for root in roots.values():
+        walk(root)
+
+
 def load_family_tree(path: str) -> dict:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
-    return {name: _build_node(name, data) for name, data in raw.items()}
+    roots = {name: _build_node(name, data) for name, data in raw.items()}
+    _validate_generators(roots)
+    return roots
 
 
 @dataclass

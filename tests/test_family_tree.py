@@ -164,3 +164,24 @@ def test_resolve_garbage_modifier_token_raises(tmp_path):
     # as a float pitch override.
     with pytest.raises(ValueError):
         resolve_descriptor(tree, parse_descriptor("DIP-16 xyz"))
+
+
+UNKNOWN_GENERATOR_YAML = """
+WIDGET:
+  generator: totally_bogus_generator
+  params:
+    pitch: 2.54
+"""
+
+
+def test_load_family_tree_rejects_unknown_generator(tmp_path):
+    path = tmp_path / "families.yaml"
+    path.write_text(UNKNOWN_GENERATOR_YAML)
+
+    import pytest
+    with pytest.raises(ValueError) as excinfo:
+        load_family_tree(str(path))
+
+    message = str(excinfo.value)
+    assert "WIDGET" in message
+    assert "totally_bogus_generator" in message
