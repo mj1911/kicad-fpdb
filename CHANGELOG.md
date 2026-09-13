@@ -1,5 +1,20 @@
 # Changes
 
+2026-09-13 v0.0.4:
+
+* Visual review tool: both panels now render at matched true physical
+  scale (20px/mm) with a fine checkerboard scale reference behind them,
+  instead of each footprint being independently resized to fit its panel
+  (which hid real size discrepancies).
+* Visual review tool: each footprint is centered within a fixed-size
+  viewport frame, like KiCad's own footprint editor.
+* Added Reference ("REF**") and Value (the footprint's own name) text
+  properties to generated footprints, placed above/below the pad
+  bounding box; Reference on `F.SilkS`, Value on `F.Fab`, matching real
+  KiCad's layer convention.
+* Updated CLAUDE.md's TODO list: flagged the silkscreen/outline gap as
+  more conspicuous now that Reference sits on `F.SilkS`.
+
 2026-09-13 v0.0.3:
 
 * Added a visual comparison tool (`kicad_fpdb/visual_compare.py`):
