@@ -2,7 +2,7 @@ DIP:
   generator: dual_row_grid
   variant_param: pin_count
   variants: {n: narrow, r: regular, w: wide}
-  default_width: regular
+  default_width: narrow
   params:
     pitch: 2.54
     row_spacing: {narrow: 7.62, regular: 10.16, wide: 15.24}
