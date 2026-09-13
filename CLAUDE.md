@@ -1,6 +1,7 @@
 # User-defined project goals
 
-KiCAD dev website (reference): https://dev-docs.kicad.org/en/
+* KiCAD dev website (reference): https://dev-docs.kicad.org/en/
+* KiCAD add-on specifics: https://dev-docs.kicad.org/en/addons/
 
 Currently, KiCAD ships thousands of footprint files in their library, each
 differing by various amounts, many nearly identical.  This is highly
@@ -43,13 +44,24 @@ and become available for everyone to automatically update to.
 
 ## Claude-isms below
 
-- Design specs live in `docs/superpowers/specs/`. First spec: descriptor
+* Design specs live in `docs/superpowers/specs/`. First spec: descriptor
   language + generator engine (`2026-09-13-descriptor-engine-design.md`).
   Scoped deliberately to exclude the KiCad plugin, full-library conversion,
   and the contribution/moderation server — those get their own specs later.
-- Local KiCad is installed (`kicad-cli`, `/usr/share/kicad*/footprints/*.pretty`)
+* Local KiCad is installed (`kicad-cli`, `/usr/share/kicad*/footprints/*.pretty`)
   — use these as ground truth for footprint format and validation, rather
   than guessing at S-expression conventions.
-- Engine language: Python, chosen partly because it matches KiCad's own
+* Engine language: Python, chosen partly because it matches KiCad's own
   pcbnew scripting API for eventual plugin integration.
-- This repo was git-initialized on 2026-09-13 (it did not exist before).
+* This repo was git-initialized on 2026-09-13 (it did not exist before).
+
+## TODO
+
+This is a running list of everything yet planned, updated at the end of
+each session, in roughly chronological order:
+
+* Adding more similar footprints, several iterations, optimizations
+* Adding more different footprints, ditto
+* Adding the rest of the footprints; total optimization
+* KiCad plugin
+* Contribution/moderation server
