@@ -27,20 +27,30 @@ def test_add_outline_produces_courtyard_rect():
     assert rect.end == pytest.approx((8.92, 19.08))
 
 
-def test_add_outline_produces_silkscreen_body_and_pin1_marker():
+def test_add_outline_produces_silkscreen_body_rect():
     geometry = _dip16_geometry()
     _add_outline(geometry)
 
     silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
-    # 4 body sides + 1 pin-1 corner marker.
-    assert len(silk_lines) == 5
+    assert len(silk_lines) == 4
+
+
+def test_add_outline_produces_pin1_marker_triangle():
+    geometry = _dip16_geometry()
+    _add_outline(geometry)
+
+    assert len(geometry.polys) == 1
+    marker = geometry.polys[0]
+    assert marker.layer == "F.SilkS"
+    assert marker.fill == "yes"
 
     # Pad bbox is (-0.8, -0.8) to (8.42, 18.58); silkscreen adds 0.2mm margin,
     # giving a body rect of (-1.0, -1.0) to (8.62, 18.78). Pad "1" sits at
-    # (0, 0), nearest to the (-1.0, -1.0) corner.
-    marker = silk_lines[-1]
-    assert marker.start == pytest.approx((-0.5, -1.0))
-    assert marker.end == pytest.approx((-1.0, -0.5))
+    # (0, 0), nearest to the (-1.0, -1.0) corner. The triangle's apex sits at
+    # that corner, extending outward (away from the body) by 0.6mm each way.
+    assert marker.points[0] == pytest.approx((-1.0, -1.0))
+    assert marker.points[1] == pytest.approx((-1.6, -1.0))
+    assert marker.points[2] == pytest.approx((-1.0, -1.6))
 
 
 def test_generate_footprint_includes_outline_geometry():
@@ -48,4 +58,6 @@ def test_generate_footprint_includes_outline_geometry():
     assert "(fp_rect" in text
     assert '(layer "F.CrtYd")' in text
     assert "(fp_line" in text
+    assert "(fp_poly" in text
+    assert "(fill yes)" in text
     assert '(layer "F.SilkS")' in text

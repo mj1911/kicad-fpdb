@@ -1,4 +1,4 @@
-from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Poly, Rect, Text, pad_bounding_box
 
 
 def test_pad_defaults():
@@ -42,6 +42,15 @@ def test_footprint_geometry_lines_and_rects_default_empty():
     geom = FootprintGeometry(name="TEST")
     assert geom.lines == []
     assert geom.rects == []
+    assert geom.polys == []
+
+
+def test_poly_holds_fields():
+    poly = Poly(points=[(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)], layer="F.SilkS")
+    assert poly.points == [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)]
+    assert poly.layer == "F.SilkS"
+    assert poly.width == 0.12
+    assert poly.fill == "yes"
 
 
 def test_line_holds_fields():

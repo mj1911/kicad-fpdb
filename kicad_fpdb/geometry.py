@@ -47,12 +47,21 @@ class Rect:
 
 
 @dataclass
+class Poly:
+    points: list[tuple[float, float]]
+    layer: str
+    width: float = 0.12
+    fill: str = "yes"
+
+
+@dataclass
 class FootprintGeometry:
     name: str
     pads: list[Pad] = field(default_factory=list)
     texts: list[Text] = field(default_factory=list)
     lines: list[Line] = field(default_factory=list)
     rects: list[Rect] = field(default_factory=list)
+    polys: list[Poly] = field(default_factory=list)
 
 
 def pad_bounding_box(pads: list[Pad]) -> tuple[float, float, float, float]:

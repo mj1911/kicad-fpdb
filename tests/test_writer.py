@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Rect, Text
+from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Poly, Rect, Text
 from kicad_fpdb.writer import write_kicad_mod
 
 
@@ -67,6 +67,19 @@ def test_write_rect():
     assert '(layer "F.CrtYd")' in text
 
 
+def test_write_poly():
+    poly = Poly(points=[(0.0, 0.0), (0.5, 0.0), (0.0, 0.5)], layer="F.SilkS")
+    geom = FootprintGeometry(name="TEST_MIN", polys=[poly])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert "(fp_poly" in text
+    assert "(pts" in text
+    assert "(xy 0 0)" in text
+    assert "(xy 0.5 0)" in text
+    assert "(xy 0 0.5)" in text
+    assert "(fill yes)" in text
+    assert '(layer "F.SilkS")' in text
+
+
 @pytest.mark.skipif(shutil.which("kicad-cli") is None, reason="kicad-cli not installed")
 def test_generated_file_is_valid_kicad_mod(tmp_path):
     pad1 = Pad(number="1", pad_type="thru_hole", shape="roundrect",
@@ -81,6 +94,7 @@ def test_generated_file_is_valid_kicad_mod(tmp_path):
         ],
         lines=[Line(start=(-0.5, -0.5), end=(2.0, -0.5), layer="F.SilkS")],
         rects=[Rect(start=(-1.0, -1.0), end=(2.5, 3.0), layer="F.CrtYd")],
+        polys=[Poly(points=[(-0.5, -0.5), (0.0, -0.5), (-0.5, 0.0)], layer="F.SilkS")],
     )
     text = write_kicad_mod("TEST_MIN", geom)
 

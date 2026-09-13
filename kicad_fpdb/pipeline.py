@@ -3,7 +3,7 @@ from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.geometry import Line, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import Line, Poly, Rect, Text, pad_bounding_box
 from kicad_fpdb.writer import write_kicad_mod
 
 GENERATORS = {
@@ -22,7 +22,10 @@ TEXT_MARGIN_MM = 1.0
 # reasonable, consistent courtyard/silkscreen outline for any generator.
 SILK_MARGIN_MM = 0.2
 COURTYARD_MARGIN_MM = 0.5
-PIN1_MARKER_MM = 0.5
+# Size of the filled pin-1 marker triangle. Matches real KiCad's own
+# convention of a small solid silkscreen triangle at the pin-1 corner
+# (much more visible than a thin outline notch).
+PIN1_MARKER_MM = 0.6
 
 
 def _nearest_corner(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> tuple[float, float]:
@@ -48,9 +51,14 @@ def _add_outline(geometry) -> None:
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pad1 is not None:
         cx, cy = _nearest_corner(pad1.at[0], pad1.at[1], sx0, sy0, sx1, sy1)
-        dx = PIN1_MARKER_MM if cx == sx0 else -PIN1_MARKER_MM
-        dy = PIN1_MARKER_MM if cy == sy0 else -PIN1_MARKER_MM
-        geometry.lines.append(Line(start=(cx + dx, cy), end=(cx, cy + dy), layer="F.SilkS"))
+        # A small filled triangle, apex at the body corner, extending
+        # outward away from the body along both edges.
+        ox = -1.0 if cx == sx0 else 1.0
+        oy = -1.0 if cy == sy0 else 1.0
+        geometry.polys.append(Poly(
+            points=[(cx, cy), (cx + ox * PIN1_MARKER_MM, cy), (cx, cy + oy * PIN1_MARKER_MM)],
+            layer="F.SilkS",
+        ))
 
 
 def _add_reference_and_value_text(geometry, name: str) -> None:

@@ -1,4 +1,4 @@
-from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Rect, Text
+from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Poly, Rect, Text
 
 _PROPERTY_NAMES = {"reference": "Reference", "value": "Value"}
 
@@ -16,6 +16,8 @@ def write_kicad_mod(name: str, geometry: FootprintGeometry) -> str:
         lines.append(_write_rect(rect))
     for line in geometry.lines:
         lines.append(_write_line(line))
+    for poly in geometry.polys:
+        lines.append(_write_poly(poly))
     for pad in geometry.pads:
         lines.append(_write_pad(pad))
     lines.append(")")
@@ -68,6 +70,23 @@ def _write_rect(rect: Rect) -> str:
         "    )\n"
         f"    (fill {rect.fill})\n"
         f'    (layer "{rect.layer}")\n'
+        "  )"
+    )
+
+
+def _write_poly(poly: Poly) -> str:
+    pts = "\n".join(f"      (xy {_fmt(x)} {_fmt(y)})" for x, y in poly.points)
+    return (
+        "  (fp_poly\n"
+        "    (pts\n"
+        f"{pts}\n"
+        "    )\n"
+        "    (stroke\n"
+        f"      (width {_fmt(poly.width)})\n"
+        "      (type solid)\n"
+        "    )\n"
+        f"    (fill {poly.fill})\n"
+        f'    (layer "{poly.layer}")\n'
         "  )"
     )
 
