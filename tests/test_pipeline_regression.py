@@ -1,3 +1,4 @@
+# tests/test_pipeline_regression.py
 import re
 
 import pytest
@@ -7,28 +8,40 @@ from kicad_fpdb.pipeline import generate_footprint
 FAMILY_TREE_PATH = "data/kicad-fpdb.yaml"
 KICAD_FOOTPRINTS = "/usr/share/kicad/footprints"
 
-
-def _parse_real_pads(path: str) -> dict[str, tuple[float, float]]:
-    """Extracts {pad_number: (x, y)} from a real .kicad_mod file."""
-    text = open(path).read()
-    pads = {}
-    for match in re.finditer(r'\(pad "(\d+)" \w+ \w+\s*\(at ([-\d.]+) ([-\d.]+)', text):
-        number, x, y = match.groups()
-        pads[number] = (float(x), float(y))
-    return pads
+PAD_PATTERN = re.compile(r'\(pad "(\d+)" \w+ \w+\s*\(at ([-\d.]+) ([-\d.]+)')
 
 
-def test_dip16_pipeline_matches_real_footprint():
-    generated = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP-16_TEST")
-    real_pads = _parse_real_pads(f"{KICAD_FOOTPRINTS}/Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod")
+def _parse_pads(text: str) -> dict[str, tuple[float, float]]:
+    return {m.group(1): (float(m.group(2)), float(m.group(3))) for m in PAD_PATTERN.finditer(text)}
 
-    generated_pads = {}
-    for match in re.finditer(r'\(pad "(\d+)" \w+ \w+\s*\(at ([-\d.]+) ([-\d.]+)', generated):
-        number, x, y = match.groups()
-        generated_pads[number] = (float(x), float(y))
 
-    assert set(generated_pads.keys()) == set(real_pads.keys())
+CASES = [
+    # (descriptor, real reference file, args passed at resolve time)
+    ("DIP-16", "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod"),
+    ("DIP-14", "Package_DIP.pretty/DIP-14_W7.62mm.kicad_mod"),
+    ("DIP-18", "Package_DIP.pretty/DIP-18_W7.62mm.kicad_mod"),
+    ("DIP-16 r", "Package_DIP.pretty/DIP-16_W10.16mm.kicad_mod"),
+    ("SOIC-8", "Package_SO.pretty/SOIC-8_3.9x4.9mm_P1.27mm.kicad_mod"),
+    ("SOIC-14", "Package_SO.pretty/SOIC-14_3.9x8.7mm_P1.27mm.kicad_mod"),
+    ("R-0402", "Resistor_SMD.pretty/R_0402_1005Metric.kicad_mod"),
+    ("R-0603", "Resistor_SMD.pretty/R_0603_1608Metric.kicad_mod"),
+    ("R-0805", "Resistor_SMD.pretty/R_0805_2012Metric.kicad_mod"),
+    ("C-0603", "Capacitor_SMD.pretty/C_0603_1608Metric.kicad_mod"),
+    ("QFP-32", "Package_QFP.pretty/LQFP-32_7x7mm_P0.8mm.kicad_mod"),
+    ("QFP-48", "Package_QFP.pretty/LQFP-48_7x7mm_P0.5mm.kicad_mod"),
+]
+
+
+@pytest.mark.parametrize("descriptor,reference_relpath", CASES)
+def test_pipeline_matches_real_footprint(descriptor, reference_relpath):
+    generated = generate_footprint(descriptor, FAMILY_TREE_PATH, name="TEST")
+    real_text = open(f"{KICAD_FOOTPRINTS}/{reference_relpath}").read()
+
+    generated_pads = _parse_pads(generated)
+    real_pads = _parse_pads(real_text)
+
+    assert set(generated_pads.keys()) == set(real_pads.keys()), descriptor
     for number, (rx, ry) in real_pads.items():
         gx, gy = generated_pads[number]
-        assert abs(gx - rx) < 1e-4
-        assert abs(gy - ry) < 1e-4
+        assert abs(gx - rx) < 1e-4, f"{descriptor} pad {number} x"
+        assert abs(gy - ry) < 1e-4, f"{descriptor} pad {number} y"
