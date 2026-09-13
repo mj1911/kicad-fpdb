@@ -32,3 +32,90 @@ def load_family_tree(path: str) -> dict:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
     return {name: _build_node(name, data) for name, data in raw.items()}
+
+
+@dataclass
+class ResolvedFootprint:
+    generator: str
+    params: dict
+
+
+def _find_chain(roots: dict, target_name: str):
+    def search(node: FamilyNode, chain: list):
+        chain = chain + [node]
+        if node.name == target_name:
+            return chain
+        for child in node.children.values():
+            found = search(child, chain)
+            if found:
+                return found
+        return None
+
+    for root in roots.values():
+        found = search(root, [])
+        if found:
+            return found
+    return None
+
+
+def _merge_params(chain: list) -> dict:
+    merged: dict = {}
+    for node in chain:
+        for key, value in node.params.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = {**merged[key], **value}
+            else:
+                merged[key] = value
+    return merged
+
+
+def _resolve_meta(chain: list, attr: str, default):
+    value = default
+    for node in chain:
+        candidate = getattr(node, attr)
+        if candidate:
+            value = candidate
+    return value
+
+
+def resolve_descriptor(roots: dict, parsed) -> ResolvedFootprint:
+    full_name = f"{parsed.family}-{parsed.variant}"
+    chain = _find_chain(roots, full_name)
+    inject_variant = chain is None
+    if chain is None:
+        chain = _find_chain(roots, parsed.family)
+    if chain is None:
+        raise KeyError(f"unknown family {parsed.family!r}")
+
+    params = _merge_params(chain)
+    variants = _resolve_meta(chain, "variants", {})
+    default_width = _resolve_meta(chain, "default_width", None)
+    variant_param = _resolve_meta(chain, "variant_param", "pin_count")
+    generator = _resolve_meta(chain, "generator", None)
+    if generator is None:
+        raise ValueError(f"no generator defined for family {parsed.family!r}")
+
+    width_name = default_width
+    for token in parsed.modifier_tokens:
+        if token in variants:
+            width_name = variants[token]
+        else:
+            try:
+                params["pitch"] = float(token)
+            except ValueError:
+                raise ValueError(f"unknown modifier {token!r} for family {parsed.family!r}")
+
+    resolved_params = {}
+    for key, value in params.items():
+        if isinstance(value, dict):
+            if width_name is None:
+                raise ValueError(f"family {parsed.family!r} requires a width modifier for {key!r}")
+            resolved_params[key] = value[width_name]
+        else:
+            resolved_params[key] = value
+
+    if inject_variant and variant_param:
+        variant_token = parsed.variant
+        resolved_params[variant_param] = int(variant_token) if variant_token.isdigit() else variant_token
+
+    return ResolvedFootprint(generator=generator, params=resolved_params)
