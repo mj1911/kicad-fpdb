@@ -1,3 +1,5 @@
+import math
+
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.dual_row import dual_row_grid
@@ -23,7 +25,7 @@ TEXT_MARGIN_MM = 1.0
 SILK_MARGIN_MM = 0.2
 COURTYARD_MARGIN_MM = 0.5
 # Size of the filled pin-1 marker triangle. Matches real KiCad's own
-# convention of a small solid silkscreen triangle at the pin-1 corner
+# convention of a small solid silkscreen triangle pointing at pin 1
 # (much more visible than a thin outline notch).
 PIN1_MARKER_MM = 0.6
 
@@ -51,14 +53,23 @@ def _add_outline(geometry) -> None:
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pad1 is not None:
         cx, cy = _nearest_corner(pad1.at[0], pad1.at[1], sx0, sy0, sx1, sy1)
-        # A small filled triangle, apex at the body corner, extending
-        # outward away from the body along both edges.
-        ox = -1.0 if cx == sx0 else 1.0
-        oy = -1.0 if cy == sy0 else 1.0
-        geometry.polys.append(Poly(
-            points=[(cx, cy), (cx + ox * PIN1_MARKER_MM, cy), (cx, cy + oy * PIN1_MARKER_MM)],
-            layer="F.SilkS",
-        ))
+
+        # An isoceles triangle whose sharp tip sits at the body corner,
+        # pointing toward pad 1's actual center, with its base offset
+        # outward (away from the pad) — an arrow aimed at pin 1, not just
+        # a wedge sitting in the corner.
+        vx, vy = pad1.at[0] - cx, pad1.at[1] - cy
+        length = math.hypot(vx, vy) or 1.0
+        ux, uy = vx / length, vy / length
+        px, py = -uy, ux
+
+        tip = (cx, cy)
+        base_x, base_y = cx - ux * PIN1_MARKER_MM, cy - uy * PIN1_MARKER_MM
+        half_width = PIN1_MARKER_MM / 2
+        base1 = (base_x + px * half_width, base_y + py * half_width)
+        base2 = (base_x - px * half_width, base_y - py * half_width)
+
+        geometry.polys.append(Poly(points=[tip, base1, base2], layer="F.SilkS"))
 
 
 def _add_reference_and_value_text(geometry, name: str) -> None:

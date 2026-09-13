@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from kicad_fpdb.descriptor import parse_descriptor
@@ -46,11 +48,20 @@ def test_add_outline_produces_pin1_marker_triangle():
 
     # Pad bbox is (-0.8, -0.8) to (8.42, 18.58); silkscreen adds 0.2mm margin,
     # giving a body rect of (-1.0, -1.0) to (8.62, 18.78). Pad "1" sits at
-    # (0, 0), nearest to the (-1.0, -1.0) corner. The triangle's apex sits at
-    # that corner, extending outward (away from the body) by 0.6mm each way.
-    assert marker.points[0] == pytest.approx((-1.0, -1.0))
-    assert marker.points[1] == pytest.approx((-1.6, -1.0))
-    assert marker.points[2] == pytest.approx((-1.0, -1.6))
+    # (0, 0), nearest to the (-1.0, -1.0) corner. The tip sits at that
+    # corner (closest point to pad 1); the base is offset outward, away
+    # from pad 1, along the diagonal.
+    tip, base1, base2 = marker.points
+    assert tip == pytest.approx((-1.0, -1.0))
+    assert base1 == pytest.approx((-1.6363961, -1.2121320))
+    assert base2 == pytest.approx((-1.2121320, -1.6363961))
+
+    pad1_at = (0.0, 0.0)
+    dist_tip = math.hypot(tip[0] - pad1_at[0], tip[1] - pad1_at[1])
+    dist_base1 = math.hypot(base1[0] - pad1_at[0], base1[1] - pad1_at[1])
+    dist_base2 = math.hypot(base2[0] - pad1_at[0], base2[1] - pad1_at[1])
+    assert dist_tip < dist_base1
+    assert dist_tip < dist_base2
 
 
 def test_generate_footprint_includes_outline_geometry():
