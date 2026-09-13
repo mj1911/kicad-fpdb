@@ -22,7 +22,7 @@ def _add_reference_and_value_text(geometry, name: str) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
     center_x = (min_x + max_x) / 2
     geometry.texts.append(
-        Text(kind="reference", text="REF**", at=(center_x, min_y - TEXT_MARGIN_MM), layer="F.Fab")
+        Text(kind="reference", text="REF**", at=(center_x, min_y - TEXT_MARGIN_MM), layer="F.SilkS")
     )
     geometry.texts.append(
         Text(kind="value", text=name, at=(center_x, max_y + TEXT_MARGIN_MM), layer="F.Fab")

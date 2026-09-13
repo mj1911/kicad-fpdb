@@ -26,6 +26,17 @@ def test_reference_is_above_pads_and_value_is_below():
     assert value_y > 0.475
 
 
+def test_reference_is_on_silkscreen_and_value_is_on_fab():
+    # Matches real KiCad convention: Reference on F.SilkS, Value on F.Fab.
+    text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
+
+    ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
+    value_block = text[text.index('(property "Value"'):]
+
+    assert '(layer "F.SilkS")' in ref_block
+    assert '(layer "F.Fab")' in value_block
+
+
 def test_reference_and_value_are_horizontally_centered_on_pads():
     text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
 
