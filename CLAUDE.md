@@ -59,6 +59,11 @@ and become available for everyone to automatically update to.
   footprints across DIP, SOIC, R, C, and QFP. Implementation plan and specs
   are in `docs/superpowers/specs/` and `docs/superpowers/plans/` — read
   those before extending the engine, they carry the design rationale.
+* Visual review tool exists: `python -m kicad_fpdb.visual_compare` renders
+  all known reference cases (or an ad-hoc `--descriptor`/`--reference`
+  pair) into a local `renders/review.html` page for side-by-side pass/fail
+  review. Use this instead of ad-hoc SVG exports when eyeballing generator
+  output.
 
 ## TODO
 

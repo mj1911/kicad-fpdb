@@ -1,5 +1,19 @@
 # Changes
 
+2026-09-13 v0.0.3:
+
+* Added a visual comparison tool (`kicad_fpdb/visual_compare.py`):
+  renders generated footprints next to their real KiCad references as
+  SVGs, and builds a self-contained local HTML page to cycle through
+  cases and mark each pass/fail, with a running tally and a summary of
+  what needs attention.
+* Extracted the regression suite's reference-case list into
+  `kicad_fpdb/reference_cases.py` so the tests and the new tool share
+  one source of truth.
+* Added author and repository URL metadata to `pyproject.toml`.
+* Tightened `.gitignore` (`renders/`, `.pytest_cache/`) instead of
+  relying on tool-generated ignore files.
+
 2026-09-13 v0.0.2:
 
 * Brainstormed and wrote the design spec for the descriptor + generator engine.
