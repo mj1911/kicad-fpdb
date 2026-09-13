@@ -43,3 +43,31 @@ def test_dip16_matches_real_kicad_footprint():
 
     pad16 = by_number["16"]
     assert pad16.at == (7.62, 0.0)
+
+
+def test_soic8_matches_real_kicad_footprint():
+    geom = dual_row_grid(
+        pin_count=8, pitch=1.27, row_spacing=4.95,
+        pad_size=(1.95, 0.6), pad_shape="roundrect",
+        pad_type="smd", drill=None, centered=True,
+    )
+    assert len(geom.pads) == 8
+    by_number = {pad.number: pad for pad in geom.pads}
+
+    pad1 = by_number["1"]
+    assert abs(pad1.at[0] - (-2.475)) < 1e-6
+    assert abs(pad1.at[1] - (-1.905)) < 1e-6
+    assert pad1.pad_type == "smd"
+    assert pad1.roundrect_rratio == 0.25
+
+    pad4 = by_number["4"]
+    assert abs(pad4.at[0] - (-2.475)) < 1e-6
+    assert abs(pad4.at[1] - 1.905) < 1e-6
+
+    pad5 = by_number["5"]
+    assert abs(pad5.at[0] - 2.475) < 1e-6
+    assert abs(pad5.at[1] - 1.905) < 1e-6
+
+    pad8 = by_number["8"]
+    assert abs(pad8.at[0] - 2.475) < 1e-6
+    assert abs(pad8.at[1] - (-1.905)) < 1e-6
