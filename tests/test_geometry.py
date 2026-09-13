@@ -1,4 +1,4 @@
-from kicad_fpdb.geometry import FootprintGeometry, Pad, Text, pad_bounding_box
+from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Rect, Text, pad_bounding_box
 
 
 def test_pad_defaults():
@@ -36,6 +36,29 @@ def test_text_holds_fields():
     assert text.text == "REF**"
     assert text.at == (1.0, -2.0)
     assert text.layer == "F.Fab"
+
+
+def test_footprint_geometry_lines_and_rects_default_empty():
+    geom = FootprintGeometry(name="TEST")
+    assert geom.lines == []
+    assert geom.rects == []
+
+
+def test_line_holds_fields():
+    line = Line(start=(0.0, 0.0), end=(1.0, 2.0), layer="F.SilkS")
+    assert line.start == (0.0, 0.0)
+    assert line.end == (1.0, 2.0)
+    assert line.layer == "F.SilkS"
+    assert line.width == 0.12
+
+
+def test_rect_holds_fields():
+    rect = Rect(start=(0.0, 0.0), end=(1.0, 2.0), layer="F.CrtYd")
+    assert rect.start == (0.0, 0.0)
+    assert rect.end == (1.0, 2.0)
+    assert rect.layer == "F.CrtYd"
+    assert rect.width == 0.05
+    assert rect.fill == "no"
 
 
 def test_pad_bounding_box_accounts_for_pad_size():

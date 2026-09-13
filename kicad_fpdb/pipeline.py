@@ -3,7 +3,7 @@ from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.geometry import Text, pad_bounding_box
+from kicad_fpdb.geometry import Line, Rect, Text, pad_bounding_box
 from kicad_fpdb.writer import write_kicad_mod
 
 GENERATORS = {
@@ -16,6 +16,41 @@ GENERATORS = {
 # placed above/below it. Generic default until real silkscreen/courtyard
 # geometry exists to anchor text to instead.
 TEXT_MARGIN_MM = 1.0
+
+# Generic outline conventions: not meant to pixel-match real KiCad's own
+# family-specific outline styles (which vary a lot), just to produce a
+# reasonable, consistent courtyard/silkscreen outline for any generator.
+SILK_MARGIN_MM = 0.2
+COURTYARD_MARGIN_MM = 0.5
+PIN1_MARKER_MM = 0.5
+
+
+def _nearest_corner(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> tuple[float, float]:
+    cx = x0 if abs(px - x0) <= abs(px - x1) else x1
+    cy = y0 if abs(py - y0) <= abs(py - y1) else y1
+    return cx, cy
+
+
+def _add_outline(geometry) -> None:
+    min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
+
+    cy0x, cy0y = min_x - COURTYARD_MARGIN_MM, min_y - COURTYARD_MARGIN_MM
+    cy1x, cy1y = max_x + COURTYARD_MARGIN_MM, max_y + COURTYARD_MARGIN_MM
+    geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
+
+    sx0, sy0 = min_x - SILK_MARGIN_MM, min_y - SILK_MARGIN_MM
+    sx1, sy1 = max_x + SILK_MARGIN_MM, max_y + SILK_MARGIN_MM
+    corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
+    for i in range(4):
+        start, end = corners[i], corners[(i + 1) % 4]
+        geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
+
+    pad1 = next((p for p in geometry.pads if p.number == "1"), None)
+    if pad1 is not None:
+        cx, cy = _nearest_corner(pad1.at[0], pad1.at[1], sx0, sy0, sx1, sy1)
+        dx = PIN1_MARKER_MM if cx == sx0 else -PIN1_MARKER_MM
+        dy = PIN1_MARKER_MM if cy == sy0 else -PIN1_MARKER_MM
+        geometry.lines.append(Line(start=(cx + dx, cy), end=(cx, cy + dy), layer="F.SilkS"))
 
 
 def _add_reference_and_value_text(geometry, name: str) -> None:
@@ -37,6 +72,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     generator_fn = GENERATORS[resolved.generator]
     geometry = generator_fn(**resolved.params)
     geometry.name = name
+    _add_outline(geometry)
     _add_reference_and_value_text(geometry, name)
 
     return write_kicad_mod(name, geometry)

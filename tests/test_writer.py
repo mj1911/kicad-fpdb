@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from kicad_fpdb.geometry import FootprintGeometry, Pad, Text
+from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Rect, Text
 from kicad_fpdb.writer import write_kicad_mod
 
 
@@ -44,16 +44,44 @@ def test_write_reference_and_value_text():
     assert text.count('(layer "F.Fab")') == 2
 
 
+def test_write_line():
+    line = Line(start=(0.0, 0.0), end=(1.0, 2.0), layer="F.SilkS", width=0.12)
+    geom = FootprintGeometry(name="TEST_MIN", lines=[line])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert "(fp_line" in text
+    assert "(start 0 0)" in text
+    assert "(end 1 2)" in text
+    assert "(width 0.12)" in text
+    assert '(layer "F.SilkS")' in text
+
+
+def test_write_rect():
+    rect = Rect(start=(-0.5, -0.5), end=(5.0, 3.0), layer="F.CrtYd", width=0.05)
+    geom = FootprintGeometry(name="TEST_MIN", rects=[rect])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert "(fp_rect" in text
+    assert "(start -0.5 -0.5)" in text
+    assert "(end 5 3)" in text
+    assert "(width 0.05)" in text
+    assert "(fill no)" in text
+    assert '(layer "F.CrtYd")' in text
+
+
 @pytest.mark.skipif(shutil.which("kicad-cli") is None, reason="kicad-cli not installed")
 def test_generated_file_is_valid_kicad_mod(tmp_path):
     pad1 = Pad(number="1", pad_type="thru_hole", shape="roundrect",
                 at=(0.0, 0.0), size=(1.6, 1.6), drill=0.8, roundrect_rratio=0.15625)
     pad2 = Pad(number="2", pad_type="thru_hole", shape="circle",
                 at=(0.0, 2.54), size=(1.6, 1.6), drill=0.8)
-    geom = FootprintGeometry(name="TEST_MIN", pads=[pad1, pad2], texts=[
-        Text(kind="reference", text="REF**", at=(0.8, -1.0), layer="F.Fab"),
-        Text(kind="value", text="TEST_MIN", at=(0.8, 3.5), layer="F.Fab"),
-    ])
+    geom = FootprintGeometry(
+        name="TEST_MIN", pads=[pad1, pad2],
+        texts=[
+            Text(kind="reference", text="REF**", at=(0.8, -1.0), layer="F.Fab"),
+            Text(kind="value", text="TEST_MIN", at=(0.8, 3.5), layer="F.Fab"),
+        ],
+        lines=[Line(start=(-0.5, -0.5), end=(2.0, -0.5), layer="F.SilkS")],
+        rects=[Rect(start=(-1.0, -1.0), end=(2.5, 3.0), layer="F.CrtYd")],
+    )
     text = write_kicad_mod("TEST_MIN", geom)
 
     lib_dir = tmp_path / "lib"

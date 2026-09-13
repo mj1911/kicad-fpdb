@@ -1,4 +1,4 @@
-from kicad_fpdb.geometry import FootprintGeometry, Pad, Text
+from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Rect, Text
 
 _PROPERTY_NAMES = {"reference": "Reference", "value": "Value"}
 
@@ -12,6 +12,10 @@ def write_kicad_mod(name: str, geometry: FootprintGeometry) -> str:
     ]
     for text in geometry.texts:
         lines.append(_write_text(text))
+    for rect in geometry.rects:
+        lines.append(_write_rect(rect))
+    for line in geometry.lines:
+        lines.append(_write_line(line))
     for pad in geometry.pads:
         lines.append(_write_pad(pad))
     lines.append(")")
@@ -31,6 +35,39 @@ def _write_text(text: Text) -> str:
         "        (thickness 0.15)\n"
         "      )\n"
         "    )\n"
+        "  )"
+    )
+
+
+def _write_line(line: Line) -> str:
+    sx, sy = line.start
+    ex, ey = line.end
+    return (
+        "  (fp_line\n"
+        f"    (start {_fmt(sx)} {_fmt(sy)})\n"
+        f"    (end {_fmt(ex)} {_fmt(ey)})\n"
+        "    (stroke\n"
+        f"      (width {_fmt(line.width)})\n"
+        "      (type solid)\n"
+        "    )\n"
+        f'    (layer "{line.layer}")\n'
+        "  )"
+    )
+
+
+def _write_rect(rect: Rect) -> str:
+    sx, sy = rect.start
+    ex, ey = rect.end
+    return (
+        "  (fp_rect\n"
+        f"    (start {_fmt(sx)} {_fmt(sy)})\n"
+        f"    (end {_fmt(ex)} {_fmt(ey)})\n"
+        "    (stroke\n"
+        f"      (width {_fmt(rect.width)})\n"
+        "      (type solid)\n"
+        "    )\n"
+        f"    (fill {rect.fill})\n"
+        f'    (layer "{rect.layer}")\n'
         "  )"
     )
 
