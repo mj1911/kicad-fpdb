@@ -19,7 +19,7 @@ once this foundation is proven.
 ## Goals
 
 - Design a descriptor syntax that can express a footprint variant as a
-  short string (e.g. `DIP-16 r 0.1`).
+  short string (e.g. `DIP-16 r 2.54`).
 - Design a hierarchical family-tree data model with parameter inheritance,
   so related package families (DIP, SOIC, QFP, chip passives, ...) share
   definitions instead of duplicating geometry logic.
@@ -42,7 +42,7 @@ once this foundation is proven.
 Four independently testable stages:
 
 ```text
-descriptor string ("DIP-16 r 0.1")
+descriptor string ("DIP-16 r 2.54")
         │
         ▼
  [1] Descriptor Parser  ──►  parsed query {family, variant, modifiers}
@@ -77,7 +77,11 @@ MODIFIER      := family-defined single-letter code (e.g. width class) or
 
 Examples:
 
-- `DIP-16 r 0.1` → family=DIP, variant=16, width=regular, pitch=0.1mm
+- `DIP-16 r 2.54` → family=DIP, variant=16, width=regular, pitch=2.54mm
+  (2.54mm is the standard DIP pitch and also the family-tree default;
+  the modifier is spelled out here only to illustrate the grammar —
+  pitch is in mm throughout, never inches, so a bare "0.1" would mean
+  0.1mm, not 0.1in)
 - `SOIC-8` → family=SOIC, variant=8, pitch defaults from family tree
 - `R-0603` → family=R, variant="0603" (a size code, not a pin count)
 
