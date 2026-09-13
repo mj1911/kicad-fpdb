@@ -22,6 +22,25 @@ class Pad:
 
 
 @dataclass
+class Text:
+    kind: str  # "reference" | "value"
+    text: str
+    at: tuple[float, float]
+    layer: str
+
+
+@dataclass
 class FootprintGeometry:
     name: str
     pads: list[Pad] = field(default_factory=list)
+    texts: list[Text] = field(default_factory=list)
+
+
+def pad_bounding_box(pads: list[Pad]) -> tuple[float, float, float, float]:
+    """Returns (min_x, min_y, max_x, max_y) spanning all pads, using each
+    pad's size as a symmetric extent around its center regardless of shape."""
+    min_x = min(p.at[0] - p.size[0] / 2 for p in pads)
+    max_x = max(p.at[0] + p.size[0] / 2 for p in pads)
+    min_y = min(p.at[1] - p.size[1] / 2 for p in pads)
+    max_y = max(p.at[1] + p.size[1] / 2 for p in pads)
+    return min_x, min_y, max_x, max_y

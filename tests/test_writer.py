@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from kicad_fpdb.geometry import FootprintGeometry, Pad
+from kicad_fpdb.geometry import FootprintGeometry, Pad, Text
 from kicad_fpdb.writer import write_kicad_mod
 
 
@@ -31,13 +31,29 @@ def test_write_pad_smd_no_drill():
     assert '(layers "F.Cu" "F.Mask" "F.Paste")' in text
 
 
+def test_write_reference_and_value_text():
+    geom = FootprintGeometry(name="TEST_MIN", texts=[
+        Text(kind="reference", text="REF**", at=(3.81, -2.33), layer="F.Fab"),
+        Text(kind="value", text="TEST_MIN", at=(3.81, 20.11), layer="F.Fab"),
+    ])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert '(property "Reference" "REF**"' in text
+    assert '(property "Value" "TEST_MIN"' in text
+    assert "(at 3.81 -2.33 0)" in text
+    assert "(at 3.81 20.11 0)" in text
+    assert text.count('(layer "F.Fab")') == 2
+
+
 @pytest.mark.skipif(shutil.which("kicad-cli") is None, reason="kicad-cli not installed")
 def test_generated_file_is_valid_kicad_mod(tmp_path):
     pad1 = Pad(number="1", pad_type="thru_hole", shape="roundrect",
                 at=(0.0, 0.0), size=(1.6, 1.6), drill=0.8, roundrect_rratio=0.15625)
     pad2 = Pad(number="2", pad_type="thru_hole", shape="circle",
                 at=(0.0, 2.54), size=(1.6, 1.6), drill=0.8)
-    geom = FootprintGeometry(name="TEST_MIN", pads=[pad1, pad2])
+    geom = FootprintGeometry(name="TEST_MIN", pads=[pad1, pad2], texts=[
+        Text(kind="reference", text="REF**", at=(0.8, -1.0), layer="F.Fab"),
+        Text(kind="value", text="TEST_MIN", at=(0.8, 3.5), layer="F.Fab"),
+    ])
     text = write_kicad_mod("TEST_MIN", geom)
 
     lib_dir = tmp_path / "lib"

@@ -1,4 +1,6 @@
-from kicad_fpdb.geometry import FootprintGeometry, Pad
+from kicad_fpdb.geometry import FootprintGeometry, Pad, Text
+
+_PROPERTY_NAMES = {"reference": "Reference", "value": "Value"}
 
 
 def write_kicad_mod(name: str, geometry: FootprintGeometry) -> str:
@@ -8,10 +10,29 @@ def write_kicad_mod(name: str, geometry: FootprintGeometry) -> str:
         '  (generator "kicad-fpdb")',
         '  (layer "F.Cu")',
     ]
+    for text in geometry.texts:
+        lines.append(_write_text(text))
     for pad in geometry.pads:
         lines.append(_write_pad(pad))
     lines.append(")")
     return "\n".join(lines) + "\n"
+
+
+def _write_text(text: Text) -> str:
+    property_name = _PROPERTY_NAMES[text.kind]
+    at_x, at_y = text.at
+    return (
+        f'  (property "{property_name}" "{text.text}"\n'
+        f"    (at {_fmt(at_x)} {_fmt(at_y)} 0)\n"
+        f'    (layer "{text.layer}")\n'
+        "    (effects\n"
+        "      (font\n"
+        "        (size 1 1)\n"
+        "        (thickness 0.15)\n"
+        "      )\n"
+        "    )\n"
+        "  )"
+    )
 
 
 def _write_pad(pad: Pad) -> str:
