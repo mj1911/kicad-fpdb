@@ -127,3 +127,40 @@ def test_resolve_unknown_family_raises(tmp_path):
     import pytest
     with pytest.raises(KeyError):
         resolve_descriptor(tree, parse_descriptor("QFP-32"))
+
+
+NO_DEFAULT_WIDTH_YAML = """
+DIP:
+  generator: dual_row_grid
+  variant_param: pin_count
+  variants: {n: narrow, r: regular, w: wide}
+  params:
+    pitch: 2.54
+    row_spacing: {narrow: 7.62, wide: 15.24}
+    pad_size: [1.6, 1.6]
+"""
+
+
+def test_resolve_dict_param_without_width_raises(tmp_path):
+    path = tmp_path / "families.yaml"
+    path.write_text(NO_DEFAULT_WIDTH_YAML)
+    tree = load_family_tree(str(path))
+
+    import pytest
+    # No default_width is set on the node and the descriptor supplies no
+    # width modifier token, so row_spacing (a dict-valued param) can never
+    # be resolved to a concrete value.
+    with pytest.raises(ValueError):
+        resolve_descriptor(tree, parse_descriptor("DIP-16"))
+
+
+def test_resolve_garbage_modifier_token_raises(tmp_path):
+    path = tmp_path / "families.yaml"
+    path.write_text(FORMULA_YAML)
+    tree = load_family_tree(str(path))
+
+    import pytest
+    # "xyz" is neither a known width code (per `variants`) nor parseable
+    # as a float pitch override.
+    with pytest.raises(ValueError):
+        resolve_descriptor(tree, parse_descriptor("DIP-16 xyz"))
