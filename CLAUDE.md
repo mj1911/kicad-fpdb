@@ -62,14 +62,23 @@ and become available for everyone to automatically update to.
 * Visual review tool exists: `python -m kicad_fpdb.visual_compare` renders
   all known reference cases (or an ad-hoc `--descriptor`/`--reference`
   pair) into a local `renders/review.html` page for side-by-side pass/fail
-  review. Use this instead of ad-hoc SVG exports when eyeballing generator
-  output.
+  review, with both panels at matched true physical scale (20px/mm) and a
+  checkerboard scale reference. Use this instead of ad-hoc SVG exports
+  when eyeballing generator output — regenerate it after any change to
+  `kicad_fpdb/visual_compare.py`.
+* Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
+  (the footprint's own name, on `F.Fab`) text properties, placed above/
+  below the pad bounding box — matches real KiCad's layer convention even
+  without real silkscreen geometry yet.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
+* Silkscreen/courtyard/fab outline geometry: still not generated at all.
+  Now more conspicuous since Reference sits on `F.SilkS` with no actual
+  silkscreen outline around it.
 * Fix `roundrect_rratio` for larger SMD pads (e.g. 0805): generators
   currently use a flat 0.25 ratio, but real KiCad clamps to an absolute
   0.25mm max corner radius — only visibly wrong once a pad's min dimension
