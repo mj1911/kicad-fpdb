@@ -68,17 +68,20 @@ and become available for everyone to automatically update to.
   `kicad_fpdb/visual_compare.py`.
 * Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
   (the footprint's own name, on `F.Fab`) text properties, placed above/
-  below the pad bounding box — matches real KiCad's layer convention even
-  without real silkscreen geometry yet.
+  below the pad bounding box — matches real KiCad's layer convention.
+* Generated footprints now also have generic courtyard (`F.CrtYd`) and
+  silkscreen body outline (`F.SilkS`, with a pin-1 corner marker)
+  geometry, built purely from the pad bounding box — works the same way
+  for any generator. This is a generic convention, not a per-family match
+  to real KiCad's own outline styles (see `kicad_fpdb.pipeline._add_outline`),
+  and is verified visually via the review tool rather than an automated
+  geometry diff, per the spec's stated approach for outline geometry.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Silkscreen/courtyard/fab outline geometry: still not generated at all.
-  Now more conspicuous since Reference sits on `F.SilkS` with no actual
-  silkscreen outline around it.
 * Fix `roundrect_rratio` for larger SMD pads (e.g. 0805): generators
   currently use a flat 0.25 ratio, but real KiCad clamps to an absolute
   0.25mm max corner radius — only visibly wrong once a pad's min dimension

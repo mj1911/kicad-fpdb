@@ -1,5 +1,16 @@
 # Changes
 
+2026-09-13 v0.0.5:
+
+* Added generic courtyard (`F.CrtYd`) and silkscreen body outline
+  (`F.SilkS`, with a pin-1 corner marker) geometry to generated
+  footprints, built purely from the pad bounding box so it works the
+  same way across all three generators. Not a per-family match to real
+  KiCad's own outline styles — verified visually via the review tool,
+  per the spec's stated approach.
+* Updated CLAUDE.md's TODO list: removed the now-done outline-geometry
+  item.
+
 2026-09-13 v0.0.4:
 
 * Visual review tool: both panels now render at matched true physical
