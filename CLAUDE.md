@@ -54,14 +54,32 @@ and become available for everyone to automatically update to.
 * Engine language: Python, chosen partly because it matches KiCad's own
   pcbnew scripting API for eventual plugin integration.
 * This repo was git-initialized on 2026-09-13 (it did not exist before).
+* First milestone complete (2026-09-13): the descriptor + generator engine
+  (`kicad_fpdb/`) exists and is validated against 12 real KiCad reference
+  footprints across DIP, SOIC, R, C, and QFP. Implementation plan and specs
+  are in `docs/superpowers/specs/` and `docs/superpowers/plans/` — read
+  those before extending the engine, they carry the design rationale.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Adding more similar footprints, several iterations, optimizations
-* Adding more different footprints, ditto
-* Adding the rest of the footprints; total optimization
-* KiCad plugin
-* Contribution/moderation server
+* Fix `roundrect_rratio` for larger SMD pads (e.g. 0805): generators
+  currently use a flat 0.25 ratio, but real KiCad clamps to an absolute
+  0.25mm max corner radius — only visibly wrong once a pad's min dimension
+  exceeds ~1mm. Known, parked issue from the final review.
+* Make QFP a formula family like DIP/SOIC (currently each QFP variant is a
+  fully enumerated leaf in `data/kicad-fpdb.yaml` because `pad_offset`
+  can't be derived from `pin_count` alone) — needs a declared body-size
+  parameter to derive `pad_offset` from.
+* Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
+  widths, more chip passive sizes, additional package families (QFN, BGA,
+  SOT, etc.) — each needs its own hand-verified real-footprint regression
+  case per the existing pattern in `tests/test_pipeline_regression.py`.
+* Descriptor grammar will need to grow to express more variation (see the
+  spec's "Expected evolution" note) — grow it deliberately, not organically.
+* Convert the entire existing KiCad footprint library into descriptor form
+  (separate future spec, per the original design spec's non-goals).
+* KiCad plugin/UI integration (separate future spec).
+* Contribution/moderation server (separate future spec).
