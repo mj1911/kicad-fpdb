@@ -162,12 +162,12 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   .case.active {{ display: block; }}
   .panels {{ display: flex; gap: 16px; flex-wrap: wrap; }}
   .panel {{
-    flex: 1; min-width: 280px; max-width: 420px;
+    flex: 1; min-width: 280px; max-width: 500px;
     border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff;
   }}
   .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #555; }}
   .frame {{
-    height: 380px; overflow: auto;
+    height: 500px; overflow: auto;
     display: flex; align-items: center; justify-content: center;
     background-image:
       linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
