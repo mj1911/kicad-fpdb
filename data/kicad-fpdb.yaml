@@ -1,3 +1,8 @@
+# We will generalize all of the package families that we can.  Some families are
+# vendor-specific, and we will end up with some families only matching one 
+# vendor, which is fine.  We may also find that two vendor's footprints can be
+# very similar - in that case, we should consider merging them.
+
 DIP:
   generator: dual_row_grid
   variant_param: pin_count
@@ -12,6 +17,7 @@ DIP:
     drill: 0.8
     centered: false
 
+# SOIC is expected to also have narrow and wide variants.
 SOIC:
   generator: dual_row_grid
   variant_param: pin_count
@@ -35,6 +41,7 @@ R:
       generator: two_pad_chip
       params: {pad_pitch: 1.825, pad_size: [1.025, 1.4]}
 
+# Capacitors can be SMT or TH, this needs consideration.
 C:
   children:
     C-0603:
