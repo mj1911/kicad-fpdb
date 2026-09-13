@@ -1,4 +1,15 @@
+import pytest
 from kicad_fpdb.generators.dual_row import dual_row_grid
+
+
+def test_odd_pin_count_raises_value_error():
+    """Verify that dual_row_grid raises ValueError for odd pin_count."""
+    with pytest.raises(ValueError, match="dual_row_grid requires an even pin_count"):
+        dual_row_grid(
+            pin_count=15, pitch=2.54, row_spacing=7.62,
+            pad_size=(1.6, 1.6), pad_shape="dip_pin1_marker",
+            pad_type="thru_hole", drill=0.8, centered=False,
+        )
 
 
 def test_dip16_matches_real_kicad_footprint():
