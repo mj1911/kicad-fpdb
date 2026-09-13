@@ -36,6 +36,13 @@ CHECKER_PX = PX_PER_MM * CHECKER_MM
 
 _SVG_ROOT_SIZE = re.compile(r'width="([\d.]+)mm" height="([\d.]+)mm"')
 
+# kicad-cli's --sketch-pads-on-fab-layers draws each pad's number early in
+# the SVG, then draws drill-hole circles for through-hole pads afterward —
+# opaque and centered on the same point, so they paint over the number
+# regardless of which --layers are requested. Moving these groups to the
+# very end of the document keeps them on top of everything else.
+_STROKED_TEXT = re.compile(r'<g class="stroked-text">.*?</g>', re.DOTALL)
+
 from kicad_fpdb.pipeline import generate_footprint
 from kicad_fpdb.reference_cases import CASES, FAMILY_TREE_PATH, KICAD_FOOTPRINTS
 
@@ -47,6 +54,11 @@ def _export_svg(library_dir: Path, footprint_name: str, output_dir: Path) -> Pat
             "kicad-cli", "fp", "export", "svg",
             "--footprint", footprint_name,
             "--sketch-pads-on-fab-layers",
+            # Restrict layers so pad numbers (drawn on F.Fab) aren't
+            # painted over by the many additional mask/paste fill layers
+            # a full export draws afterward — worst on through-hole pads,
+            # which have the most overlapping layers.
+            "--layers", "F.Cu,F.SilkS,F.Fab,F.CrtYd",
             str(library_dir), "-o", str(output_dir),
         ],
         capture_output=True, text=True,
@@ -124,11 +136,21 @@ def _scale_svg_to_px(svg_markup: str, px_per_mm: float = PX_PER_MM) -> str:
     return _SVG_ROOT_SIZE.sub(repl, svg_markup, count=1)
 
 
+def _raise_pad_numbers_on_top(svg_markup: str) -> str:
+    texts = _STROKED_TEXT.findall(svg_markup)
+    if not texts:
+        return svg_markup
+    without_texts = _STROKED_TEXT.sub("", svg_markup)
+    closing_index = without_texts.rindex("</svg>")
+    return without_texts[:closing_index] + "".join(texts) + without_texts[closing_index:]
+
+
 def _inline_svg(svg_path: Path) -> str:
     text = svg_path.read_text()
     start = text.index("<svg")
     end = text.rindex("</svg>") + len("</svg>")
-    return _scale_svg_to_px(text[start:end])
+    markup = _scale_svg_to_px(text[start:end])
+    return _raise_pad_numbers_on_top(markup)
 
 
 def build_review_html(cases: list[dict], output_path: str) -> Path:
@@ -157,19 +179,20 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
 <meta charset="utf-8">
 <title>Footprint Review</title>
 <style>
-  body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background:#fafafa; color:#111; }}
+  body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background:#1e1e1e; color:#ddd; }}
   h1 {{ font-size: 1.1rem; }}
   .case {{ display: none; }}
   .case.active {{ display: block; }}
   .panels {{ display: flex; gap: 16px; flex-wrap: wrap; }}
   .panel {{
     flex: 1; min-width: 280px; max-width: 500px;
-    border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff;
+    border: 1px solid #444; border-radius: 8px; padding: 12px; background: #2a2a2a;
   }}
-  .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #555; }}
+  .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #aaa; }}
   .frame {{
     height: 500px; overflow: auto;
     display: flex; align-items: center; justify-content: center;
+    background-color: #fff;
     background-image:
       linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
       linear-gradient(-45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
@@ -180,15 +203,15 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   }}
   .frame svg {{ display: block; flex-shrink: 0; }}
   .controls {{ display:flex; gap:8px; align-items:center; margin: 16px 0; flex-wrap: wrap; }}
-  button {{ font-size: 1rem; padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; background:#fff; cursor:pointer; }}
-  button.pass {{ border-color:#2a2; color:#2a2; }}
-  button.fail {{ border-color:#c33; color:#c33; }}
+  button {{ font-size: 1rem; padding: 8px 14px; border-radius: 6px; border: 1px solid #555; background:#2a2a2a; color:#ddd; cursor:pointer; }}
+  button.pass {{ border-color:#4c4; color:#4c4; }}
+  button.fail {{ border-color:#e55; color:#e55; }}
   .tally {{ margin-left: auto; font-size:0.9rem; }}
   .status {{ font-weight:600; }}
-  .status.pass {{ color:#2a2; }}
-  .status.fail {{ color:#c33; }}
-  .status.unmarked {{ color:#999; }}
-  #summary {{ white-space: pre-wrap; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:16px; font-family: monospace; }}
+  .status.pass {{ color:#4c4; }}
+  .status.fail {{ color:#e55; }}
+  .status.unmarked {{ color:#888; }}
+  #summary {{ white-space: pre-wrap; background:#2a2a2a; color:#ddd; border:1px solid #444; border-radius:8px; padding:12px; margin-top:16px; font-family: monospace; }}
 </style>
 </head>
 <body>

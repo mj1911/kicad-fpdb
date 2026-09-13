@@ -3,12 +3,28 @@ import os
 import pytest
 
 from kicad_fpdb.reference_cases import KICAD_FOOTPRINTS
-from kicad_fpdb.visual_compare import build_review_html, render_comparison
+from kicad_fpdb.visual_compare import build_review_html, render_comparison, _raise_pad_numbers_on_top
 
 pytestmark = pytest.mark.skipif(
     not os.path.isdir(KICAD_FOOTPRINTS),
     reason=f"{KICAD_FOOTPRINTS} not present on this machine",
 )
+
+
+def test_raise_pad_numbers_on_top_moves_stroked_text_after_later_content():
+    svg = (
+        '<svg>'
+        '<g class="stroked-text"><desc>1</desc><path d="M0 0" /></g>'
+        '<circle cx="1" cy="1" r="1" />'
+        '</svg>'
+    )
+    result = _raise_pad_numbers_on_top(svg)
+    assert result.index('<g class="stroked-text">') > result.index("<circle")
+
+
+def test_raise_pad_numbers_on_top_is_a_noop_without_stroked_text():
+    svg = "<svg><circle cx=\"1\" cy=\"1\" r=\"1\" /></svg>"
+    assert _raise_pad_numbers_on_top(svg) == svg
 
 
 def test_render_comparison_produces_two_svgs(tmp_path):
