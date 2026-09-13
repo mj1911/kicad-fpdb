@@ -145,8 +145,8 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
 <div class="case" data-name="{name}">
   <p><strong>{descriptor}</strong> vs <code>{reference_relpath}</code></p>
   <div class="panels">
-    <div class="panel"><h3>Generated</h3>{generated_markup}</div>
-    <div class="panel"><h3>Reference</h3>{reference_markup}</div>
+    <div class="panel"><h3>Generated</h3><div class="frame">{generated_markup}</div></div>
+    <div class="panel"><h3>Reference</h3><div class="frame">{reference_markup}</div></div>
   </div>
 </div>""")
 
@@ -162,8 +162,13 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   .case.active {{ display: block; }}
   .panels {{ display: flex; gap: 16px; flex-wrap: wrap; }}
   .panel {{
-    flex: 1; min-width: 280px; max-width: 420px; max-height: 420px; overflow: auto;
+    flex: 1; min-width: 280px; max-width: 420px;
     border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff;
+  }}
+  .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #555; }}
+  .frame {{
+    height: 380px; overflow: auto;
+    display: flex; align-items: center; justify-content: center;
     background-image:
       linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
       linear-gradient(-45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
@@ -172,8 +177,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
     background-size: {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
     background-position: 0 0, 0 {CHECKER_PX:g}px, {CHECKER_PX:g}px -{CHECKER_PX:g}px, -{CHECKER_PX:g}px 0;
   }}
-  .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #555; }}
-  .panel svg {{ display: block; }}
+  .frame svg {{ display: block; flex-shrink: 0; }}
   .controls {{ display:flex; gap:8px; align-items:center; margin: 16px 0; flex-wrap: wrap; }}
   button {{ font-size: 1rem; padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; background:#fff; cursor:pointer; }}
   button.pass {{ border-color:#2a2; color:#2a2; }}
