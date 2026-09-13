@@ -2,7 +2,13 @@
 name = "kicad-fpdb"
 version = "0.1.0"
 requires-python = ">=3.10"
+authors = [
+    { name = "rdtsc/mj1911", email = "rhlabs@proton.me" },
+]
 dependencies = ["pyyaml"]
+
+[project.urls]
+Repository = "https://github.com/mj1911/kicad-fpdb"
 
 [project.optional-dependencies]
 dev = ["pytest"]
