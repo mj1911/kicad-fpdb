@@ -1,0 +1,26 @@
+from kicad_fpdb.generators.quad_perimeter import quad_perimeter
+
+
+def test_lqfp32_matches_real_kicad_footprint():
+    geom = quad_perimeter(pin_count=32, pitch=0.8, pad_offset=4.175, pad_size=(1.5, 0.5))
+    assert len(geom.pads) == 32
+    by_number = {pad.number: pad for pad in geom.pads}
+
+    pad1 = by_number["1"]
+    assert abs(pad1.at[0] - (-4.175)) < 1e-6
+    assert abs(pad1.at[1] - (-2.8)) < 1e-6
+    assert pad1.size == (1.5, 0.5)
+
+    pad8 = by_number["8"]
+    assert abs(pad8.at[0] - (-4.175)) < 1e-6
+    assert abs(pad8.at[1] - 2.8) < 1e-6
+
+    pad9 = by_number["9"]
+    assert abs(pad9.at[0] - (-2.8)) < 1e-6
+    assert abs(pad9.at[1] - 4.175) < 1e-6
+    assert pad9.size == (0.5, 1.5)
+
+    pad17 = by_number["17"]
+    assert abs(pad17.at[0] - 4.175) < 1e-6
+    assert abs(pad17.at[1] - 2.8) < 1e-6
+    assert pad17.size == (1.5, 0.5)

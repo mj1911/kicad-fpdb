@@ -1,0 +1,56 @@
+DIP:
+  generator: dual_row_grid
+  variant_param: pin_count
+  variants: {n: narrow, r: regular, w: wide}
+  default_width: narrow
+  params:
+    pitch: 2.54
+    row_spacing: {narrow: 7.62, regular: 10.16, wide: 15.24}
+    pad_size: [1.6, 1.6]
+    pad_shape: dip_pin1_marker
+    pad_type: thru_hole
+    drill: 0.8
+    centered: false
+
+SOIC:
+  generator: dual_row_grid
+  variant_param: pin_count
+  params:
+    pitch: 1.27
+    row_spacing: 4.95
+    pad_size: [1.95, 0.6]
+    pad_shape: roundrect
+    pad_type: smd
+    centered: true
+
+R:
+  children:
+    R-0402:
+      generator: two_pad_chip
+      params: {pad_pitch: 1.02, pad_size: [0.54, 0.64]}
+    R-0603:
+      generator: two_pad_chip
+      params: {pad_pitch: 1.65, pad_size: [0.8, 0.95]}
+    R-0805:
+      generator: two_pad_chip
+      params: {pad_pitch: 1.825, pad_size: [1.025, 1.4]}
+
+C:
+  children:
+    C-0603:
+      generator: two_pad_chip
+      params: {pad_pitch: 1.55, pad_size: [0.9, 0.95]}
+
+# QFP is enumerated per-variant below rather than formula-driven like DIP/
+# SOIC: quad_perimeter's pad_offset depends on body size, which isn't
+# derivable from pin_count alone with the parameters this family currently
+# declares. Follow-up work could add a declared body-size parameter and
+# derive pad_offset from it to make QFP formula-driven like the others.
+QFP:
+  children:
+    QFP-32:
+      generator: quad_perimeter
+      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5]}
+    QFP-48:
+      generator: quad_perimeter
+      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3]}

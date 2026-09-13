@@ -22,11 +22,11 @@ This can't break existing KiCAD workflows; this must be a new workflow.
 user picks, instead lets build a database or tree of footprints, as text
 specifiers, which inherit parent attributes.  This is going to require a
 lot of investigation and optimization.  I'm not 100% sure how a specifier
-would look yet, but perhaps something like 'DIP-16 r 0.1', where DIP
+would look yet, but perhaps something like 'DIP-16 r 2.54', where DIP
 completely defines a dual-inline-package, 16 is the (variable) number of
-pins, 'r' means regular-width (as opposed to narrow or wide), and 0.1 is
-the pin spacing (perhaps superfluous for DIP, but a necessity for some of
-the other footprint styles.)
+pins, 'r' means regular-width (as opposed to narrow or wide), and 2.54 is
+the pin spacing in mm (perhaps superfluous for DIP, but a necessity for
+some of the other footprint styles.)
 2. The entire existing footprint library is converted into this new
 (condensed, hierarchical-descriptor) format.  Now when the user wants to
 assign a footprint, they use this tool to search for 'dip', find an exact
