@@ -41,14 +41,14 @@ once this foundation is proven.
 
 Four independently testable stages:
 
-```
+```text
 descriptor string ("DIP-16 r 0.1")
         │
         ▼
  [1] Descriptor Parser  ──►  parsed query {family, variant, modifiers}
         │
         ▼
- [2] Family Tree Resolver  ──►  resolved parameter set (walks families.yaml,
+ [2] Family Tree Resolver  ──►  resolved parameter set (walks kicad-fpdb.yaml,
         │                        applies inheritance, merges query overrides)
         ▼
  [3] Shape Generator Library  ──►  FootprintGeometry (in-memory pads/lines/
@@ -57,7 +57,7 @@ descriptor string ("DIP-16 r 0.1")
  [4] KiCad Writer  ──►  .kicad_mod file (S-expression text)
 ```
 
-- The **family tree** (`families.yaml`) is the single data file that is
+- The **family tree** (`kicad-fpdb.yaml`) is the single data file that is
   field-updatable/crowd-sourced later (per the project's long-term vision).
 - The **shape generator library** is a small, fixed, hand-written Python
   module — the tested "engine" — and changes rarely.
@@ -65,7 +65,7 @@ descriptor string ("DIP-16 r 0.1")
 
 ## 1. Descriptor Syntax
 
-```
+```text
 descriptor := FAMILY "-" VARIANT_TOKEN [MODIFIER ...]
 FAMILY        := identifier (e.g. DIP, SOIC, QFP, R, C)
 VARIANT_TOKEN := family-defined token (often a pin count, but not always —
@@ -76,6 +76,7 @@ MODIFIER      := family-defined single-letter code (e.g. width class) or
 ```
 
 Examples:
+
 - `DIP-16 r 0.1` → family=DIP, variant=16, width=regular, pitch=0.1mm
 - `SOIC-8` → family=SOIC, variant=8, pitch defaults from family tree
 - `R-0603` → family=R, variant="0603" (a size code, not a pin count)
@@ -101,7 +102,7 @@ made deliberately and documented, not organically.
 
 ## 2. Family Tree Data Model
 
-A single YAML file, `families.yaml`, tree-structured. Each node may
+A single YAML file, `kicad-fpdb.yaml`, tree-structured. Each node may
 define or override:
 
 ```yaml
@@ -128,7 +129,7 @@ modifiers are merged on top of that again.
 
 Priority, low to high:
 
-```
+```text
 family defaults  →  inherited overrides down the tree  →  descriptor overrides
 ```
 
@@ -137,7 +138,7 @@ library). Children inherit their parent's generator unless they override
 it, allowing a family to keep shared electrical/geometric params while
 substituting a different geometry generator if needed.
 
-**Validation:** loading `families.yaml` fails fast, with a clear error, if
+**Validation:** loading `kicad-fpdb.yaml` fails fast, with a clear error, if
 a node references an unknown generator, or if the merged parameter set
 doesn't satisfy that generator's declared required-parameter schema.
 

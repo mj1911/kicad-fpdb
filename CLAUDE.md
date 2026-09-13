@@ -42,3 +42,14 @@ If a moderator approves them, they are added to the global database/tree,
 and become available for everyone to automatically update to.
 
 ## Claude-isms below
+
+- Design specs live in `docs/superpowers/specs/`. First spec: descriptor
+  language + generator engine (`2026-09-13-descriptor-engine-design.md`).
+  Scoped deliberately to exclude the KiCad plugin, full-library conversion,
+  and the contribution/moderation server — those get their own specs later.
+- Local KiCad is installed (`kicad-cli`, `/usr/share/kicad*/footprints/*.pretty`)
+  — use these as ground truth for footprint format and validation, rather
+  than guessing at S-expression conventions.
+- Engine language: Python, chosen partly because it matches KiCad's own
+  pcbnew scripting API for eventual plugin integration.
+- This repo was git-initialized on 2026-09-13 (it did not exist before).
