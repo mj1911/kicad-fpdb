@@ -18,6 +18,7 @@ def _dip16_geometry():
     params.pop("body_margin", None)
     params.pop("courtyard_margin_x", None)
     params.pop("courtyard_margin_y", None)
+    params.pop("notch_radius", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
@@ -84,6 +85,44 @@ def test_add_outline_with_body_params_matches_real_dip16_narrow():
     # (6.46, 19.11) — pad centers span x=0..7.62, y=0..17.78.
     assert xs == pytest.approx([1.16, 6.46])
     assert ys == pytest.approx([-1.33, 19.11])
+
+
+def test_add_outline_with_notch_radius_splits_top_edge():
+    geometry = _dip16_geometry()
+    _add_outline(geometry, body_width=5.3, body_margin=1.33, notch_radius=1.0)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    # 5 lines now (top edge split into 2) instead of 4, plus 1 arc.
+    assert len(silk_lines) == 5
+    assert len(geometry.arcs) == 1
+
+    arc = geometry.arcs[0]
+    assert arc.layer == "F.SilkS"
+    # Real DIP-16_W7.62mm.kicad_mod notch is exactly this arc.
+    assert arc.start == pytest.approx((4.81, -1.33))
+    assert arc.mid == pytest.approx((3.81, -0.33))
+    assert arc.end == pytest.approx((2.81, -1.33))
+
+    top_segment_endpoints = {
+        (round(pt[0], 5), round(pt[1], 5))
+        for line in silk_lines if line.start[1] == pytest.approx(-1.33) and line.end[1] == pytest.approx(-1.33)
+        for pt in (line.start, line.end)
+    }
+    assert (1.16, -1.33) in top_segment_endpoints
+    assert (2.81, -1.33) in top_segment_endpoints
+    assert (4.81, -1.33) in top_segment_endpoints
+    assert (6.46, -1.33) in top_segment_endpoints
+
+
+def test_add_outline_without_notch_radius_keeps_plain_top_edge():
+    # SOIC shares this same body_width/body_margin branch but never
+    # declares notch_radius — must keep today's plain 4-line rectangle.
+    geometry = _dip16_geometry()
+    _add_outline(geometry, body_width=5.3, body_margin=1.33)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 4
+    assert len(geometry.arcs) == 0
 
 
 def test_add_outline_without_body_params_keeps_generic_margin_behavior():
@@ -324,5 +363,26 @@ def test_generate_footprint_soic8_courtyard_still_uses_flat_margin():
 def test_generate_footprint_does_not_leak_courtyard_margins_to_generator():
     # If pipeline.py forgot to pop courtyard_margin_x/y before calling
     # the generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert text  # got here without raising
+
+
+def test_generate_footprint_dip16_has_top_notch():
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert "(fp_arc" in text
+    assert "(start 4.81 -1.33)" in text
+    assert "(mid 3.81 -0.33)" in text
+    assert "(end 2.81 -1.33)" in text
+
+
+def test_generate_footprint_soic8_has_no_notch():
+    # SOIC shares the body_width/body_margin branch but must not get one.
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert "(fp_arc" not in text
+
+
+def test_generate_footprint_does_not_leak_notch_radius_to_generator():
+    # If pipeline.py forgot to pop notch_radius before calling the
+    # generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
     assert text  # got here without raising

@@ -3,7 +3,7 @@ from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.geometry import Circle, Line, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import Arc, Circle, Line, Rect, Text, pad_bounding_box
 from kicad_fpdb.writer import write_kicad_mod
 
 GENERATORS = {
@@ -55,7 +55,8 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
                   body_size: float | None = None, pin1_marker: bool = True,
                   silk_y: float | None = None, silk_half_length: float | None = None,
-                  courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None) -> None:
+                  courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None,
+                  notch_radius: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
@@ -75,10 +76,30 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         center_x = (min_px + max_px) / 2
         sx0, sx1 = center_x - body_width / 2, center_x + body_width / 2
         sy0, sy1 = min_py - body_margin, max_py + body_margin
-        corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
-        for i in range(4):
-            start, end = corners[i], corners[(i + 1) % 4]
-            geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
+        if notch_radius is not None:
+            # Real KiCad cuts a semicircular notch into the DIP body's
+            # top edge (the pin-1-side indicator molded into the
+            # physical package) — a true semicircle centered at the
+            # body's horizontal center, constant radius regardless of
+            # pin count or width class. See docs/superpowers/specs/
+            # 2026-09-14-dip-notch-arc-design.md. SOIC shares this
+            # branch but never declares notch_radius, so it's
+            # unaffected.
+            notch_left, notch_right = center_x - notch_radius, center_x + notch_radius
+            geometry.lines.append(Line(start=(sx0, sy0), end=(notch_left, sy0), layer="F.SilkS"))
+            geometry.lines.append(Line(start=(notch_right, sy0), end=(sx1, sy0), layer="F.SilkS"))
+            geometry.arcs.append(Arc(
+                start=(notch_right, sy0), mid=(center_x, sy0 + notch_radius), end=(notch_left, sy0),
+                layer="F.SilkS",
+            ))
+            geometry.lines.append(Line(start=(sx1, sy0), end=(sx1, sy1), layer="F.SilkS"))
+            geometry.lines.append(Line(start=(sx1, sy1), end=(sx0, sy1), layer="F.SilkS"))
+            geometry.lines.append(Line(start=(sx0, sy1), end=(sx0, sy0), layer="F.SilkS"))
+        else:
+            corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
+            for i in range(4):
+                start, end = corners[i], corners[(i + 1) % 4]
+                geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
     elif body_size is not None:
         # Real square body size (a physical constant, independent of pad
         # position), centered on the pad centroid. See docs/superpowers/
@@ -159,13 +180,15 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     silk_half_length = params.pop("silk_half_length", None)
     courtyard_margin_x = params.pop("courtyard_margin_x", None)
     courtyard_margin_y = params.pop("courtyard_margin_y", None)
+    notch_radius = params.pop("notch_radius", None)
 
     generator_fn = GENERATORS[resolved.generator]
     geometry = generator_fn(**params)
     geometry.name = name
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
                  pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
-                 courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y)
+                 courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
+                 notch_radius=notch_radius)
     _add_reference_and_value_text(geometry, name)
 
     return write_kicad_mod(name, geometry)
