@@ -57,7 +57,8 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 
 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
-                  body_size: float | None = None, pin1_marker: bool = True) -> None:
+                  body_size: float | None = None, pin1_marker: bool = True,
+                  silk_y: float | None = None, silk_half_length: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     cy0x, cy0y = min_x - COURTYARD_MARGIN_MM, min_y - COURTYARD_MARGIN_MM
@@ -91,6 +92,28 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         sx0, sx1 = center_x - half, center_x + half
         sy0, sy1 = center_y - half, center_y + half
         _add_corner_marks(geometry, sx0, sy0, sx1, sy1)
+    elif silk_y is not None and silk_half_length is not None:
+        # Real KiCad draws chip resistors/capacitors with two short
+        # silk lines, not a box — the component body is always smaller
+        # than its pads, so a box would just outline the pads
+        # themselves. Both values are copied verbatim from real
+        # reference footprints per variant (no shared formula holds
+        # across pad sizes) — see docs/superpowers/specs/2026-09-14-
+        # chip-passive-silk-lines-design.md. This mode never computes a
+        # body-corner rectangle, so it must not be combined with
+        # pin1_marker=True (would raise NameError below) — a non-issue
+        # today since every variant using this mode declares
+        # pin1_marker: false.
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        center_x = (min_px + max_px) / 2
+        center_y = (min_py + max_py) / 2
+        for y in (center_y - silk_y, center_y + silk_y):
+            geometry.lines.append(Line(
+                start=(center_x - silk_half_length, y),
+                end=(center_x + silk_half_length, y),
+                layer="F.SilkS",
+            ))
     else:
         sx0, sy0 = min_x - SILK_MARGIN_MM, min_y - SILK_MARGIN_MM
         sx1, sy1 = max_x + SILK_MARGIN_MM, max_y + SILK_MARGIN_MM

@@ -4,6 +4,7 @@ import pytest
 
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
+from kicad_fpdb.generators.two_pad import two_pad_chip
 from kicad_fpdb.pipeline import GENERATORS, _add_outline, generate_footprint
 
 FAMILY_TREE_PATH = "data/kicad-fpdb.yaml"
@@ -27,6 +28,12 @@ def _qfp32_geometry():
     params.pop("body_size", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "QFP32_TEST"
+    return geometry
+
+
+def _r0603_geometry():
+    geometry = two_pad_chip(pad_pitch=1.65, pad_size=(0.8, 0.95))
+    geometry.name = "R0603_TEST"
     return geometry
 
 
@@ -231,3 +238,24 @@ def test_generate_footprint_does_not_leak_pin1_marker_to_generator():
     # generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
     assert text  # got here without raising
+
+
+def test_add_outline_with_silk_line_params_draws_two_lines():
+    geometry = _r0603_geometry()
+    _add_outline(geometry, silk_y=0.5225, silk_half_length=0.237258, pin1_marker=False)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 2
+
+    ys = sorted({round(line.start[1], 6) for line in silk_lines})
+    assert ys == pytest.approx([-0.5225, 0.5225])
+    for line in silk_lines:
+        assert line.start[1] == line.end[1]
+        xs = sorted([round(line.start[0], 6), round(line.end[0], 6)])
+        assert xs == pytest.approx([-0.237258, 0.237258])
+
+    # No pin-1 marker (pin1_marker=False, matching how R/C actually
+    # declare it), and only the courtyard rect — no F.SilkS rectangle.
+    assert len(geometry.polys) == 0
+    assert len(geometry.rects) == 1
+    assert geometry.rects[0].layer == "F.CrtYd"
