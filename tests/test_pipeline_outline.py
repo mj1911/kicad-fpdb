@@ -49,6 +49,19 @@ def test_add_outline_produces_courtyard_rect():
     assert rect.end == pytest.approx((8.92, 19.08))
 
 
+def test_add_outline_with_courtyard_margins_uses_asymmetric_values():
+    geometry = _dip16_geometry()
+    _add_outline(geometry, courtyard_margin_x=0.25, courtyard_margin_y=0.72)
+
+    assert len(geometry.rects) == 1
+    rect = geometry.rects[0]
+    assert rect.layer == "F.CrtYd"
+    # Pad bbox is (-0.8, -0.8) to (8.42, 18.58); 0.25mm margin in X,
+    # 0.72mm in Y.
+    assert rect.start == pytest.approx((-1.05, -1.52))
+    assert rect.end == pytest.approx((8.67, 19.3))
+
+
 def test_add_outline_produces_silkscreen_body_rect():
     geometry = _dip16_geometry()
     _add_outline(geometry)

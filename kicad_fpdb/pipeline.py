@@ -58,11 +58,14 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
                   body_size: float | None = None, pin1_marker: bool = True,
-                  silk_y: float | None = None, silk_half_length: float | None = None) -> None:
+                  silk_y: float | None = None, silk_half_length: float | None = None,
+                  courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
-    cy0x, cy0y = min_x - COURTYARD_MARGIN_MM, min_y - COURTYARD_MARGIN_MM
-    cy1x, cy1y = max_x + COURTYARD_MARGIN_MM, max_y + COURTYARD_MARGIN_MM
+    mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
+    my = courtyard_margin_y if courtyard_margin_y is not None else COURTYARD_MARGIN_MM
+    cy0x, cy0y = min_x - mx, min_y - my
+    cy1x, cy1y = max_x + mx, max_y + my
     geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
 
     if body_width is not None and body_margin is not None:
