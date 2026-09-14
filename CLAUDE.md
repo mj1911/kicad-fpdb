@@ -102,13 +102,22 @@ and become available for everyone to automatically update to.
   reliably show up). Use this instead of ad-hoc SVG exports when
   eyeballing generator output — regenerate it after any change to
   `kicad_fpdb/visual_compare.py`.
-* Pin-1 marker: a small filled silkscreen triangle, tip at the body
-  corner nearest pad 1, pointing at pad 1's actual position — matches
-  real KiCad's own convention (see `kicad_fpdb.pipeline._add_outline`).
-  Controlled by a `pin1_marker` param (default true, so DIP/SOIC/QFP
-  need no declaration); `R` and `C` declare it false at their family
-  root in `data/kicad-fpdb.yaml` since resistors are never polarized
-  and capacitors only occasionally are — see
+* Pin-1 marker: a small filled silkscreen circle sitting directly
+  above pad 1 (same X as the pad, offset past its own top edge by a
+  fixed clearance), independent of the F.SilkS outline entirely — a
+  deliberate departure from real KiCad's own top-center notch
+  convention, not an attempt to match it (see
+  `kicad_fpdb.pipeline._add_outline`,
+  `docs/superpowers/specs/2026-09-14-pin1-circle-marker-design.md`).
+  "Above" assumes pin 1 is at the top of the part, true for every
+  generator today — pin 1 isn't always at a corner in real packages
+  (sometimes mid-side), and this anchor-to-pad-1 approach already
+  handles that correctly, but a family with pin 1 on a different edge
+  would need the "above" direction generalized. Controlled by a
+  `pin1_marker` param (default true, so DIP/SOIC/QFP need no
+  declaration); `R` and `C` declare it false at their family root in
+  `data/kicad-fpdb.yaml` since resistors are never polarized and
+  capacitors only occasionally are — see
   `docs/superpowers/specs/2026-09-14-pin1-marker-opt-out-design.md`. A
   future polarized capacitor variant opts back in with
   `pin1_marker: true` in its own params.
