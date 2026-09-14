@@ -1,5 +1,53 @@
 # Changes
 
+2026-09-14 v0.0.7:
+
+* Updated CLAUDE.md's TODO list with follow-ups surfaced this session
+  (matching SOIC's real stepped courtyard shape; generalizing the pin-1
+  marker's "above pad 1" direction assumption for a future family with
+  pin 1 on a non-top edge).
+* Added a real semicircular notch to DIP's F.SilkS outline (radius
+  1.0mm, centered at the body's horizontal center) — real KiCad's
+  DIP pin-1-side indicator, confirmed constant across every pin count
+  and row-spacing width checked; SOIC shares the same rectangle branch
+  but correctly gets no notch, since real SOIC footprints have none.
+  Added a generic `Arc` geometry primitive and `fp_arc` writer support.
+* Fixed the pin-1 marker circle overlapping its own pad: the clearance
+  offset moved the circle's center away from the pad edge but never
+  accounted for the circle's own radius extending back toward it; also
+  widened the clearance to comfortably clear typical solder-mask
+  expansion, which isn't otherwise modeled in this project's data.
+* Replaced the pin-1 marker — previously a triangle anchored to the
+  F.SilkS outline's nearest corner — with a filled circle anchored
+  purely to pad 1's own position, always directly above it, regardless
+  of outline mode; this let the now-dead corner-anchoring helper be
+  removed entirely. Added a generic `Circle` geometry primitive and
+  `fp_circle` writer support.
+* Tightened DIP's courtyard margin to real KiCad's asymmetric values
+  (0.25mm perpendicular to the pin rows, 0.72mm along them) instead of
+  the generic flat 0.5mm margin still used by every other family.
+* Gave R and C (chip passives) a real two-line F.SilkS outline —
+  matching real KiCad's chip-resistor/capacitor convention, since the
+  component body is always smaller than its pads — instead of a
+  generic pad-bounding-box rectangle; each variant's line position and
+  length is copied verbatim from its real reference footprint.
+* Turned off the pin-1 marker for R and C (resistors are never
+  polarized; capacitors only occasionally are) via a new `pin1_marker`
+  opt-out flag, declared once per family and inherited by every child;
+  a future polarized capacitor variant can opt back in.
+* Gave QFP real corner-mark F.SilkS brackets instead of a generic
+  pad-bounding-box rectangle, matching real KiCad's own QFP silk
+  convention (fixed leg length shared across variants; real values
+  differ slightly per package).
+* Gave DIP and SOIC a real body-derived F.SilkS rectangle
+  (`body_width`/`body_margin`) instead of a generic pad-bounding-box
+  rectangle — DIP's body width is keyed by row-spacing width class,
+  matching real KiCad almost exactly. Also made the review viewer's
+  frame background black with a grey checkerboard, and fixed a bug
+  where moving pad-number/REF**/value text groups to the top of the
+  SVG dropped the styled wrapper carrying their stroke color, making
+  them invisible against any background.
+
 2026-09-14 v0.0.6:
 
 * Fixed occluded pad numbers in the review viewer: kicad-cli draws
