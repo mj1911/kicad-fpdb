@@ -143,6 +143,13 @@ and become available for everyone to automatically update to.
   (narrow/regular/wide), matching real KiCad almost exactly (SOIC's
   margin is an averaged approximation, off by ~0.01-0.02mm — see
   `docs/superpowers/specs/2026-09-14-real-body-silk-outline-design.md`).
+  DIP additionally cuts a semicircular notch into the top edge
+  (`notch_radius: 1.0` in `data/kicad-fpdb.yaml`, constant across every
+  pin count and width checked), matching real KiCad's own DIP
+  pin-1-side indicator exactly — see
+  `docs/superpowers/specs/2026-09-14-dip-notch-arc-design.md`. SOIC
+  shares the same rectangle branch but has no such notch in real
+  KiCad, so it doesn't declare `notch_radius`.
   QFP draws real corner-mark brackets instead of a rectangle
   (`body_size` in `data/kicad-fpdb.yaml`, both current variants sharing
   7.22mm since both are 7x7mm packages), matching real KiCad's own QFP
