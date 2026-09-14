@@ -209,3 +209,25 @@ def test_generate_footprint_does_not_leak_body_size_to_generator():
     # this raises TypeError("unexpected keyword argument").
     text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
     assert text  # got here without raising
+
+
+def test_generate_footprint_r0603_has_no_pin1_marker():
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert "fp_poly" not in text
+
+
+def test_generate_footprint_c0603_has_no_pin1_marker():
+    text = generate_footprint("C-0603", FAMILY_TREE_PATH, name="C0603_TEST")
+    assert "fp_poly" not in text
+
+
+def test_generate_footprint_dip16_still_has_pin1_marker():
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert "fp_poly" in text
+
+
+def test_generate_footprint_does_not_leak_pin1_marker_to_generator():
+    # If pipeline.py forgot to pop pin1_marker before calling the
+    # generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert text  # got here without raising

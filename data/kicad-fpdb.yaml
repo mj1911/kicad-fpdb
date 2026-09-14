@@ -34,6 +34,8 @@ SOIC:
     centered: true
 
 R:
+  params:
+    pin1_marker: false
   children:
     R-0402:
       generator: two_pad_chip
@@ -47,9 +49,11 @@ R:
 
 # Capacitors can be SMT or TH, this needs consideration.
 # They can also be non-polarized (most) or polarized.
-# The vast majority will be two-pin though, so repeating 
+# The vast majority will be two-pin though, so repeating
 # `generator: two_pad_chip` for each one could be wasteful.
 C:
+  params:
+    pin1_marker: false
   children:
     C-0603:
       generator: two_pad_chip
