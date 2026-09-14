@@ -118,8 +118,17 @@ and become available for everyone to automatically update to.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). Courtyard is
-  still generic (pad bounding box + margin) for every family; no
-  family uses the generic pad-bbox F.SilkS rectangle anymore. DIP and
+  still generic (flat 0.5mm pad-bounding-box margin) for SOIC, QFP,
+  and chip passives (R/C); no family uses the generic pad-bbox
+  F.SilkS rectangle anymore. DIP's courtyard instead uses a real,
+  asymmetric margin (`courtyard_margin_x`/`courtyard_margin_y` in
+  `data/kicad-fpdb.yaml`: 0.25mm perpendicular to the pin rows, 0.72mm
+  along them), matching real KiCad almost exactly across every pin
+  count and width checked — see
+  `docs/superpowers/specs/2026-09-14-dip-courtyard-margin-design.md`.
+  SOIC's real courtyard is a more complex stepped shape, not a simple
+  rectangle with a bigger margin, so it's intentionally not matched
+  yet. For F.SilkS geometry: DIP and
   SOIC draw a real body-derived rectangle (`body_width`/`body_margin`
   in `data/kicad-fpdb.yaml`) — DIP's body_width is keyed by width class
   (narrow/regular/wide), matching real KiCad almost exactly (SOIC's
