@@ -109,9 +109,10 @@ def test_add_outline_produces_pin1_marker_circle():
     assert marker.fill == "yes"
 
     # Pad "1" sits at (0, 0), size (1.6, 1.6). The marker sits directly
-    # above it: same X, offset up past the pad's own top edge (half its
-    # Y size) by a fixed 0.2mm clearance.
-    assert marker.center == pytest.approx((0.0, -1.0))
+    # above it: same X; its *near* edge (center + radius) clears the
+    # pad's own top edge (half its Y size) by a fixed 0.3mm clearance —
+    # center is offset by half-Y-size + clearance + radius.
+    assert marker.center == pytest.approx((0.0, -1.4))
     assert marker.radius == pytest.approx(0.3)
 
 
@@ -159,7 +160,7 @@ def test_add_outline_with_body_size_keeps_pin1_marker():
     # Pad "1" (quad_perimeter's left side, first pin) sits at
     # (-4.175, -2.8), size (1.5, 0.5) — the marker is independent of
     # the corner-marks outline entirely now, anchored only to pad 1.
-    assert marker.center == pytest.approx((-4.175, -3.25))
+    assert marker.center == pytest.approx((-4.175, -3.65))
     assert marker.radius == pytest.approx(0.3)
 
 

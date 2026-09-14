@@ -25,8 +25,11 @@ COURTYARD_MARGIN_MM = 0.5
 # Diameter, in mm, of the filled pin-1 marker circle.
 PIN1_MARKER_MM = 0.6
 # Gap, in mm, between pad 1's own edge and the pin-1 marker circle
-# drawn above it.
-PIN1_MARKER_CLEARANCE_MM = 0.2
+# drawn above it. No per-pad solder-mask margin is modeled in this
+# project's data, so this is sized generously (well beyond typical
+# ~0.05-0.1mm mask expansion) to clear the mask opening too, not just
+# the copper pad.
+PIN1_MARKER_CLEARANCE_MM = 0.3
 # Length, in mm, of each leg of a QFP-style corner-mark bracket. Real
 # KiCad varies this per package (0.3mm for LQFP-32, 0.45mm for LQFP-48);
 # this project uses one fixed value for all QFP variants, consistent
@@ -117,14 +120,18 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pin1_marker and pad1 is not None:
         # A filled circle directly above pad 1: same X as the pad,
-        # offset up past its own top edge by a fixed clearance. This is
-        # independent of the outline mode entirely (unlike the old
-        # nearest-corner triangle) — see docs/superpowers/specs/
-        # 2026-09-14-pin1-circle-marker-design.md. "Above" assumes pin 1
-        # is at the top of the part, true for every generator today.
+        # offset up past its own top edge (and the circle's own radius,
+        # so its *near* edge — not its center — clears the pad by
+        # PIN1_MARKER_CLEARANCE_MM) so it sits outside both the copper
+        # pad and its solder mask opening. This is independent of the
+        # outline mode entirely (unlike the old nearest-corner triangle)
+        # — see docs/superpowers/specs/2026-09-14-pin1-circle-marker-
+        # design.md. "Above" assumes pin 1 is at the top of the part,
+        # true for every generator today.
         cx = pad1.at[0]
-        cy = pad1.at[1] - pad1.size[1] / 2 - PIN1_MARKER_CLEARANCE_MM
-        geometry.circles.append(Circle(center=(cx, cy), radius=PIN1_MARKER_MM / 2, layer="F.SilkS"))
+        radius = PIN1_MARKER_MM / 2
+        cy = pad1.at[1] - pad1.size[1] / 2 - PIN1_MARKER_CLEARANCE_MM - radius
+        geometry.circles.append(Circle(center=(cx, cy), radius=radius, layer="F.SilkS"))
 
 
 def _add_reference_and_value_text(geometry, name: str) -> None:
