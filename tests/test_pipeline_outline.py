@@ -37,6 +37,32 @@ def test_add_outline_produces_silkscreen_body_rect():
     assert len(silk_lines) == 4
 
 
+def test_add_outline_with_body_params_matches_real_dip16_narrow():
+    geometry = _dip16_geometry()
+    _add_outline(geometry, body_width=5.3, body_margin=1.33)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 4
+    xs = sorted({round(x, 5) for line in silk_lines for x in (line.start[0], line.end[0])})
+    ys = sorted({round(y, 5) for line in silk_lines for y in (line.start[1], line.end[1])})
+    # Real DIP-16_W7.62mm.kicad_mod silk rect is exactly (1.16, -1.33) to
+    # (6.46, 19.11) — pad centers span x=0..7.62, y=0..17.78.
+    assert xs == pytest.approx([1.16, 6.46])
+    assert ys == pytest.approx([-1.33, 19.11])
+
+
+def test_add_outline_without_body_params_keeps_generic_margin_behavior():
+    geometry = _dip16_geometry()
+    _add_outline(geometry)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    xs = sorted({round(x, 5) for line in silk_lines for x in (line.start[0], line.end[0])})
+    ys = sorted({round(y, 5) for line in silk_lines for y in (line.start[1], line.end[1])})
+    # Pad bbox is (-0.8, -0.8) to (8.42, 18.58); generic silk margin is 0.2mm.
+    assert xs == pytest.approx([-1.0, 8.62])
+    assert ys == pytest.approx([-1.0, 18.78])
+
+
 def test_add_outline_produces_pin1_marker_triangle():
     geometry = _dip16_geometry()
     _add_outline(geometry)
