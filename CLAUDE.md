@@ -44,6 +44,27 @@ and become available for everyone to automatically update to.
 
 ## Claude-isms below
 
+* Working across machines (e.g. after moving this folder to another
+  computer): this repo was developed against KiCad 10.0.6 on Linux, with
+  `kicad-cli` on PATH and the official footprint library at
+  `/usr/share/kicad*/footprints/*.pretty`. On a new machine:
+  * Run `pip install -e ".[dev]"` again — the editable install isn't part
+    of the repo and won't follow the folder.
+  * If KiCad isn't installed at the same path (different OS, different
+    KiCad version, or not installed at all), every test that depends on
+    it — the pipeline regression suite, the kicad-cli round-trip test in
+    `tests/test_writer.py`, `tests/test_visual_compare.py` — skips
+    gracefully rather than failing (all guarded with `pytest.mark.skipif`).
+    Core unit tests (geometry, descriptor, family_tree, generators) don't
+    need KiCad at all.
+  * `python -m kicad_fpdb.visual_compare` needs `kicad-cli` on PATH to do
+    anything; without it, it'll error clearly rather than silently.
+  * Nothing in the tracked code hardcodes this machine's absolute path —
+    verified via `grep -rn "/media/sda1"` before the move — so a plain
+    folder copy (not just a git clone) is safe.
+  * `.worktrees/`, `__pycache__/`, `*.egg-info/`, `.pytest_cache/`, and
+    `renders/` are all gitignored and disposable; fine to delete before
+    copying to save space, or just let them come along.
 * Design specs live in `docs/superpowers/specs/`. First spec: descriptor
   language + generator engine (`2026-09-13-descriptor-engine-design.md`).
   Scoped deliberately to exclude the KiCad plugin, full-library conversion,
