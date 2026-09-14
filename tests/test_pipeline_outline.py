@@ -12,7 +12,10 @@ FAMILY_TREE_PATH = "data/kicad-fpdb.yaml"
 def _dip16_geometry():
     tree = load_family_tree(FAMILY_TREE_PATH)
     resolved = resolve_descriptor(tree, parse_descriptor("DIP-16"))
-    geometry = GENERATORS[resolved.generator](**resolved.params)
+    params = dict(resolved.params)
+    params.pop("body_width", None)
+    params.pop("body_margin", None)
+    geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
 
@@ -35,6 +38,32 @@ def test_add_outline_produces_silkscreen_body_rect():
 
     silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
     assert len(silk_lines) == 4
+
+
+def test_add_outline_with_body_params_matches_real_dip16_narrow():
+    geometry = _dip16_geometry()
+    _add_outline(geometry, body_width=5.3, body_margin=1.33)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 4
+    xs = sorted({round(x, 5) for line in silk_lines for x in (line.start[0], line.end[0])})
+    ys = sorted({round(y, 5) for line in silk_lines for y in (line.start[1], line.end[1])})
+    # Real DIP-16_W7.62mm.kicad_mod silk rect is exactly (1.16, -1.33) to
+    # (6.46, 19.11) — pad centers span x=0..7.62, y=0..17.78.
+    assert xs == pytest.approx([1.16, 6.46])
+    assert ys == pytest.approx([-1.33, 19.11])
+
+
+def test_add_outline_without_body_params_keeps_generic_margin_behavior():
+    geometry = _dip16_geometry()
+    _add_outline(geometry)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    xs = sorted({round(x, 5) for line in silk_lines for x in (line.start[0], line.end[0])})
+    ys = sorted({round(y, 5) for line in silk_lines for y in (line.start[1], line.end[1])})
+    # Pad bbox is (-0.8, -0.8) to (8.42, 18.58); generic silk margin is 0.2mm.
+    assert xs == pytest.approx([-1.0, 8.62])
+    assert ys == pytest.approx([-1.0, 18.78])
 
 
 def test_add_outline_produces_pin1_marker_triangle():
@@ -72,3 +101,31 @@ def test_generate_footprint_includes_outline_geometry():
     assert "(fp_poly" in text
     assert "(fill yes)" in text
     assert '(layer "F.SilkS")' in text
+
+
+def test_generate_footprint_dip16_narrow_silk_matches_real_body():
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert "(start 1.16 -1.33)" in text
+    assert "(end 6.46 -1.33)" in text
+    assert "(end 6.46 19.11)" in text
+    assert "(end 1.16 19.11)" in text
+
+
+def test_generate_footprint_dip16_regular_silk_matches_real_body():
+    text = generate_footprint("DIP-16 r", FAMILY_TREE_PATH, name="DIP16R_TEST")
+    assert "(start 1.845 -1.33)" in text
+    assert "(end 8.315 -1.33)" in text
+
+
+def test_generate_footprint_soic8_silk_matches_body_formula():
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert "(start -2.06 -2.545)" in text
+    assert "(end 2.06 -2.545)" in text
+    assert "(end 2.06 2.545)" in text
+
+
+def test_generate_footprint_does_not_leak_body_params_to_generator():
+    # If pipeline.py forgot to pop body_width/body_margin before calling
+    # the generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert text  # got here without raising

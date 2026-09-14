@@ -11,6 +11,8 @@ DIP:
   params:
     pitch: 2.54
     row_spacing: {narrow: 7.62, regular: 10.16, wide: 15.24}
+    body_width: {narrow: 5.3, regular: 6.47, wide: 12.92}
+    body_margin: 1.33
     pad_size: [1.6, 1.6]
     pad_shape: dip_pin1_marker
     pad_type: thru_hole
@@ -24,6 +26,8 @@ SOIC:
   params:
     pitch: 1.27
     row_spacing: 4.95
+    body_width: 4.12
+    body_margin: 0.64
     pad_size: [1.95, 0.6]
     pad_shape: roundrect
     pad_type: smd

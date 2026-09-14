@@ -108,12 +108,18 @@ and become available for everyone to automatically update to.
 * Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
   (the footprint's own name, on `F.Fab`) text properties, placed above/
   below the pad bounding box — matches real KiCad's layer convention.
-* Generated footprints now also have generic courtyard (`F.CrtYd`) and
-  silkscreen body outline (`F.SilkS`, with a pin-1 corner marker)
-  geometry, built purely from the pad bounding box — works the same way
-  for any generator. This is a generic convention, not a per-family match
-  to real KiCad's own outline styles (see `kicad_fpdb.pipeline._add_outline`),
-  and is verified visually via the review tool rather than an automated
+* Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
+  outline (`F.SilkS`, with a pin-1 corner marker) geometry (see
+  `kicad_fpdb.pipeline._add_outline`). Courtyard is still generic
+  (pad bounding box + margin) for every family. The F.SilkS rectangle
+  is generic for QFP and chip passives (R/C), but for DIP and SOIC it's
+  now derived from real physical body dimensions (`body_width`/
+  `body_margin` in `data/kicad-fpdb.yaml`) instead of the pad bounding
+  box — DIP's body_width is keyed by width class (narrow/regular/wide),
+  matching real KiCad almost exactly (SOIC's margin is an averaged
+  approximation, off by ~0.01-0.02mm from real values — see
+  `docs/superpowers/specs/2026-09-14-real-body-silk-outline-design.md`).
+  Verified visually via the review tool rather than an automated
   geometry diff, per the spec's stated approach for outline geometry.
 
 ## TODO

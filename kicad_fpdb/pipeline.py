@@ -36,15 +36,33 @@ def _nearest_corner(px: float, py: float, x0: float, y0: float, x1: float, y1: f
     return cx, cy
 
 
-def _add_outline(geometry) -> None:
+def _pad_center_extent(pads, axis: int) -> tuple[float, float]:
+    values = [p.at[axis] for p in pads]
+    return min(values), max(values)
+
+
+def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     cy0x, cy0y = min_x - COURTYARD_MARGIN_MM, min_y - COURTYARD_MARGIN_MM
     cy1x, cy1y = max_x + COURTYARD_MARGIN_MM, max_y + COURTYARD_MARGIN_MM
     geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
 
-    sx0, sy0 = min_x - SILK_MARGIN_MM, min_y - SILK_MARGIN_MM
-    sx1, sy1 = max_x + SILK_MARGIN_MM, max_y + SILK_MARGIN_MM
+    if body_width is not None and body_margin is not None:
+        # Real body dimensions: a physical package constant, independent of
+        # the pad bounding box. Width is centered on the pad-row centerline;
+        # length runs from the first/last pad *center* (not pad edge) plus
+        # a fixed margin. See docs/superpowers/specs/2026-09-14-real-body-
+        # silk-outline-design.md for the derivation.
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        center_x = (min_px + max_px) / 2
+        sx0, sx1 = center_x - body_width / 2, center_x + body_width / 2
+        sy0, sy1 = min_py - body_margin, max_py + body_margin
+    else:
+        sx0, sy0 = min_x - SILK_MARGIN_MM, min_y - SILK_MARGIN_MM
+        sx1, sy1 = max_x + SILK_MARGIN_MM, max_y + SILK_MARGIN_MM
+
     corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
     for i in range(4):
         start, end = corners[i], corners[(i + 1) % 4]
@@ -88,10 +106,14 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     parsed = parse_descriptor(descriptor_text)
     resolved = resolve_descriptor(tree, parsed)
 
+    params = dict(resolved.params)
+    body_width = params.pop("body_width", None)
+    body_margin = params.pop("body_margin", None)
+
     generator_fn = GENERATORS[resolved.generator]
-    geometry = generator_fn(**resolved.params)
+    geometry = generator_fn(**params)
     geometry.name = name
-    _add_outline(geometry)
+    _add_outline(geometry, body_width=body_width, body_margin=body_margin)
     _add_reference_and_value_text(geometry, name)
 
     return write_kicad_mod(name, geometry)
