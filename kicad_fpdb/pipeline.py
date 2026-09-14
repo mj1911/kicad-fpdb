@@ -1,11 +1,9 @@
-import math
-
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.geometry import Line, Poly, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import Circle, Line, Rect, Text, pad_bounding_box
 from kicad_fpdb.writer import write_kicad_mod
 
 GENERATORS = {
@@ -24,22 +22,17 @@ TEXT_MARGIN_MM = 1.0
 # reasonable, consistent courtyard/silkscreen outline for any generator.
 SILK_MARGIN_MM = 0.2
 COURTYARD_MARGIN_MM = 0.5
-# Size of the filled pin-1 marker triangle. Matches real KiCad's own
-# convention of a small solid silkscreen triangle pointing at pin 1
-# (much more visible than a thin outline notch).
+# Diameter, in mm, of the filled pin-1 marker circle.
 PIN1_MARKER_MM = 0.6
+# Gap, in mm, between pad 1's own edge and the pin-1 marker circle
+# drawn above it.
+PIN1_MARKER_CLEARANCE_MM = 0.2
 # Length, in mm, of each leg of a QFP-style corner-mark bracket. Real
 # KiCad varies this per package (0.3mm for LQFP-32, 0.45mm for LQFP-48);
 # this project uses one fixed value for all QFP variants, consistent
 # with the "symbolic, not exact" approach documented in
 # docs/superpowers/specs/2026-09-14-qfp-corner-mark-silk-design.md.
 CORNER_MARK_MM = 0.3
-
-
-def _nearest_corner(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> tuple[float, float]:
-    cx = x0 if abs(px - x0) <= abs(px - x1) else x1
-    cy = y0 if abs(py - y0) <= abs(py - y1) else y1
-    return cx, cy
 
 
 def _pad_center_extent(pads, axis: int) -> tuple[float, float]:
@@ -102,11 +95,7 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         # themselves. Both values are copied verbatim from real
         # reference footprints per variant (no shared formula holds
         # across pad sizes) — see docs/superpowers/specs/2026-09-14-
-        # chip-passive-silk-lines-design.md. This mode never computes a
-        # body-corner rectangle, so it must not be combined with
-        # pin1_marker=True (would raise NameError below) — a non-issue
-        # today since every variant using this mode declares
-        # pin1_marker: false.
+        # chip-passive-silk-lines-design.md.
         min_px, max_px = _pad_center_extent(geometry.pads, 0)
         min_py, max_py = _pad_center_extent(geometry.pads, 1)
         center_x = (min_px + max_px) / 2
@@ -127,24 +116,15 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
 
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pin1_marker and pad1 is not None:
-        cx, cy = _nearest_corner(pad1.at[0], pad1.at[1], sx0, sy0, sx1, sy1)
-
-        # An isoceles triangle whose sharp tip sits at the body corner,
-        # pointing toward pad 1's actual center, with its base offset
-        # outward (away from the pad) — an arrow aimed at pin 1, not just
-        # a wedge sitting in the corner.
-        vx, vy = pad1.at[0] - cx, pad1.at[1] - cy
-        length = math.hypot(vx, vy) or 1.0
-        ux, uy = vx / length, vy / length
-        px, py = -uy, ux
-
-        tip = (cx, cy)
-        base_x, base_y = cx - ux * PIN1_MARKER_MM, cy - uy * PIN1_MARKER_MM
-        half_width = PIN1_MARKER_MM / 2
-        base1 = (base_x + px * half_width, base_y + py * half_width)
-        base2 = (base_x - px * half_width, base_y - py * half_width)
-
-        geometry.polys.append(Poly(points=[tip, base1, base2], layer="F.SilkS"))
+        # A filled circle directly above pad 1: same X as the pad,
+        # offset up past its own top edge by a fixed clearance. This is
+        # independent of the outline mode entirely (unlike the old
+        # nearest-corner triangle) — see docs/superpowers/specs/
+        # 2026-09-14-pin1-circle-marker-design.md. "Above" assumes pin 1
+        # is at the top of the part, true for every generator today.
+        cx = pad1.at[0]
+        cy = pad1.at[1] - pad1.size[1] / 2 - PIN1_MARKER_CLEARANCE_MM
+        geometry.circles.append(Circle(center=(cx, cy), radius=PIN1_MARKER_MM / 2, layer="F.SilkS"))
 
 
 def _add_reference_and_value_text(geometry, name: str) -> None:

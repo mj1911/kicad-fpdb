@@ -98,38 +98,28 @@ def test_add_outline_without_body_params_keeps_generic_margin_behavior():
     assert ys == pytest.approx([-1.0, 18.78])
 
 
-def test_add_outline_produces_pin1_marker_triangle():
+def test_add_outline_produces_pin1_marker_circle():
     geometry = _dip16_geometry()
     _add_outline(geometry)
 
-    assert len(geometry.polys) == 1
-    marker = geometry.polys[0]
+    assert len(geometry.circles) == 1
+    assert len(geometry.polys) == 0
+    marker = geometry.circles[0]
     assert marker.layer == "F.SilkS"
     assert marker.fill == "yes"
 
-    # Pad bbox is (-0.8, -0.8) to (8.42, 18.58); silkscreen adds 0.2mm margin,
-    # giving a body rect of (-1.0, -1.0) to (8.62, 18.78). Pad "1" sits at
-    # (0, 0), nearest to the (-1.0, -1.0) corner. The tip sits at that
-    # corner (closest point to pad 1); the base is offset outward, away
-    # from pad 1, along the diagonal.
-    tip, base1, base2 = marker.points
-    assert tip == pytest.approx((-1.0, -1.0))
-    assert base1 == pytest.approx((-1.6363961, -1.2121320))
-    assert base2 == pytest.approx((-1.2121320, -1.6363961))
-
-    pad1_at = (0.0, 0.0)
-    dist_tip = math.hypot(tip[0] - pad1_at[0], tip[1] - pad1_at[1])
-    dist_base1 = math.hypot(base1[0] - pad1_at[0], base1[1] - pad1_at[1])
-    dist_base2 = math.hypot(base2[0] - pad1_at[0], base2[1] - pad1_at[1])
-    assert dist_tip < dist_base1
-    assert dist_tip < dist_base2
+    # Pad "1" sits at (0, 0), size (1.6, 1.6). The marker sits directly
+    # above it: same X, offset up past the pad's own top edge (half its
+    # Y size) by a fixed 0.2mm clearance.
+    assert marker.center == pytest.approx((0.0, -1.0))
+    assert marker.radius == pytest.approx(0.3)
 
 
 def test_add_outline_pin1_marker_false_suppresses_marker():
     geometry = _dip16_geometry()
     _add_outline(geometry, pin1_marker=False)
 
-    assert len(geometry.polys) == 0
+    assert len(geometry.circles) == 0
 
 
 def test_add_outline_with_body_size_draws_corner_marks():
@@ -161,15 +151,16 @@ def test_add_outline_with_body_size_keeps_pin1_marker():
     geometry = _qfp32_geometry()
     _add_outline(geometry, body_size=7.22)
 
-    assert len(geometry.polys) == 1
-    marker = geometry.polys[0]
+    assert len(geometry.circles) == 1
+    marker = geometry.circles[0]
     assert marker.layer == "F.SilkS"
     assert marker.fill == "yes"
 
     # Pad "1" (quad_perimeter's left side, first pin) sits at
-    # (-4.175, -2.8), nearest to the (-3.61, -3.61) corner.
-    tip, base1, base2 = marker.points
-    assert tip == pytest.approx((-3.61, -3.61))
+    # (-4.175, -2.8), size (1.5, 0.5) — the marker is independent of
+    # the corner-marks outline entirely now, anchored only to pad 1.
+    assert marker.center == pytest.approx((-4.175, -3.25))
+    assert marker.radius == pytest.approx(0.3)
 
 
 def test_generate_footprint_includes_outline_geometry():
@@ -177,7 +168,7 @@ def test_generate_footprint_includes_outline_geometry():
     assert "(fp_rect" in text
     assert '(layer "F.CrtYd")' in text
     assert "(fp_line" in text
-    assert "(fp_poly" in text
+    assert "(fp_circle" in text
     assert "(fill yes)" in text
     assert '(layer "F.SilkS")' in text
 
@@ -235,17 +226,17 @@ def test_generate_footprint_does_not_leak_body_size_to_generator():
 
 def test_generate_footprint_r0603_has_no_pin1_marker():
     text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
-    assert "fp_poly" not in text
+    assert "fp_circle" not in text
 
 
 def test_generate_footprint_c0603_has_no_pin1_marker():
     text = generate_footprint("C-0603", FAMILY_TREE_PATH, name="C0603_TEST")
-    assert "fp_poly" not in text
+    assert "fp_circle" not in text
 
 
 def test_generate_footprint_dip16_still_has_pin1_marker():
     text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
-    assert "fp_poly" in text
+    assert "fp_circle" in text
 
 
 def test_generate_footprint_does_not_leak_pin1_marker_to_generator():
@@ -271,7 +262,7 @@ def test_add_outline_with_silk_line_params_draws_two_lines():
 
     # No pin-1 marker (pin1_marker=False, matching how R/C actually
     # declare it), and only the courtyard rect — no F.SilkS rectangle.
-    assert len(geometry.polys) == 0
+    assert len(geometry.circles) == 0
     assert len(geometry.rects) == 1
     assert geometry.rects[0].layer == "F.CrtYd"
 
