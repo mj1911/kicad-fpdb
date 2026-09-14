@@ -57,7 +57,7 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 
 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
-                  body_size: float | None = None) -> None:
+                  body_size: float | None = None, pin1_marker: bool = True) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     cy0x, cy0y = min_x - COURTYARD_MARGIN_MM, min_y - COURTYARD_MARGIN_MM
@@ -100,7 +100,7 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
 
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
-    if pad1 is not None:
+    if pin1_marker and pad1 is not None:
         cx, cy = _nearest_corner(pad1.at[0], pad1.at[1], sx0, sy0, sx1, sy1)
 
         # An isoceles triangle whose sharp tip sits at the body corner,

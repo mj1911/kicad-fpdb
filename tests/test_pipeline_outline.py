@@ -103,6 +103,13 @@ def test_add_outline_produces_pin1_marker_triangle():
     assert dist_tip < dist_base2
 
 
+def test_add_outline_pin1_marker_false_suppresses_marker():
+    geometry = _dip16_geometry()
+    _add_outline(geometry, pin1_marker=False)
+
+    assert len(geometry.polys) == 0
+
+
 def test_add_outline_with_body_size_draws_corner_marks():
     geometry = _qfp32_geometry()
     _add_outline(geometry, body_size=7.22)
