@@ -140,11 +140,12 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     params = dict(resolved.params)
     body_width = params.pop("body_width", None)
     body_margin = params.pop("body_margin", None)
+    body_size = params.pop("body_size", None)
 
     generator_fn = GENERATORS[resolved.generator]
     geometry = generator_fn(**params)
     geometry.name = name
-    _add_outline(geometry, body_width=body_width, body_margin=body_margin)
+    _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size)
     _add_reference_and_value_text(geometry, name)
 
     return write_kicad_mod(name, geometry)

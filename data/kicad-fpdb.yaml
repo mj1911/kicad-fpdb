@@ -64,7 +64,7 @@ QFP:
   children:
     QFP-32:
       generator: quad_perimeter
-      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5]}
+      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5], body_size: 7.22}
     QFP-48:
       generator: quad_perimeter
-      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3]}
+      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3], body_size: 7.22}

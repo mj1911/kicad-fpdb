@@ -179,3 +179,26 @@ def test_generate_footprint_does_not_leak_body_params_to_generator():
     # the generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
     assert text  # got here without raising
+
+
+def test_generate_footprint_qfp32_silk_matches_real_corner_marks():
+    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    assert "(start -3.61 -3.61)" in text
+    assert "(end -3.31 -3.61)" in text
+    assert "(end -3.61 -3.31)" in text
+
+
+def test_generate_footprint_qfp48_silk_matches_real_corner_position():
+    text = generate_footprint("QFP-48", FAMILY_TREE_PATH, name="QFP48_TEST")
+    # Same 7x7mm body as QFP-32 (per the spec, both real footprints share
+    # this corner position); leg length is this project's fixed 0.3mm,
+    # not real KiCad's 0.45mm for this specific package.
+    assert "(start -3.61 -3.61)" in text
+    assert "(end -3.31 -3.61)" in text
+
+
+def test_generate_footprint_does_not_leak_body_size_to_generator():
+    # If pipeline.py forgot to pop body_size before calling the generator,
+    # this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    assert text  # got here without raising
