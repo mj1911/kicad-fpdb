@@ -64,6 +64,15 @@ class Circle:
 
 
 @dataclass
+class Arc:
+    start: tuple[float, float]
+    mid: tuple[float, float]
+    end: tuple[float, float]
+    layer: str
+    width: float = 0.12
+
+
+@dataclass
 class FootprintGeometry:
     name: str
     pads: list[Pad] = field(default_factory=list)
@@ -72,6 +81,7 @@ class FootprintGeometry:
     rects: list[Rect] = field(default_factory=list)
     polys: list[Poly] = field(default_factory=list)
     circles: list[Circle] = field(default_factory=list)
+    arcs: list[Arc] = field(default_factory=list)
 
 
 def pad_bounding_box(pads: list[Pad]) -> tuple[float, float, float, float]:

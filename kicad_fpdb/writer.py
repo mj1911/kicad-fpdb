@@ -1,4 +1,4 @@
-from kicad_fpdb.geometry import Circle, FootprintGeometry, Line, Pad, Poly, Rect, Text
+from kicad_fpdb.geometry import Arc, Circle, FootprintGeometry, Line, Pad, Poly, Rect, Text
 
 _PROPERTY_NAMES = {"reference": "Reference", "value": "Value"}
 
@@ -20,6 +20,8 @@ def write_kicad_mod(name: str, geometry: FootprintGeometry) -> str:
         lines.append(_write_poly(poly))
     for circle in geometry.circles:
         lines.append(_write_circle(circle))
+    for arc in geometry.arcs:
+        lines.append(_write_arc(arc))
     for pad in geometry.pads:
         lines.append(_write_pad(pad))
     lines.append(")")
@@ -106,6 +108,24 @@ def _write_circle(circle: Circle) -> str:
         "    )\n"
         f"    (fill {circle.fill})\n"
         f'    (layer "{circle.layer}")\n'
+        "  )"
+    )
+
+
+def _write_arc(arc: Arc) -> str:
+    sx, sy = arc.start
+    mx, my = arc.mid
+    ex, ey = arc.end
+    return (
+        "  (fp_arc\n"
+        f"    (start {_fmt(sx)} {_fmt(sy)})\n"
+        f"    (mid {_fmt(mx)} {_fmt(my)})\n"
+        f"    (end {_fmt(ex)} {_fmt(ey)})\n"
+        "    (stroke\n"
+        f"      (width {_fmt(arc.width)})\n"
+        "      (type solid)\n"
+        "    )\n"
+        f'    (layer "{arc.layer}")\n'
         "  )"
     )
 

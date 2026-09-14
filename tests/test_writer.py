@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from kicad_fpdb.geometry import Circle, FootprintGeometry, Line, Pad, Poly, Rect, Text
+from kicad_fpdb.geometry import Arc, Circle, FootprintGeometry, Line, Pad, Poly, Rect, Text
 from kicad_fpdb.writer import write_kicad_mod
 
 
@@ -91,6 +91,17 @@ def test_write_circle():
     assert '(layer "F.SilkS")' in text
 
 
+def test_write_arc():
+    arc = Arc(start=(4.81, -1.33), mid=(3.81, -0.33), end=(2.81, -1.33), layer="F.SilkS")
+    geom = FootprintGeometry(name="TEST_MIN", arcs=[arc])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert "(fp_arc" in text
+    assert "(start 4.81 -1.33)" in text
+    assert "(mid 3.81 -0.33)" in text
+    assert "(end 2.81 -1.33)" in text
+    assert '(layer "F.SilkS")' in text
+
+
 @pytest.mark.skipif(shutil.which("kicad-cli") is None, reason="kicad-cli not installed")
 def test_generated_file_is_valid_kicad_mod(tmp_path):
     pad1 = Pad(number="1", pad_type="thru_hole", shape="roundrect",
@@ -107,6 +118,7 @@ def test_generated_file_is_valid_kicad_mod(tmp_path):
         rects=[Rect(start=(-1.0, -1.0), end=(2.5, 3.0), layer="F.CrtYd")],
         polys=[Poly(points=[(-0.5, -0.5), (0.0, -0.5), (-0.5, 0.0)], layer="F.SilkS")],
         circles=[Circle(center=(0.0, -1.5), radius=0.3, layer="F.SilkS")],
+        arcs=[Arc(start=(1.0, -0.5), mid=(0.5, -1.0), end=(0.0, -0.5), layer="F.SilkS")],
     )
     text = write_kicad_mod("TEST_MIN", geom)
 
