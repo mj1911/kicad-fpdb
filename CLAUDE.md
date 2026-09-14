@@ -111,14 +111,19 @@ and become available for everyone to automatically update to.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker) geometry (see
   `kicad_fpdb.pipeline._add_outline`). Courtyard is still generic
-  (pad bounding box + margin) for every family. The F.SilkS rectangle
-  is generic for QFP and chip passives (R/C), but for DIP and SOIC it's
-  now derived from real physical body dimensions (`body_width`/
-  `body_margin` in `data/kicad-fpdb.yaml`) instead of the pad bounding
-  box — DIP's body_width is keyed by width class (narrow/regular/wide),
-  matching real KiCad almost exactly (SOIC's margin is an averaged
-  approximation, off by ~0.01-0.02mm from real values — see
-  `docs/superpowers/specs/2026-09-14-real-body-silk-outline-design.md`).
+  (pad bounding box + margin) for every family. The F.SilkS geometry is
+  generic (pad bounding box + margin) only for chip passives (R/C) now.
+  DIP and SOIC draw a real body-derived rectangle (`body_width`/
+  `body_margin` in `data/kicad-fpdb.yaml`) — DIP's body_width is keyed
+  by width class (narrow/regular/wide), matching real KiCad almost
+  exactly (SOIC's margin is an averaged approximation, off by
+  ~0.01-0.02mm — see `docs/superpowers/specs/2026-09-14-real-body-silk-
+  outline-design.md`). QFP draws real corner-mark brackets instead of a
+  rectangle (`body_size` in `data/kicad-fpdb.yaml`, both current
+  variants sharing 7.22mm since both are 7x7mm packages), matching real
+  KiCad's own QFP silk convention except for a fixed 0.3mm bracket leg
+  length shared by all QFP variants (real values vary — see
+  `docs/superpowers/specs/2026-09-14-qfp-corner-mark-silk-design.md`).
   Verified visually via the review tool rather than an automated
   geometry diff, per the spec's stated approach for outline geometry.
 
