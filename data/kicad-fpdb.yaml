@@ -39,13 +39,13 @@ R:
   children:
     R-0402:
       generator: two_pad_chip
-      params: {pad_pitch: 1.02, pad_size: [0.54, 0.64]}
+      params: {pad_pitch: 1.02, pad_size: [0.54, 0.64], silk_y: 0.38, silk_half_length: 0.153641}
     R-0603:
       generator: two_pad_chip
-      params: {pad_pitch: 1.65, pad_size: [0.8, 0.95]}
+      params: {pad_pitch: 1.65, pad_size: [0.8, 0.95], silk_y: 0.5225, silk_half_length: 0.237258}
     R-0805:
       generator: two_pad_chip
-      params: {pad_pitch: 1.825, pad_size: [1.025, 1.4]}
+      params: {pad_pitch: 1.825, pad_size: [1.025, 1.4], silk_y: 0.735, silk_half_length: 0.227064}
 
 # Capacitors can be SMT or TH, this needs consideration.
 # They can also be non-polarized (most) or polarized.
@@ -57,7 +57,7 @@ C:
   children:
     C-0603:
       generator: two_pad_chip
-      params: {pad_pitch: 1.55, pad_size: [0.9, 0.95]}
+      params: {pad_pitch: 1.55, pad_size: [0.9, 0.95], silk_y: 0.51, silk_half_length: 0.14058}
 
 # QFP is enumerated per-variant below rather than formula-driven like DIP/
 # SOIC: quad_perimeter's pad_offset depends on body size, which isn't

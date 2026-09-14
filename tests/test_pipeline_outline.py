@@ -259,3 +259,41 @@ def test_add_outline_with_silk_line_params_draws_two_lines():
     assert len(geometry.polys) == 0
     assert len(geometry.rects) == 1
     assert geometry.rects[0].layer == "F.CrtYd"
+
+
+def test_generate_footprint_r0402_silk_matches_real_lines():
+    text = generate_footprint("R-0402", FAMILY_TREE_PATH, name="R0402_TEST")
+    assert "(start -0.153641 -0.38)" in text
+    assert "(end 0.153641 -0.38)" in text
+    assert "(start -0.153641 0.38)" in text
+    assert "(end 0.153641 0.38)" in text
+
+
+def test_generate_footprint_r0603_silk_matches_real_lines():
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert "(start -0.237258 -0.5225)" in text
+    assert "(end 0.237258 -0.5225)" in text
+
+
+def test_generate_footprint_r0805_silk_matches_real_lines():
+    text = generate_footprint("R-0805", FAMILY_TREE_PATH, name="R0805_TEST")
+    assert "(start -0.227064 -0.735)" in text
+    assert "(end 0.227064 -0.735)" in text
+
+
+def test_generate_footprint_c0603_silk_matches_real_lines():
+    text = generate_footprint("C-0603", FAMILY_TREE_PATH, name="C0603_TEST")
+    assert "(start -0.14058 -0.51)" in text
+    assert "(end 0.14058 -0.51)" in text
+
+
+def test_generate_footprint_r0603_has_only_courtyard_rect():
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert text.count("(fp_rect") == 1
+
+
+def test_generate_footprint_does_not_leak_silk_line_params_to_generator():
+    # If pipeline.py forgot to pop silk_y/silk_half_length before calling
+    # the generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert text  # got here without raising

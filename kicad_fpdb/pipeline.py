@@ -165,12 +165,14 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     body_margin = params.pop("body_margin", None)
     body_size = params.pop("body_size", None)
     pin1_marker = params.pop("pin1_marker", True)
+    silk_y = params.pop("silk_y", None)
+    silk_half_length = params.pop("silk_half_length", None)
 
     generator_fn = GENERATORS[resolved.generator]
     geometry = generator_fn(**params)
     geometry.name = name
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
-                 pin1_marker=pin1_marker)
+                 pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length)
     _add_reference_and_value_text(geometry, name)
 
     return write_kicad_mod(name, geometry)
