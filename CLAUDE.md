@@ -180,6 +180,18 @@ each session, in roughly chronological order:
   fully enumerated leaf in `data/kicad-fpdb.yaml` because `pad_offset`
   can't be derived from `pin_count` alone) — needs a declared body-size
   parameter to derive `pad_offset` from.
+* Match SOIC's real courtyard shape: real SOIC footprints use a stepped
+  multi-segment courtyard (hugging the pad envelope more closely at the
+  ends than in the middle), not a simple rectangle with a bigger margin
+  like DIP's. Parked when DIP's courtyard was tightened (see
+  `docs/superpowers/specs/2026-09-14-dip-courtyard-margin-design.md`).
+* Generalize the pin-1 marker's "above pad 1" direction: every current
+  generator places pin 1 at the top, so the marker just offsets in -Y.
+  Real packages sometimes put pin 1 mid-side rather than at a corner
+  (already handled, since the marker anchors to pad 1 directly — see
+  memory `pin1-position-variation`), but a family with pin 1 on a
+  different edge entirely (not top) would need the offset direction
+  derived rather than assumed.
 * Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
   widths, more chip passive sizes, additional package families (QFN, BGA,
   SOT, etc.) — each needs its own hand-verified real-footprint regression
