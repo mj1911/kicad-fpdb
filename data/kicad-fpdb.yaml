@@ -42,6 +42,9 @@ R:
       params: {pad_pitch: 1.825, pad_size: [1.025, 1.4]}
 
 # Capacitors can be SMT or TH, this needs consideration.
+# They can also be non-polarized (most) or polarized.
+# The vast majority will be two-pin though, so repeating 
+# `generator: two_pad_chip` for each one could be wasteful.
 C:
   children:
     C-0603:

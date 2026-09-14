@@ -1,5 +1,31 @@
 # Changes
 
+2026-09-14 v0.0.6:
+
+* Fixed occluded pad numbers in the review viewer: kicad-cli draws
+  drill-hole circles after pad-number text regardless of `--layers`
+  selection, painting over them (worst on through-hole pads) — a
+  post-processing step now moves pad-number groups to the end of the
+  embedded SVG so they always render on top.
+* Restricted the review viewer's exported layers to
+  `F.Cu,F.SilkS,F.Fab,F.CrtYd` to stop extra mask/paste fill layers
+  from covering pad numbers.
+* Added pad numbers to the review viewer via kicad-cli's
+  `--sketch-pads-on-fab-layers`.
+* Switched the review viewer's page chrome to a dark theme, keeping
+  each footprint's own frame white (the SVG colors are tuned for a
+  light backdrop).
+* Enlarged the review viewer's panel/frame from 420x380px to 500x500px
+  — outline geometry and long reference filenames were clipping several
+  cases.
+* Fixed the pin-1 marker triangle to actually point at pad 1's real
+  position (computed from the corner-to-pad vector) instead of just
+  sitting as a right-angle wedge in the body corner.
+* Replaced the pin-1 marker (previously a subtle line notch) with a
+  small filled silkscreen triangle, matching real KiCad's own
+  convention (confirmed against the SOIC-8 reference file) — much more
+  visually obvious.
+
 2026-09-13 v0.0.5:
 
 * Updated CLAUDE.md's TODO list: removed the now-done outline-geometry

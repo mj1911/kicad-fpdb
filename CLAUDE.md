@@ -62,10 +62,15 @@ and become available for everyone to automatically update to.
 * Visual review tool exists: `python -m kicad_fpdb.visual_compare` renders
   all known reference cases (or an ad-hoc `--descriptor`/`--reference`
   pair) into a local `renders/review.html` page for side-by-side pass/fail
-  review, with both panels at matched true physical scale (20px/mm) and a
-  checkerboard scale reference. Use this instead of ad-hoc SVG exports
-  when eyeballing generator output — regenerate it after any change to
-  `kicad_fpdb/visual_compare.py`.
+  review, with both panels at matched true physical scale (20px/mm) in a
+  500x500px frame with a checkerboard scale reference, pad numbers shown
+  on both panels, and a dark-themed page chrome (the frame itself stays
+  white — the SVG colors assume a light backdrop). Use this instead of
+  ad-hoc SVG exports when eyeballing generator output — regenerate it
+  after any change to `kicad_fpdb/visual_compare.py`.
+* Pin-1 marker: a small filled silkscreen triangle, tip at the body
+  corner nearest pad 1, pointing at pad 1's actual position — matches
+  real KiCad's own convention (see `kicad_fpdb.pipeline._add_outline`).
 * Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
   (the footprint's own name, on `F.Fab`) text properties, placed above/
   below the pad bounding box — matches real KiCad's layer convention.
