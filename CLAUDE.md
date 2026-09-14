@@ -105,6 +105,13 @@ and become available for everyone to automatically update to.
 * Pin-1 marker: a small filled silkscreen triangle, tip at the body
   corner nearest pad 1, pointing at pad 1's actual position — matches
   real KiCad's own convention (see `kicad_fpdb.pipeline._add_outline`).
+  Controlled by a `pin1_marker` param (default true, so DIP/SOIC/QFP
+  need no declaration); `R` and `C` declare it false at their family
+  root in `data/kicad-fpdb.yaml` since resistors are never polarized
+  and capacitors only occasionally are — see
+  `docs/superpowers/specs/2026-09-14-pin1-marker-opt-out-design.md`. A
+  future polarized capacitor variant opts back in with
+  `pin1_marker: true` in its own params.
 * Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
   (the footprint's own name, on `F.Fab`) text properties, placed above/
   below the pad bounding box — matches real KiCad's layer convention.
