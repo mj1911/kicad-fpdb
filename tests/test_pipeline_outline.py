@@ -12,7 +12,10 @@ FAMILY_TREE_PATH = "data/kicad-fpdb.yaml"
 def _dip16_geometry():
     tree = load_family_tree(FAMILY_TREE_PATH)
     resolved = resolve_descriptor(tree, parse_descriptor("DIP-16"))
-    geometry = GENERATORS[resolved.generator](**resolved.params)
+    params = dict(resolved.params)
+    params.pop("body_width", None)
+    params.pop("body_margin", None)
+    geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
 
@@ -98,3 +101,31 @@ def test_generate_footprint_includes_outline_geometry():
     assert "(fp_poly" in text
     assert "(fill yes)" in text
     assert '(layer "F.SilkS")' in text
+
+
+def test_generate_footprint_dip16_narrow_silk_matches_real_body():
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert "(start 1.16 -1.33)" in text
+    assert "(end 6.46 -1.33)" in text
+    assert "(end 6.46 19.11)" in text
+    assert "(end 1.16 19.11)" in text
+
+
+def test_generate_footprint_dip16_regular_silk_matches_real_body():
+    text = generate_footprint("DIP-16 r", FAMILY_TREE_PATH, name="DIP16R_TEST")
+    assert "(start 1.845 -1.33)" in text
+    assert "(end 8.315 -1.33)" in text
+
+
+def test_generate_footprint_soic8_silk_matches_body_formula():
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert "(start -2.06 -2.545)" in text
+    assert "(end 2.06 -2.545)" in text
+    assert "(end 2.06 2.545)" in text
+
+
+def test_generate_footprint_does_not_leak_body_params_to_generator():
+    # If pipeline.py forgot to pop body_width/body_margin before calling
+    # the generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert text  # got here without raising
