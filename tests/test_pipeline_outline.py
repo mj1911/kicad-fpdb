@@ -20,6 +20,16 @@ def _dip16_geometry():
     return geometry
 
 
+def _qfp32_geometry():
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    resolved = resolve_descriptor(tree, parse_descriptor("QFP-32"))
+    params = dict(resolved.params)
+    params.pop("body_size", None)
+    geometry = GENERATORS[resolved.generator](**params)
+    geometry.name = "QFP32_TEST"
+    return geometry
+
+
 def test_add_outline_produces_courtyard_rect():
     geometry = _dip16_geometry()
     _add_outline(geometry)
@@ -91,6 +101,46 @@ def test_add_outline_produces_pin1_marker_triangle():
     dist_base2 = math.hypot(base2[0] - pad1_at[0], base2[1] - pad1_at[1])
     assert dist_tip < dist_base1
     assert dist_tip < dist_base2
+
+
+def test_add_outline_with_body_size_draws_corner_marks():
+    geometry = _qfp32_geometry()
+    _add_outline(geometry, body_size=7.22)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    # 4 corners x 2 legs each = 8 short lines, no full-perimeter rectangle.
+    assert len(silk_lines) == 8
+
+    # Real LQFP-32_7x7mm_P0.8mm.kicad_mod corner marks are at (±3.61, ±3.61)
+    # with 0.3mm legs — this project uses a fixed 0.3mm leg for all QFP.
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in silk_lines for pt in (line.start, line.end)}
+    assert (-3.61, -3.61) in endpoints
+    assert (-3.31, -3.61) in endpoints
+    assert (-3.61, -3.31) in endpoints
+    assert (3.61, -3.61) in endpoints
+    assert (3.31, -3.61) in endpoints
+    assert (3.61, -3.31) in endpoints
+    assert (3.61, 3.61) in endpoints
+    assert (3.31, 3.61) in endpoints
+    assert (3.61, 3.31) in endpoints
+    assert (-3.61, 3.61) in endpoints
+    assert (-3.31, 3.61) in endpoints
+    assert (-3.61, 3.31) in endpoints
+
+
+def test_add_outline_with_body_size_keeps_pin1_marker():
+    geometry = _qfp32_geometry()
+    _add_outline(geometry, body_size=7.22)
+
+    assert len(geometry.polys) == 1
+    marker = geometry.polys[0]
+    assert marker.layer == "F.SilkS"
+    assert marker.fill == "yes"
+
+    # Pad "1" (quad_perimeter's left side, first pin) sits at
+    # (-4.175, -2.8), nearest to the (-3.61, -3.61) corner.
+    tip, base1, base2 = marker.points
+    assert tip == pytest.approx((-3.61, -3.61))
 
 
 def test_generate_footprint_includes_outline_geometry():

@@ -28,6 +28,12 @@ COURTYARD_MARGIN_MM = 0.5
 # convention of a small solid silkscreen triangle pointing at pin 1
 # (much more visible than a thin outline notch).
 PIN1_MARKER_MM = 0.6
+# Length, in mm, of each leg of a QFP-style corner-mark bracket. Real
+# KiCad varies this per package (0.3mm for LQFP-32, 0.45mm for LQFP-48);
+# this project uses one fixed value for all QFP variants, consistent
+# with the "symbolic, not exact" approach documented in
+# docs/superpowers/specs/2026-09-14-qfp-corner-mark-silk-design.md.
+CORNER_MARK_MM = 0.3
 
 
 def _nearest_corner(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> tuple[float, float]:
@@ -41,7 +47,17 @@ def _pad_center_extent(pads, axis: int) -> tuple[float, float]:
     return min(values), max(values)
 
 
-def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None) -> None:
+def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) -> None:
+    corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
+    for cx, cy in corners:
+        x_dir = 1.0 if cx == sx0 else -1.0
+        y_dir = 1.0 if cy == sy0 else -1.0
+        geometry.lines.append(Line(start=(cx, cy), end=(cx + x_dir * CORNER_MARK_MM, cy), layer="F.SilkS"))
+        geometry.lines.append(Line(start=(cx, cy), end=(cx, cy + y_dir * CORNER_MARK_MM), layer="F.SilkS"))
+
+
+def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
+                  body_size: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     cy0x, cy0y = min_x - COURTYARD_MARGIN_MM, min_y - COURTYARD_MARGIN_MM
@@ -59,14 +75,29 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         center_x = (min_px + max_px) / 2
         sx0, sx1 = center_x - body_width / 2, center_x + body_width / 2
         sy0, sy1 = min_py - body_margin, max_py + body_margin
+        corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
+        for i in range(4):
+            start, end = corners[i], corners[(i + 1) % 4]
+            geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
+    elif body_size is not None:
+        # Real square body size (a physical constant, independent of pad
+        # position), centered on the pad centroid. See docs/superpowers/
+        # specs/2026-09-14-qfp-corner-mark-silk-design.md.
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        center_x = (min_px + max_px) / 2
+        center_y = (min_py + max_py) / 2
+        half = body_size / 2
+        sx0, sx1 = center_x - half, center_x + half
+        sy0, sy1 = center_y - half, center_y + half
+        _add_corner_marks(geometry, sx0, sy0, sx1, sy1)
     else:
         sx0, sy0 = min_x - SILK_MARGIN_MM, min_y - SILK_MARGIN_MM
         sx1, sy1 = max_x + SILK_MARGIN_MM, max_y + SILK_MARGIN_MM
-
-    corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
-    for i in range(4):
-        start, end = corners[i], corners[(i + 1) % 4]
-        geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
+        corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
+        for i in range(4):
+            start, end = corners[i], corners[(i + 1) % 4]
+            geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
 
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pad1 is not None:
