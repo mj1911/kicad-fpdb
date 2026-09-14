@@ -16,6 +16,8 @@ def _dip16_geometry():
     params = dict(resolved.params)
     params.pop("body_width", None)
     params.pop("body_margin", None)
+    params.pop("courtyard_margin_x", None)
+    params.pop("courtyard_margin_y", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
@@ -309,4 +311,26 @@ def test_generate_footprint_does_not_leak_silk_line_params_to_generator():
     # If pipeline.py forgot to pop silk_y/silk_half_length before calling
     # the generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert text  # got here without raising
+
+
+def test_generate_footprint_dip16_courtyard_matches_real_kicad():
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert "(start -1.05 -1.52)" in text
+    assert "(end 8.67 19.3)" in text
+
+
+def test_generate_footprint_soic8_courtyard_still_uses_flat_margin():
+    # SOIC doesn't declare courtyard_margin_x/y, so it must keep today's
+    # flat 0.5mm margin — this is the regression guard that a change
+    # scoped to DIP doesn't leak into other families.
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert "(start -3.95 -2.705)" in text
+    assert "(end 3.95 2.705)" in text
+
+
+def test_generate_footprint_does_not_leak_courtyard_margins_to_generator():
+    # If pipeline.py forgot to pop courtyard_margin_x/y before calling
+    # the generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
     assert text  # got here without raising

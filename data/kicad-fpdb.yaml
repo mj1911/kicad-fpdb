@@ -13,6 +13,8 @@ DIP:
     row_spacing: {narrow: 7.62, regular: 10.16, wide: 15.24}
     body_width: {narrow: 5.3, regular: 6.47, wide: 12.92}
     body_margin: 1.33
+    courtyard_margin_x: 0.25
+    courtyard_margin_y: 0.72
     pad_size: [1.6, 1.6]
     pad_shape: dip_pin1_marker
     pad_type: thru_hole
