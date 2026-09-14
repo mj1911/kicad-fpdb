@@ -14,12 +14,35 @@ pytestmark = pytest.mark.skipif(
 def test_raise_pad_numbers_on_top_moves_stroked_text_after_later_content():
     svg = (
         '<svg>'
+        '<g style="fill:none; stroke:#AFAFAF;">'
+        '<text x="0" y="0" opacity="0">1</text>'
         '<g class="stroked-text"><desc>1</desc><path d="M0 0" /></g>'
+        '</g>'
         '<circle cx="1" cy="1" r="1" />'
         '</svg>'
     )
     result = _raise_pad_numbers_on_top(svg)
     assert result.index('<g class="stroked-text">') > result.index("<circle")
+
+
+def test_raise_pad_numbers_on_top_preserves_stroke_color():
+    # A stroked-text group carries no color of its own — it inherits from
+    # the enclosing <g style="..."> — so moving the group must carry that
+    # wrapper along too, or the glyphs fall back to the SVG default of
+    # stroke:none and become invisible.
+    svg = (
+        '<svg>'
+        '<g style="fill:none; stroke:#AFAFAF;">'
+        '<text x="0" y="0" opacity="0">1</text>'
+        '<g class="stroked-text"><desc>1</desc><path d="M0 0" /></g>'
+        '</g>'
+        '<circle cx="1" cy="1" r="1" />'
+        '</svg>'
+    )
+    result = _raise_pad_numbers_on_top(svg)
+    moved = result[result.index("<circle") :]
+    assert "stroke:#AFAFAF" in moved
+    assert moved.index("stroke:#AFAFAF") < moved.index('<g class="stroked-text">')
 
 
 def test_raise_pad_numbers_on_top_is_a_noop_without_stroked_text():

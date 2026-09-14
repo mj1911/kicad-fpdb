@@ -50,6 +50,16 @@ and become available for everyone to automatically update to.
   `/usr/share/kicad*/footprints/*.pretty`. On a new machine:
   * Run `pip install -e ".[dev]"` again — the editable install isn't part
     of the repo and won't follow the folder.
+  * If the repo lives on a FAT32/exFAT drive (e.g. a flash drive), don't
+    put the venv inside the repo — FAT has no symlinks and no exec
+    permission bits, so `virtualenv`/`venv` creation fails there with a
+    `PermissionError` on the python symlink. Create the venv elsewhere
+    (e.g. `~/.venvs/kicad-fpdb`) and `pip install -e` the project from
+    its path on the drive instead; this has no effect on the repo itself.
+  * If the system Python has no `pip` module (e.g. Arch/Manjaro's
+    externally-managed Python), use `virtualenv -p python3 <path>` to
+    create a venv (it bundles its own pip), then use that venv's
+    `bin/pip` / `bin/python` for everything above.
   * If KiCad isn't installed at the same path (different OS, different
     KiCad version, or not installed at all), every test that depends on
     it — the pipeline regression suite, the kicad-cli round-trip test in
@@ -85,10 +95,13 @@ and become available for everyone to automatically update to.
   pair) into a local `renders/review.html` page for side-by-side pass/fail
   review, with both panels at matched true physical scale (20px/mm) in a
   500x500px frame with a checkerboard scale reference, pad numbers shown
-  on both panels, and a dark-themed page chrome (the frame itself stays
-  white — the SVG colors assume a light backdrop). Use this instead of
-  ad-hoc SVG exports when eyeballing generator output — regenerate it
-  after any change to `kicad_fpdb/visual_compare.py`.
+  on both panels, and a dark-themed page chrome (the frame background is
+  black with a grey checkerboard — note that real KiCad's SVG export
+  draws silkscreen/outline strokes in black, so those are only visible
+  against a light backdrop; on this dark frame only the copper pads
+  reliably show up). Use this instead of ad-hoc SVG exports when
+  eyeballing generator output — regenerate it after any change to
+  `kicad_fpdb/visual_compare.py`.
 * Pin-1 marker: a small filled silkscreen triangle, tip at the body
   corner nearest pad 1, pointing at pad 1's actual position — matches
   real KiCad's own convention (see `kicad_fpdb.pipeline._add_outline`).

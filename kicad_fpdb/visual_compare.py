@@ -40,8 +40,16 @@ _SVG_ROOT_SIZE = re.compile(r'width="([\d.]+)mm" height="([\d.]+)mm"')
 # the SVG, then draws drill-hole circles for through-hole pads afterward —
 # opaque and centered on the same point, so they paint over the number
 # regardless of which --layers are requested. Moving these groups to the
-# very end of the document keeps them on top of everything else.
-_STROKED_TEXT = re.compile(r'<g class="stroked-text">.*?</g>', re.DOTALL)
+# very end of the document keeps them on top of everything else. Each
+# stroked-text group carries no color/width of its own — it inherits from
+# the enclosing <g style="..."> that also holds its (invisible, for
+# selection only) plain <text> sibling — so the whole styled wrapper must
+# move together, or the moved glyphs fall back to the SVG-default
+# stroke:none and vanish entirely.
+_STROKED_TEXT = re.compile(
+    r'<g style="[^"]*">\s*<text\b.*?</text>\s*<g class="stroked-text">.*?</g>\s*</g>',
+    re.DOTALL,
+)
 
 from kicad_fpdb.pipeline import generate_footprint
 from kicad_fpdb.reference_cases import CASES, FAMILY_TREE_PATH, KICAD_FOOTPRINTS
@@ -192,12 +200,12 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   .frame {{
     height: 500px; overflow: auto;
     display: flex; align-items: center; justify-content: center;
-    background-color: #fff;
+    background-color: #000;
     background-image:
-      linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
-      linear-gradient(-45deg, rgba(0,0,0,0.06) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.06) 75%),
-      linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.06) 75%);
+      linear-gradient(45deg, rgba(255,255,255,0.12) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(255,255,255,0.12) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.12) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.12) 75%);
     background-size: {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
     background-position: 0 0, 0 {CHECKER_PX:g}px, {CHECKER_PX:g}px -{CHECKER_PX:g}px, -{CHECKER_PX:g}px 0;
   }}
