@@ -748,10 +748,28 @@ def test_generate_footprint_sot23_8_matches_real_silk_and_courtyard():
     assert "(start -2.05 -1.475)" in text
 
 
-def test_generate_footprint_sot23_still_has_pin1_marker():
-    # SOT-23 has no pad shape of its own indicating pin 1 -- keeps this
-    # project's own circle marker, like SOIC/QFP.
+def test_generate_footprint_sot23_has_no_pin1_marker():
+    # SOT-23's asymmetric 2+1 pin layout is only physically placeable one
+    # way -- a separate pin-1 indicator is redundant.
     text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
+    assert "fp_circle" not in text
+
+
+def test_generate_footprint_sot23_5_has_no_pin1_marker():
+    # Same reasoning: SOT-23-5's asymmetric 3+2 layout is unambiguous.
+    text = generate_footprint("SOT-23-5", FAMILY_TREE_PATH, name="SOT235_TEST")
+    assert "fp_circle" not in text
+
+
+def test_generate_footprint_sot23_6_still_has_pin1_marker():
+    # SOT-23-6 (3+3) and SOT-23-8 (4+4) are symmetric -- rotating the
+    # part 180 degrees still fits, so they keep the marker.
+    text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
+    assert "fp_circle" in text
+
+
+def test_generate_footprint_sot23_8_still_has_pin1_marker():
+    text = generate_footprint("SOT-23-8", FAMILY_TREE_PATH, name="SOT238_TEST")
     assert "fp_circle" in text
 
 
