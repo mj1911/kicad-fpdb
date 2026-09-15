@@ -200,16 +200,28 @@ and become available for everyone to automatically update to.
   point the marker needs). Verified visually via the review tool rather
   than an automated geometry diff, per the spec's stated approach for
   outline geometry.
+* `roundrect_rratio` (the roundrect corner ratio) is now computed by one
+  shared `kicad_fpdb.geometry.clamped_roundrect_rratio` for every
+  generator: nominally 0.25, clamped so the corner radius never exceeds
+  an absolute 0.25mm — matches real KiCad, only visibly different from a
+  flat 0.25 once a pad's min dimension exceeds ~1mm (surfaced by
+  R-1206's 1.125mm pad). Previously a DIP-only special case; now the one
+  formula everywhere.
+* Chip passives small enough that real KiCad draws no F.SilkS outline at
+  all (0201 and below) declare `no_silk: true` in `data/kicad-fpdb.yaml`
+  (R-0201 is the first) — `_add_outline` skips the whole silk branch,
+  courtyard is unaffected.
+* `data/kicad-fpdb.yaml` coverage widened: DIP's wide (15.24mm) width
+  class now has a verified regression case (DIP-24 w) alongside
+  narrow/regular; SOIC-16 is a third verified pin count; R-0201, R-1206,
+  C-0402, and C-0805 add four new chip-passive sizes. 18 reference cases
+  total, up from 12.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Fix `roundrect_rratio` for larger SMD pads (e.g. 0805): generators
-  currently use a flat 0.25 ratio, but real KiCad clamps to an absolute
-  0.25mm max corner radius — only visibly wrong once a pad's min dimension
-  exceeds ~1mm. Known, parked issue from the final review.
 * Make QFP a formula family like DIP/SOIC (currently each QFP variant is a
   fully enumerated leaf in `data/kicad-fpdb.yaml` because `pad_offset`
   can't be derived from `pin_count` alone) — needs a declared body-size

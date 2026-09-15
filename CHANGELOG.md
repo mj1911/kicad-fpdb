@@ -2,6 +2,17 @@
 
 2026-09-15 v0.0.9:
 
+* Widened `data/kicad-fpdb.yaml` coverage with 6 new hand-verified
+  variants: DIP-24 w (first verified case for DIP's wide width class),
+  SOIC-16 (third verified pin count), and four new chip-passive sizes
+  (R-0201, R-1206, C-0402, C-0805) — 18 reference cases total, up from
+  12.
+* Added a `no_silk` outline option for chip passives too small for a
+  real silk outline at all (R-0201 is the first to use it).
+* Fixed `roundrect_rratio` to clamp to an absolute 0.25mm max corner
+  radius (matching real KiCad) instead of a flat 0.25 ratio for every
+  generator — closes a previously parked TODO item, surfaced concretely
+  by R-1206's 1.125mm pad.
 * Review viewer panel titles now show which case is on screen
   ("Generator: DIP-16" / "Reference: Package_DIP.pretty/
   DIP-16_W7.62mm.kicad_mod"), and dropped the now-redundant
