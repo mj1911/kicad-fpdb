@@ -31,6 +31,10 @@ SOIC:
     row_spacing: 4.95
     body_width: 4.12
     body_margin: 0.64
+    courtyard_margin_x: 0.25
+    courtyard_margin_y: 0.25
+    courtyard_body_width: 3.9
+    courtyard_body_margin: 0.545
     pad_size: [1.95, 0.6]
     pad_shape: roundrect
     pad_type: smd
@@ -75,7 +79,7 @@ QFP:
   children:
     QFP-32:
       generator: quad_perimeter
-      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5], body_size: 7.22}
+      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5], body_size: 7.22, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, courtyard_body_size: 7.0}
     QFP-48:
       generator: quad_perimeter
-      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3], body_size: 7.22}
+      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3], body_size: 7.22, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, courtyard_body_size: 7.0}

@@ -29,6 +29,9 @@ def _qfp32_geometry():
     resolved = resolve_descriptor(tree, parse_descriptor("QFP-32"))
     params = dict(resolved.params)
     params.pop("body_size", None)
+    params.pop("courtyard_margin_x", None)
+    params.pop("courtyard_margin_y", None)
+    params.pop("courtyard_body_size", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "QFP32_TEST"
     return geometry
@@ -40,6 +43,10 @@ def _soic8_geometry():
     params = dict(resolved.params)
     params.pop("body_width", None)
     params.pop("body_margin", None)
+    params.pop("courtyard_margin_x", None)
+    params.pop("courtyard_margin_y", None)
+    params.pop("courtyard_body_width", None)
+    params.pop("courtyard_body_margin", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "SOIC8_TEST"
     return geometry
@@ -414,20 +421,54 @@ def test_generate_footprint_dip16_courtyard_matches_real_kicad():
     assert "(end 8.67 19.3)" in text
 
 
-def test_generate_footprint_soic8_courtyard_still_uses_flat_margin():
-    # SOIC doesn't declare courtyard_margin_x/y, so it must keep today's
-    # flat 0.5mm margin — this is the regression guard that a change
-    # scoped to DIP doesn't leak into other families.
-    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
-    assert "(start -3.95 -2.705)" in text
-    assert "(end 3.95 2.705)" in text
-
-
 def test_generate_footprint_does_not_leak_courtyard_margins_to_generator():
     # If pipeline.py forgot to pop courtyard_margin_x/y before calling
     # the generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
     assert text  # got here without raising
+
+
+def test_generate_footprint_soic8_courtyard_matches_stepped_shape():
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert text.count("(fp_rect") == 0
+    assert '(layer "F.CrtYd")' in text
+    assert "(start -2.2 -2.7)" in text
+    assert "(start -3.7 -2.455)" in text
+    assert "(end 3.7 2.455)" in text
+
+
+def test_generate_footprint_soic14_courtyard_matches_stepped_shape():
+    text = generate_footprint("SOIC-14", FAMILY_TREE_PATH, name="SOIC14_TEST")
+    assert text.count("(fp_rect") == 0
+    assert "(start -2.2 -4.605)" in text
+    assert "(start -3.7 -4.36)" in text
+    assert "(end 3.7 4.36)" in text
+
+
+def test_generate_footprint_qfp32_courtyard_matches_stepped_shape():
+    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    assert text.count("(fp_rect") == 0
+    assert "(start -3.75 -3.75)" in text
+    assert "(start -5.175 -3.3)" in text
+    assert "(end 5.175 3.3)" in text
+
+
+def test_generate_footprint_qfp48_courtyard_matches_stepped_shape():
+    text = generate_footprint("QFP-48", FAMILY_TREE_PATH, name="QFP48_TEST")
+    assert text.count("(fp_rect") == 0
+    assert "(start -3.75 -3.75)" in text
+    assert "(start -5.15 -3.15)" in text
+    assert "(end 5.15 3.15)" in text
+
+
+def test_generate_footprint_does_not_leak_courtyard_body_params_to_generator():
+    # If pipeline.py forgot to pop courtyard_body_width/_margin/_size
+    # before calling the generator, this raises
+    # TypeError("unexpected keyword argument").
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert text
+    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    assert text
 
 
 def test_generate_footprint_dip16_has_top_notch():
