@@ -40,7 +40,21 @@ DOT_GRID_MM = 0.1 * 25.4
 DOT_GRID_PX = PX_PER_MM * DOT_GRID_MM
 
 _SVG_ROOT_SIZE = re.compile(r'width="([\d.]+)mm" height="([\d.]+)mm"')
+_SVG_ROOT_VIEWBOX = re.compile(
+    r'width="([\d.]+)mm" height="([\d.]+)mm" viewBox="([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+)"'
+)
 _SVG_PX_SIZE = re.compile(r'width="([\d.]+)" height="([\d.]+)"')
+
+# kicad-cli's exported viewBox exactly wraps each footprint's path
+# *centerlines*, with no allowance for stroke width. A hairline courtyard
+# line sitting exactly on that boundary (common now that a stepped
+# courtyard's own arm is often the single widest feature) has its outer
+# half fall outside the viewBox and get clipped by the SVG viewport's
+# default overflow:hidden — invisible at the ~1px stroke width this tool
+# renders at. Padding only the far (width/height) edge, not the origin,
+# fixes this without disturbing _pad1_frame_position_px's assumption that
+# every viewBox origin is exactly 0,0.
+SVG_VIEWBOX_PAD_MM = 0.1
 
 # kicad-cli's default theme fills F.Cu copper (pads) with this exact color —
 # verified across every reference/generated SVG this tool produces. Pads are
@@ -152,6 +166,23 @@ def render_all_known_cases(
     return cases
 
 
+def _pad_svg_viewbox(svg_markup: str, pad_mm: float = SVG_VIEWBOX_PAD_MM) -> str:
+    """Extends the root <svg>'s width/height and viewBox by pad_mm on the
+    far edge only (the viewBox origin, always 0,0 in kicad-cli's output,
+    is left untouched) so a hairline stroke sitting exactly on kicad-cli's
+    tight bounding box isn't clipped by the SVG viewport. See
+    SVG_VIEWBOX_PAD_MM."""
+
+    def repl(match: re.Match) -> str:
+        w, h, vx, vy, vw, vh = (float(g) for g in match.groups())
+        return (
+            f'width="{w + pad_mm:.6f}mm" height="{h + pad_mm:.6f}mm" '
+            f'viewBox="{vx:.6f} {vy:.6f} {vw + pad_mm:.6f} {vh + pad_mm:.6f}"'
+        )
+
+    return _SVG_ROOT_VIEWBOX.sub(repl, svg_markup, count=1)
+
+
 def _scale_svg_to_px(svg_markup: str, px_per_mm: float = PX_PER_MM) -> str:
     """Rewrites the root <svg> element's mm-suffixed width/height (as
     emitted by kicad-cli) to plain px values at px_per_mm, leaving the
@@ -178,7 +209,8 @@ def _inline_svg(svg_path: Path) -> str:
     text = svg_path.read_text()
     start = text.index("<svg")
     end = text.rindex("</svg>") + len("</svg>")
-    markup = _scale_svg_to_px(text[start:end])
+    markup = _pad_svg_viewbox(text[start:end])
+    markup = _scale_svg_to_px(markup)
     return _raise_pad_numbers_on_top(markup)
 
 
