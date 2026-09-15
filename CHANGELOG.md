@@ -2,6 +2,9 @@
 
 2026-09-15 v0.0.9:
 
+* Rotated DIP and SOIC's F.Fab `${REFERENCE}` text 90 degrees to match
+  the library — it reads along their tall/narrow body's long axis;
+  QFP and chip passives stay unrotated like real KiCad.
 * Added `fp_text user "${REFERENCE}"` on `F.Fab` — a separate
   assembly-drawing overlay real KiCad carries on every footprint,
   distinct from the Reference/Value properties. Chip passives get a

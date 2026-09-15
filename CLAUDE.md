@@ -183,7 +183,11 @@ and become available for everyone to automatically update to.
   `data/kicad-fpdb.yaml` (hand-copied from real values, same
   no-shared-formula convention as `silk_y`/`silk_half_length`) — the
   default 1mm font badly overflowed their tiny courtyard, confirmed
-  visually on R-0603 and R-1206 before adding the override.
+  visually on R-0603 and R-1206 before adding the override. Also
+  rotated 90 degrees for DIP and SOIC (`fab_reference_rotation: 90` at
+  each family's root) so it reads along their tall/narrow body's long
+  axis, matching real KiCad exactly; QFP and chip passives stay
+  unrotated like real KiCad.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
