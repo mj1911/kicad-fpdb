@@ -15,6 +15,15 @@
   viewport while scrolling instead of moving with the footprint
   (`background-attachment: local` instead of the CSS default
   `scroll`).
+* Fixed each panel's grid drifting ~0.21mm off its own pad 1 on
+  DIP-18/DIP-24 w: it shared one anchor derived only from the
+  reference svg, but `kicad-cli` assigns each exported svg its own
+  coordinate origin from that file's own bounding box, and the
+  generated file's pin-1 marker circle (a feature the reference
+  doesn't have) shifts it relative to the reference. Each panel is
+  now anchored to its own pad 1 independently. Purely a viewer
+  artifact — the actual generated pad positions already match the
+  real library exactly (0.0mm delta, verified separately).
 * Widened `data/kicad-fpdb.yaml` coverage with 6 new hand-verified
   variants: DIP-24 w (first verified case for DIP's wide width class),
   SOIC-16 (third verified pin count), and four new chip-passive sizes

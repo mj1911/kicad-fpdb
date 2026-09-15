@@ -123,6 +123,16 @@ and become available for everyone to automatically update to.
   `background-attachment` is `local`, not the CSS default `scroll`, so
   it scrolls together with the svg content instead of staying fixed to
   the frame's own viewport while the footprint scrolls underneath it.
+  Each panel's grid is anchored to that panel's *own* pad 1
+  (`_pad1_frame_position_px` called separately on the generated and
+  reference markup), not a single anchor shared from the reference —
+  `kicad-cli` assigns each exported svg its own viewBox origin from
+  that file's own bounding box, and the generated file has a feature
+  the reference doesn't (the pin-1 marker circle) that can shift it;
+  sharing one anchor drifted the generated panel's grid ~0.21mm off
+  its own pad 1 on DIP-18/DIP-24 w. This is purely a viewer artifact —
+  the actual generated pad positions already match the real library
+  exactly (0.0mm delta, per `tests/test_pipeline_regression.py`).
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a
