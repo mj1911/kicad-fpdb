@@ -119,7 +119,10 @@ and become available for everyone to automatically update to.
   edge) — axes that fit stay centered as before. `_pad1_frame_position_px`
   (the dot-grid/checkerboard anchor) applies this same per-axis
   centered-vs-flex-start condition, or the grid drifts off pin 1 on
-  exactly the panels the overflow fix touches.
+  exactly the panels the overflow fix touches. The grid's
+  `background-attachment` is `local`, not the CSS default `scroll`, so
+  it scrolls together with the svg content instead of staying fixed to
+  the frame's own viewport while the footprint scrolls underneath it.
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a

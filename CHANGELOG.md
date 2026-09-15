@@ -11,6 +11,10 @@
 * Fixed the dot-grid/checkerboard drifting off pin 1 on exactly those
   overflow-fixed panels — the anchor math still assumed the svg was
   always centered.
+* Fixed the dot-grid/checkerboard staying fixed to the frame's
+  viewport while scrolling instead of moving with the footprint
+  (`background-attachment: local` instead of the CSS default
+  `scroll`).
 * Widened `data/kicad-fpdb.yaml` coverage with 6 new hand-verified
   variants: DIP-24 w (first verified case for DIP's wide width class),
   SOIC-16 (third verified pin count), and four new chip-passive sizes
