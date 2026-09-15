@@ -222,6 +222,27 @@ and become available for everyone to automatically update to.
   chain-merge grouping point) for the `row_spacing`/
   `courtyard_body_size`/`fab_chamfer` those three additionally share.
   QFP's own root got the same treatment for QFP-32/48's shared params.
+* First through-hole family: `R-AXIAL0204`/`0207`/`0309`/`0414` (axial
+  DIN/JEDEC body sizes), grouped under a new `R-AXIAL` intermediate
+  node (shared thru-hole/lead/courtyard params) so it doesn't affect
+  the existing SMD `R-*` chip variants. `two_pad_chip` gained
+  `pad_type`/`drill`/`centered` (axial pads sit at `(0,0)`/`(pitch,0)`,
+  not symmetric about `x=0` like SMD chip passives) rather than
+  needing a whole new generator. Silk/F.Fab bodies reuse the existing
+  `body_width`/`body_margin` and `fab_body_size` mechanisms unchanged
+  (a single-row 2-pad layout collapses `_pad_center_extent`'s Y range
+  to a point, so `body_margin` becomes a flat half-height "for free");
+  new `silk_leads`/`fab_leads` flags additionally draw two short lead
+  lines from each pad to the body edge (silk starts at pad edge + a
+  fixed 0.24mm clearance verified constant across all 4 body sizes;
+  F.Fab starts exactly at the pad center). Courtyard is a genuinely
+  new, simpler shape than SOIC/QFP/SOT's stepped union — `courtyard_
+  includes_body` just combines the raw pad bbox and true F.Fab body
+  bbox before one flat margin, since that happens to always produce a
+  plain rectangle for axial resistors (pad bbox dominates in X, body
+  dominates in Y). All match the real reference footprints exactly,
+  not just the usual ~0.005mm tolerance. See
+  `docs/superpowers/specs/2026-09-15-tht-axial-resistor-design.md`.
 * Generated footprints also draw the true physical body on `F.Fab`
   (`kicad_fpdb.pipeline._add_outline`, near the pin-1 marker block),
   chamfered at pin 1's corner for polarized families — an

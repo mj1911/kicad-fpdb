@@ -2,6 +2,13 @@
 
 2026-09-15 v0.0.9:
 
+* Added the first through-hole family: `R-AXIAL0204`/`0207`/`0309`/
+  `0414` axial resistors. `two_pad_chip` extended with `pad_type`/
+  `drill`/`centered` instead of a new generator; new `silk_leads`/
+  `fab_leads`/`courtyard_includes_body` capabilities for the lead
+  lines and a new (simpler, non-stepped) courtyard shape. Matches the
+  real reference footprints exactly. See
+  `docs/superpowers/specs/2026-09-15-tht-axial-resistor-design.md`.
 * Deduped `data/kicad-fpdb.yaml`: hoisted QFP-32/QFP-48's shared
   params to QFP's root, and SOT-23's 4-variant-shared params to SOT's
   root, with a new intermediate node grouping SOT-23-5/6/8's
