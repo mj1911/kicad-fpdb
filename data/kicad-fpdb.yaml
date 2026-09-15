@@ -2,7 +2,6 @@
 # vendor-specific, and we will end up with some families only matching one 
 # vendor, which is fine.  We may also find that two vendor's footprints can be
 # very similar - in that case, we should consider merging them.
-
 DIP:
   generator: dual_row_grid
   variant_param: pin_count
@@ -23,6 +22,7 @@ DIP:
     centered: false
 
 # SOIC is expected to also have narrow and wide variants.
+# There are even a few odd ones, with 7 or 12 pins - different generator.
 SOIC:
   generator: dual_row_grid
   variant_param: pin_count
@@ -70,6 +70,7 @@ C:
 # derivable from pin_count alone with the parameters this family currently
 # declares. Follow-up work could add a declared body-size parameter and
 # derive pad_offset from it to make QFP formula-driven like the others.
+# Like resistors, it is likely that all QFP's will use 'quad_perimeter'.'
 QFP:
   children:
     QFP-32:
