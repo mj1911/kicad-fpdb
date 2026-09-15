@@ -268,7 +268,8 @@ def _outline_bounding_box(geometry) -> tuple[float, float, float, float]:
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def _add_reference_and_value_text(geometry, name: str) -> None:
+def _add_reference_and_value_text(geometry, name: str, fab_reference_font_size: float | None = None,
+                                   fab_reference_thickness: float | None = None) -> None:
     min_x, min_y, max_x, max_y = _outline_bounding_box(geometry)
     center_x = _snap_to_grid((min_x + max_x) / 2)
     geometry.texts.append(
@@ -276,6 +277,23 @@ def _add_reference_and_value_text(geometry, name: str) -> None:
     )
     geometry.texts.append(
         Text(kind="value", text=name, at=(center_x, _snap_outward(max_y + TEXT_MARGIN_MM, 1)), layer="F.Fab")
+    )
+    # Real KiCad also carries a separate fp_text user "${REFERENCE}" on
+    # F.Fab, centered on the footprint's true midpoint (not grid-snapped
+    # like Reference/Value above -- real KiCad doesn't snap this either)
+    # -- an assembly-drawing overlay that resolves to whatever reference
+    # designator gets assigned (e.g. "U1"). Font size defaults to the
+    # same 1mm/0.15 used everywhere else; chip passives override it
+    # (real KiCad scales it down per package size -- the default badly
+    # overflows their tiny courtyard).
+    true_center = ((min_x + max_x) / 2, (min_y + max_y) / 2)
+    fab_reference_kwargs = {}
+    if fab_reference_font_size is not None:
+        fab_reference_kwargs["font_size"] = fab_reference_font_size
+    if fab_reference_thickness is not None:
+        fab_reference_kwargs["thickness"] = fab_reference_thickness
+    geometry.texts.append(
+        Text(kind="fab_reference", text="${REFERENCE}", at=true_center, layer="F.Fab", **fab_reference_kwargs)
     )
 
 
@@ -299,6 +317,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     courtyard_body_margin = params.pop("courtyard_body_margin", None)
     courtyard_body_size = params.pop("courtyard_body_size", None)
     notch_radius = params.pop("notch_radius", None)
+    fab_reference_font_size = params.pop("fab_reference_font_size", None)
+    fab_reference_thickness = params.pop("fab_reference_thickness", None)
 
     generator_fn = GENERATORS[resolved.generator]
     geometry = generator_fn(**params)
@@ -310,6 +330,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
                  courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
                  courtyard_body_size=courtyard_body_size,
                  notch_radius=notch_radius)
-    _add_reference_and_value_text(geometry, name)
+    _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
+                                   fab_reference_thickness=fab_reference_thickness)
 
     return write_kicad_mod(name, geometry)

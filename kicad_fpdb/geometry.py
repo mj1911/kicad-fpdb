@@ -23,10 +23,12 @@ class Pad:
 
 @dataclass
 class Text:
-    kind: str  # "reference" | "value"
+    kind: str  # "reference" | "value" | "fab_reference"
     text: str
     at: tuple[float, float]
     layer: str
+    font_size: float = 1.0
+    thickness: float = 0.15
 
 
 @dataclass

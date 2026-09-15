@@ -29,6 +29,8 @@ def write_kicad_mod(name: str, geometry: FootprintGeometry) -> str:
 
 
 def _write_text(text: Text) -> str:
+    if text.kind == "fab_reference":
+        return _write_fab_reference_text(text)
     property_name = _PROPERTY_NAMES[text.kind]
     at_x, at_y = text.at
     return (
@@ -39,6 +41,25 @@ def _write_text(text: Text) -> str:
         "      (font\n"
         "        (size 1 1)\n"
         "        (thickness 0.15)\n"
+        "      )\n"
+        "    )\n"
+        "  )"
+    )
+
+
+def _write_fab_reference_text(text: Text) -> str:
+    # Real KiCad footprints carry this as a distinct fp_text user element
+    # (an assembly-drawing overlay), not a property like Reference/Value.
+    at_x, at_y = text.at
+    size = _fmt(text.font_size)
+    return (
+        f'  (fp_text user "{text.text}"\n'
+        f"    (at {_fmt(at_x)} {_fmt(at_y)} 0)\n"
+        f'    (layer "{text.layer}")\n'
+        "    (effects\n"
+        "      (font\n"
+        f"        (size {size} {size})\n"
+        f"        (thickness {_fmt(text.thickness)})\n"
         "      )\n"
         "    )\n"
         "  )"

@@ -44,6 +44,34 @@ def test_write_reference_and_value_text():
     assert text.count('(layer "F.Fab")') == 2
 
 
+def test_write_fab_reference_text():
+    # Real KiCad footprints carry a separate fp_text user "${REFERENCE}"
+    # on F.Fab (an assembly-drawing overlay), distinct from the
+    # Reference/Value properties.
+    geom = FootprintGeometry(name="TEST_MIN", texts=[
+        Text(kind="fab_reference", text="${REFERENCE}", at=(3.81, 8.89), layer="F.Fab"),
+    ])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert '(fp_text user "${REFERENCE}"' in text
+    assert "(at 3.81 8.89 0)" in text
+    assert '(layer "F.Fab")' in text
+    assert '(property "Reference"' not in text
+    assert "(size 1 1)" in text
+    assert "(thickness 0.15)" in text
+
+
+def test_write_fab_reference_text_with_custom_font_size():
+    # Real KiCad uses a much smaller font (0.4mm) for this on tiny chip
+    # passives -- the default 1mm size badly overflows their courtyard.
+    geom = FootprintGeometry(name="TEST_MIN", texts=[
+        Text(kind="fab_reference", text="${REFERENCE}", at=(0.0, 0.0), layer="F.Fab",
+             font_size=0.4, thickness=0.06),
+    ])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert "(size 0.4 0.4)" in text
+    assert "(thickness 0.06)" in text
+
+
 def test_write_line():
     line = Line(start=(0.0, 0.0), end=(1.0, 2.0), layer="F.SilkS", width=0.12)
     geom = FootprintGeometry(name="TEST_MIN", lines=[line])

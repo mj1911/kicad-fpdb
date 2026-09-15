@@ -90,6 +90,39 @@ def test_reference_and_value_use_real_dip16_positions():
     assert (value_x, value_y) == (3.81, 20.32)
 
 
+def test_generated_footprint_includes_fab_reference_text():
+    text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
+    assert '(fp_text user "${REFERENCE}"' in text
+    assert '(layer "F.Fab")' in text
+
+
+def test_fab_reference_text_uses_default_font_size_when_not_overridden():
+    text = generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    assert "(size 1 1)" in fab_ref_block
+    assert "(thickness 0.15)" in fab_ref_block
+
+
+def test_fab_reference_text_uses_smaller_font_on_tiny_chip_passives():
+    # The default 1mm font badly overflows a chip passive's tiny
+    # courtyard -- real KiCad scales it down per package size.
+    text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R0603_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    assert "(size 0.4 0.4)" in fab_ref_block
+    assert "(thickness 0.06)" in fab_ref_block
+
+
+def test_fab_reference_text_is_centered_on_the_footprint():
+    # Matches real KiCad exactly: centered at the midpoint of the pad
+    # grid, e.g. DIP-16's real fp_text user "${REFERENCE}" sits at
+    # (3.81, 8.89) -- half the 7.62mm row spacing, half the 17.78mm pad
+    # span.
+    text = generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    at_x, at_y = (float(v) for v in AT_3.search(fab_ref_block).groups())
+    assert (at_x, at_y) == (3.81, 8.89)
+
+
 def test_reference_and_value_never_land_closer_than_the_intended_gap():
     # Rounding to the *nearest* grid point can round inward, landing
     # closer to the part than TEXT_MARGIN_MM and visually overlapping
