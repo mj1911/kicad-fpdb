@@ -36,6 +36,9 @@ SOIC:
     pad_type: smd
     centered: true
 
+# Note we've only seen SMT resistors so far... there's also TH variants.
+# Since two_pad_chip is going to apply to almost all resistors, can we move
+# that to params, and only call a different generator if needed?
 R:
   params:
     pin1_marker: false
