@@ -30,6 +30,10 @@ CASES = [
     ("SOT-23-5", "Package_TO_SOT_SMD.pretty/SOT-23-5.kicad_mod"),
     ("SOT-23-6", "Package_TO_SOT_SMD.pretty/SOT-23-6.kicad_mod"),
     ("SOT-23-8", "Package_TO_SOT_SMD.pretty/SOT-23-8.kicad_mod"),
+    ("R-AXIAL0204", "Resistor_THT.pretty/R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal.kicad_mod"),
+    ("R-AXIAL0207", "Resistor_THT.pretty/R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal.kicad_mod"),
+    ("R-AXIAL0309", "Resistor_THT.pretty/R_Axial_DIN0309_L9.0mm_D3.2mm_P12.70mm_Horizontal.kicad_mod"),
+    ("R-AXIAL0414", "Resistor_THT.pretty/R_Axial_DIN0414_L11.9mm_D4.5mm_P15.24mm_Horizontal.kicad_mod"),
     ("QFP-32", "Package_QFP.pretty/LQFP-32_7x7mm_P0.8mm.kicad_mod"),
     ("QFP-48", "Package_QFP.pretty/LQFP-48_7x7mm_P0.5mm.kicad_mod"),
 ]

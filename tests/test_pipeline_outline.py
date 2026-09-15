@@ -993,3 +993,67 @@ def test_generate_footprint_does_not_leak_fab_body_params_to_generator():
     for descriptor in ("DIP-16", "SOIC-8", "QFP-32", "R-0603", "SOT-23"):
         text = generate_footprint(descriptor, FAMILY_TREE_PATH, name="X")
         assert text
+
+
+def test_generate_footprint_raxial0204_matches_real_values():
+    text = generate_footprint("R-AXIAL0204", FAMILY_TREE_PATH, name="X")
+    assert "(start -0.95 -1.05)" in text
+    assert "(end 8.57 1.05)" in text
+    assert "(start 2.01 -0.8)" in text
+    assert "(end 5.61 0.8)" in text
+    assert "(start 1.89 -0.92)" in text
+    assert "(start 0.94 0)" in text
+    assert "(end 1.89 0)" in text
+    assert "(start 0 0)" in text
+    assert "(end 2.01 0)" in text
+
+
+def test_generate_footprint_raxial0207_matches_real_values():
+    text = generate_footprint("R-AXIAL0207", FAMILY_TREE_PATH, name="X")
+    assert "(start -1.05 -1.5)" in text
+    assert "(end 11.21 1.5)" in text
+    assert "(start 1.93 -1.25)" in text
+    assert "(end 8.23 1.25)" in text
+    assert "(start 1.81 -1.37)" in text
+    assert "(start 1.04 0)" in text
+    assert "(end 1.81 0)" in text
+
+
+def test_generate_footprint_raxial0309_matches_real_values():
+    text = generate_footprint("R-AXIAL0309", FAMILY_TREE_PATH, name="X")
+    assert "(start -1.05 -1.85)" in text
+    assert "(end 13.75 1.85)" in text
+    assert "(start 1.85 -1.6)" in text
+    assert "(end 10.85 1.6)" in text
+
+
+def test_generate_footprint_raxial0414_matches_real_values():
+    text = generate_footprint("R-AXIAL0414", FAMILY_TREE_PATH, name="X")
+    assert "(start -1.45 -2.5)" in text
+    assert "(end 16.69 2.5)" in text
+    assert "(start 1.67 -2.25)" in text
+    assert "(end 13.57 2.25)" in text
+
+
+def test_generate_footprint_raxial_pads_are_thru_hole():
+    text = generate_footprint("R-AXIAL0207", FAMILY_TREE_PATH, name="X")
+    assert '(pad "1" thru_hole circle' in text
+    assert '(pad "2" thru_hole circle' in text
+    assert "(drill 0.8)" in text
+    assert "(at 0 0)" in text
+    assert "(at 10.16 0)" in text
+
+
+def test_generate_footprint_raxial_has_no_pin1_marker():
+    # Axial resistors have no polarity, matching the R family's existing
+    # pin1_marker: false.
+    text = generate_footprint("R-AXIAL0207", FAMILY_TREE_PATH, name="X")
+    assert "fp_circle" not in text
+
+
+def test_generate_footprint_does_not_leak_lead_and_courtyard_body_params_to_generator():
+    # If pipeline.py forgot to pop silk_leads/fab_leads/
+    # courtyard_includes_body before calling the generator, this raises
+    # TypeError("unexpected keyword argument").
+    text = generate_footprint("R-AXIAL0204", FAMILY_TREE_PATH, name="X")
+    assert text

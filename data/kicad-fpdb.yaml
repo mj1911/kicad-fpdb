@@ -71,6 +71,34 @@ R:
     R-1206:
       generator: two_pad_chip
       params: {pad_pitch: 2.925, pad_size: [1.125, 1.75], silk_y: 0.91, silk_half_length: 0.727064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [3.2, 1.6], fab_reference_font_size: 0.8, fab_reference_thickness: 0.12}
+    # THT axial resistors (JEDEC/DIN body sizes) share a completely
+    # different pad/outline model from the SMD chip sizes above, grouped
+    # under this intermediate node so it doesn't leak onto R-0201/etc.
+    # Each DIN size's own body_width/_margin (oversized silk) and
+    # fab_body_size (true body, exactly [length, diameter] with no
+    # fudge factor) are hand-verified per variant -- no shared formula
+    # across DIN sizes, same convention as silk_y/silk_half_length. See
+    # docs/superpowers/specs/2026-09-15-tht-axial-resistor-design.md.
+    R-AXIAL:
+      generator: two_pad_chip
+      params:
+        pad_shape: circle
+        pad_type: thru_hole
+        centered: false
+        silk_leads: true
+        fab_leads: true
+        courtyard_margin_x: 0.25
+        courtyard_margin_y: 0.25
+        courtyard_includes_body: true
+      children:
+        R-AXIAL0204:
+          params: {pad_pitch: 7.62, pad_size: [1.4, 1.4], drill: 0.7, body_width: 3.84, body_margin: 0.92, fab_body_size: [3.6, 1.6], fab_reference_font_size: 0.72, fab_reference_thickness: 0.108}
+        R-AXIAL0207:
+          params: {pad_pitch: 10.16, pad_size: [1.6, 1.6], drill: 0.8, body_width: 6.54, body_margin: 1.37, fab_body_size: [6.3, 2.5]}
+        R-AXIAL0309:
+          params: {pad_pitch: 12.7, pad_size: [1.6, 1.6], drill: 0.8, body_width: 9.24, body_margin: 1.72, fab_body_size: [9.0, 3.2]}
+        R-AXIAL0414:
+          params: {pad_pitch: 15.24, pad_size: [2.4, 2.4], drill: 1.2, body_width: 12.14, body_margin: 2.37, fab_body_size: [11.9, 4.5]}
 
 # Capacitors can be SMT or TH, this needs consideration.
 # They can also be non-polarized (most) or polarized.
