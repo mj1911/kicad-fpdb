@@ -145,13 +145,15 @@ and become available for everyone to automatically update to.
   (sometimes mid-side), and this anchor-to-pad-1 approach already
   handles that correctly, but a family with pin 1 on a different edge
   would need the "above" direction generalized. Controlled by a
-  `pin1_marker` param (default true, so DIP/SOIC/QFP need no
-  declaration); `R` and `C` declare it false at their family root in
+  `pin1_marker` param (default true, so SOIC/QFP need no declaration);
+  `R` and `C` declare it false at their family root in
   `data/kicad-fpdb.yaml` since resistors are never polarized and
   capacitors only occasionally are — see
   `docs/superpowers/specs/2026-09-14-pin1-marker-opt-out-design.md`. A
   future polarized capacitor variant opts back in with
-  `pin1_marker: true` in its own params.
+  `pin1_marker: true` in its own params. DIP also declares it false —
+  DIP already has a square pin-1 pad and a silk notch, so a third
+  circle marker was redundant.
 * Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
   (the footprint's own name, on `F.Fab`) text properties — matches real
   KiCad's layer convention. Placed 0.7mm above/below the outermost edge

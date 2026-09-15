@@ -2,6 +2,10 @@
 
 2026-09-15 v0.0.9:
 
+* Removed the pin-1 circle marker from DIP packages — DIP already has
+  a square pin-1 pad and a silk notch, so a third indicator was
+  redundant. `pin1_marker: false` in `data/kicad-fpdb.yaml`, same
+  mechanism R/C already use; SOIC and QFP are unaffected.
 * Changed SOIC's F.SilkS to two horizontal lines (top/bottom body
   edges only, no vertical sides) instead of a closed rectangle,
   matching real KiCad's own SOIC silk convention. New opt-in
