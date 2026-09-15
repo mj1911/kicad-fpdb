@@ -164,7 +164,13 @@ and become available for everyone to automatically update to.
   here varies a little per family (~0.7-0.8mm checked across DIP, SOIC,
   R, QFP) and isn't itself grid-aligned; this project uses one flat gap
   then grid-snaps for a clean look, rather than chasing per-family
-  exactness.
+  exactness. The Y snap only rounds *outward* (`_snap_outward`: floor
+  for Reference's negative direction, ceil for Value's positive
+  direction), never to the plain nearest multiple — nearest-rounding
+  can land closer to the outline than the intended 0.7mm gap once a
+  family's margin sits close enough to a grid line, confirmed visually
+  overlapping the courtyard on R-1206 (only 0.145mm actual gap) and
+  tighter than intended on R-0603/R-0805/C-0603/C-0805.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family

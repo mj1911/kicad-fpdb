@@ -2,6 +2,12 @@
 
 2026-09-15 v0.0.9:
 
+* Fixed Reference/Value text landing too close to (or visibly
+  overlapping, on R-1206) the courtyard on several chip-passive sizes:
+  the 0.05in grid snap rounded to the *nearest* multiple, which could
+  round inward and shrink the intended 0.7mm gap. Now rounds only
+  outward (away from the part), guaranteeing the full clearance for
+  every family.
 * Removed the pin-1 circle marker from DIP packages — DIP already has
   a square pin-1 pad and a silk notch, so a third indicator was
   redundant. `pin1_marker: false` in `data/kicad-fpdb.yaml`, same
