@@ -108,6 +108,16 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
     mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
     my = courtyard_margin_y if courtyard_margin_y is not None else COURTYARD_MARGIN_MM
 
+    if body_size is None and isinstance(courtyard_body_size, (int, float)):
+        # QFP-style: the oversized F.SilkS corner-mark span is a fixed
+        # 0.22mm larger than the true body on every real LQFP reference
+        # footprint checked (7mm-28mm bodies) -- see docs/superpowers/
+        # specs/2026-09-15-qfp-formula-driven-design.md. Guarded to a
+        # plain number so SOT's tuple courtyard_body_size (a different,
+        # non-square shape with no body_size/corner-mark concept) is
+        # left alone.
+        body_size = courtyard_body_size + 0.22
+
     # Computed early (not just where it's drawn on F.Fab below) so the
     # courtyard's own courtyard_includes_body mode can fold it in too.
     fab_body_rect = None
@@ -462,7 +472,14 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     fab_reference_rotation = params.pop("fab_reference_rotation", None)
 
     generator_fn = GENERATORS[resolved.generator]
-    geometry = generator_fn(**params)
+    generator_kwargs = dict(params)
+    if resolved.generator == "quad_perimeter":
+        # courtyard_body_size is popped above for _add_outline's use on
+        # every family (including SOT, whose generator doesn't accept
+        # it) -- quad_perimeter is the one generator that also needs it,
+        # to derive pad_offset when the yaml doesn't declare one.
+        generator_kwargs["courtyard_body_size"] = courtyard_body_size
+    geometry = generator_fn(**generator_kwargs)
     geometry.name = name
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
                  pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,

@@ -37,7 +37,6 @@ def _qfp32_geometry():
     params.pop("body_size", None)
     params.pop("courtyard_margin_x", None)
     params.pop("courtyard_margin_y", None)
-    params.pop("courtyard_body_size", None)
     params.pop("fab_outline", None)
     params.pop("fab_chamfer", None)
     geometry = GENERATORS[resolved.generator](**params)
@@ -404,6 +403,20 @@ def test_generate_footprint_qfp48_silk_matches_real_corner_position():
     # not real KiCad's 0.45mm for this specific package.
     assert "(start -3.61 -3.61)" in text
     assert "(end -3.31 -3.61)" in text
+
+
+def test_generate_footprint_qfp32_pad_offset_derived_from_courtyard_body_size():
+    # QFP-32's yaml no longer declares pad_offset directly -- this proves
+    # generate_footprint() forwards courtyard_body_size through to
+    # quad_perimeter so it can derive pad_offset itself.
+    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    assert "(at -4.175 -2.8)" in text
+
+
+def test_generate_footprint_qfp48_pad_offset_uses_override_extension():
+    # QFP-48 overrides pad_lead_extension to 0.6625 at the yaml level.
+    text = generate_footprint("QFP-48", FAMILY_TREE_PATH, name="QFP48_TEST")
+    assert "(at -4.1625" in text
 
 
 def test_generate_footprint_does_not_leak_body_size_to_generator():
