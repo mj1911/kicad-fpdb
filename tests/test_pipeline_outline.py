@@ -34,6 +34,17 @@ def _qfp32_geometry():
     return geometry
 
 
+def _soic8_geometry():
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    resolved = resolve_descriptor(tree, parse_descriptor("SOIC-8"))
+    params = dict(resolved.params)
+    params.pop("body_width", None)
+    params.pop("body_margin", None)
+    geometry = GENERATORS[resolved.generator](**params)
+    geometry.name = "SOIC8_TEST"
+    return geometry
+
+
 def _r0603_geometry():
     geometry = two_pad_chip(pad_pitch=1.65, pad_size=(0.8, 0.95))
     geometry.name = "R0603_TEST"
@@ -201,6 +212,58 @@ def test_add_outline_with_body_size_keeps_pin1_marker():
     # the corner-marks outline entirely now, anchored only to pad 1.
     assert marker.center == pytest.approx((-4.175, -3.65))
     assert marker.radius == pytest.approx(0.3)
+
+
+def test_add_outline_with_courtyard_body_width_draws_stepped_courtyard():
+    geometry = _soic8_geometry()
+    _add_outline(
+        geometry, body_width=4.12, body_margin=0.64,
+        courtyard_margin_x=0.25, courtyard_margin_y=0.25,
+        courtyard_body_width=3.9, courtyard_body_margin=0.545,
+    )
+
+    assert len(geometry.rects) == 0
+    crtyd_lines = [line for line in geometry.lines if line.layer == "F.CrtYd"]
+    assert len(crtyd_lines) == 12
+
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in crtyd_lines for pt in (line.start, line.end)}
+    # Real SOIC-8 courtyard shape (see design spec): true body 3.9x4.9mm,
+    # full pad bbox, both expanded 0.25mm.
+    assert (-2.2, -2.7) in endpoints
+    assert (2.2, 2.7) in endpoints
+    assert (-3.7, -2.455) in endpoints
+    assert (3.7, 2.455) in endpoints
+
+
+def test_add_outline_with_courtyard_body_size_draws_stepped_courtyard():
+    geometry = _qfp32_geometry()
+    _add_outline(
+        geometry, body_size=7.22,
+        courtyard_margin_x=0.25, courtyard_margin_y=0.25,
+        courtyard_body_size=7.0,
+    )
+
+    assert len(geometry.rects) == 0
+    crtyd_lines = [line for line in geometry.lines if line.layer == "F.CrtYd"]
+    assert len(crtyd_lines) == 20
+
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in crtyd_lines for pt in (line.start, line.end)}
+    # Real LQFP-32 courtyard shape (see design spec): true 7x7mm body
+    # square, one pad-group rect per side, all expanded 0.25mm.
+    assert (-3.75, -3.75) in endpoints
+    assert (3.75, 3.75) in endpoints
+    assert (-5.175, -3.3) in endpoints
+    assert (5.175, 3.3) in endpoints
+
+
+def test_add_outline_without_courtyard_body_params_keeps_plain_rect():
+    # Regression guard: DIP (and any family that doesn't declare the new
+    # courtyard_body_* params) must be completely unaffected.
+    geometry = _dip16_geometry()
+    _add_outline(geometry, courtyard_margin_x=0.25, courtyard_margin_y=0.72)
+
+    assert len(geometry.rects) == 1
+    assert not any(line.layer == "F.CrtYd" for line in geometry.lines)
 
 
 def test_generate_footprint_includes_outline_geometry():

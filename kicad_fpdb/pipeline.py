@@ -4,6 +4,7 @@ from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
 from kicad_fpdb.geometry import Arc, Circle, Line, Rect, Text, pad_bounding_box
+from kicad_fpdb.rect_union import union_outline
 from kicad_fpdb.writer import write_kicad_mod
 
 GENERATORS = {
@@ -43,6 +44,25 @@ def _pad_center_extent(pads, axis: int) -> tuple[float, float]:
     return min(values), max(values)
 
 
+def _quad_side_groups(pads) -> dict[str, tuple[float, float, float, float]]:
+    groups: dict[str, list] = {"left": [], "right": [], "top": [], "bottom": []}
+    for p in pads:
+        w, h = p.size
+        if w > h:
+            groups["left" if p.at[0] < 0 else "right"].append(p)
+        else:
+            groups["top" if p.at[1] < 0 else "bottom"].append(p)
+    return {
+        side: (
+            min(p.at[0] - p.size[0] / 2 for p in group),
+            min(p.at[1] - p.size[1] / 2 for p in group),
+            max(p.at[0] + p.size[0] / 2 for p in group),
+            max(p.at[1] + p.size[1] / 2 for p in group),
+        )
+        for side, group in groups.items() if group
+    }
+
+
 def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) -> None:
     corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
     for cx, cy in corners:
@@ -56,14 +76,49 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
                   body_size: float | None = None, pin1_marker: bool = True,
                   silk_y: float | None = None, silk_half_length: float | None = None,
                   courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None,
+                  courtyard_body_width: float | None = None, courtyard_body_margin: float | None = None,
+                  courtyard_body_size: float | None = None,
                   notch_radius: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
     my = courtyard_margin_y if courtyard_margin_y is not None else COURTYARD_MARGIN_MM
-    cy0x, cy0y = min_x - mx, min_y - my
-    cy1x, cy1y = max_x + mx, max_y + my
-    geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
+
+    if courtyard_body_width is not None and courtyard_body_margin is not None:
+        # Real stepped courtyard (SOIC-style): union of the true physical
+        # body rect and the full pad bbox, independently margin-expanded.
+        # courtyard_body_width/_margin are deliberately separate from
+        # body_width/body_margin (used for the oversized F.SilkS body) —
+        # see docs/superpowers/specs/2026-09-15-stepped-courtyard-design.md.
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        ccx = (min_px + max_px) / 2
+        body_rect = (
+            ccx - courtyard_body_width / 2, min_py - courtyard_body_margin,
+            ccx + courtyard_body_width / 2, max_py + courtyard_body_margin,
+        )
+        rects = [body_rect, (min_x, min_y, max_x, max_y)]
+        expanded = [(r[0] - mx, r[1] - my, r[2] + mx, r[3] + my) for r in rects]
+        for start, end in union_outline(expanded):
+            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd"))
+    elif courtyard_body_size is not None:
+        # Real stepped courtyard (QFP-style): union of the true physical
+        # body square and one pad-group rect per side, independently
+        # margin-expanded. courtyard_body_size is deliberately separate
+        # from body_size (used for the oversized F.SilkS corner marks).
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        ccx, ccy = (min_px + max_px) / 2, (min_py + max_py) / 2
+        half = courtyard_body_size / 2
+        body_rect = (ccx - half, ccy - half, ccx + half, ccy + half)
+        rects = [body_rect] + list(_quad_side_groups(geometry.pads).values())
+        expanded = [(r[0] - mx, r[1] - my, r[2] + mx, r[3] + my) for r in rects]
+        for start, end in union_outline(expanded):
+            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd"))
+    else:
+        cy0x, cy0y = min_x - mx, min_y - my
+        cy1x, cy1y = max_x + mx, max_y + my
+        geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
 
     if body_width is not None and body_margin is not None:
         # Real body dimensions: a physical package constant, independent of
@@ -180,6 +235,9 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     silk_half_length = params.pop("silk_half_length", None)
     courtyard_margin_x = params.pop("courtyard_margin_x", None)
     courtyard_margin_y = params.pop("courtyard_margin_y", None)
+    courtyard_body_width = params.pop("courtyard_body_width", None)
+    courtyard_body_margin = params.pop("courtyard_body_margin", None)
+    courtyard_body_size = params.pop("courtyard_body_size", None)
     notch_radius = params.pop("notch_radius", None)
 
     generator_fn = GENERATORS[resolved.generator]
@@ -188,6 +246,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
                  pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
                  courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
+                 courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
+                 courtyard_body_size=courtyard_body_size,
                  notch_radius=notch_radius)
     _add_reference_and_value_text(geometry, name)
 
