@@ -84,6 +84,15 @@ class FootprintGeometry:
     arcs: list[Arc] = field(default_factory=list)
 
 
+def clamped_roundrect_rratio(pad_size: tuple[float, float], nominal: float = 0.25,
+                              max_radius_mm: float = 0.25) -> float:
+    """Real KiCad's roundrect corner ratio: nominally 0.25, but clamped so
+    the resulting corner radius (ratio * min pad dimension) never exceeds
+    an absolute 0.25mm -- only visible once a pad's min dimension exceeds
+    1mm (0.25 * 1mm == the 0.25mm cap already)."""
+    return min(nominal, max_radius_mm / min(pad_size))
+
+
 def pad_bounding_box(pads: list[Pad]) -> tuple[float, float, float, float]:
     """Returns (min_x, min_y, max_x, max_y) spanning all pads, using each
     pad's size as a symmetric extent around its center regardless of shape."""

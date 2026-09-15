@@ -71,3 +71,13 @@ def test_soic8_matches_real_kicad_footprint():
     pad8 = by_number["8"]
     assert abs(pad8.at[0] - 2.475) < 1e-6
     assert abs(pad8.at[1] - (-1.905)) < 1e-6
+
+
+def test_generic_roundrect_pad_uses_clamped_rratio_above_1mm():
+    geom = dual_row_grid(
+        pin_count=4, pitch=1.27, row_spacing=4.95,
+        pad_size=(1.2, 1.5), pad_shape="roundrect",
+        pad_type="smd", drill=None, centered=True,
+    )
+    pad1 = geom.pads[0]
+    assert abs(pad1.roundrect_rratio - (0.25 / 1.2)) < 1e-5

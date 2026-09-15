@@ -1,4 +1,4 @@
-from kicad_fpdb.geometry import FootprintGeometry, Pad
+from kicad_fpdb.geometry import FootprintGeometry, Pad, clamped_roundrect_rratio
 
 
 def dual_row_grid(pin_count: int, pitch: float, row_spacing: float,
@@ -25,7 +25,7 @@ def dual_row_grid(pin_count: int, pitch: float, row_spacing: float,
         pads.append(Pad(
             number=str(i + 1), pad_type=pad_type, shape=shape,
             at=(x_left, y0 + i * pitch), size=pad_size, drill=drill,
-            roundrect_rratio=_round_ratio(pad_shape, shape, pad_size),
+            roundrect_rratio=_round_ratio(shape, pad_size),
         ))
 
     top_y = y0 + (pins_per_row - 1) * pitch
@@ -34,15 +34,13 @@ def dual_row_grid(pin_count: int, pitch: float, row_spacing: float,
         pads.append(Pad(
             number=str(pins_per_row + i + 1), pad_type=pad_type, shape=shape,
             at=(x_right, top_y - i * pitch), size=pad_size, drill=drill,
-            roundrect_rratio=_round_ratio(pad_shape, shape, pad_size),
+            roundrect_rratio=_round_ratio(shape, pad_size),
         ))
 
     return FootprintGeometry(name="", pads=pads)
 
 
-def _round_ratio(pad_shape: str, shape: str, pad_size: tuple[float, float]) -> float | None:
+def _round_ratio(shape: str, pad_size: tuple[float, float]) -> float | None:
     if shape != "roundrect":
         return None
-    if pad_shape == "dip_pin1_marker":
-        return round(0.25 / min(pad_size), 5)
-    return 0.25
+    return round(clamped_roundrect_rratio(pad_size), 5)

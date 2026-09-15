@@ -1,4 +1,13 @@
-from kicad_fpdb.geometry import FootprintGeometry, Line, Pad, Poly, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import (
+    FootprintGeometry,
+    Line,
+    Pad,
+    Poly,
+    Rect,
+    Text,
+    clamped_roundrect_rratio,
+    pad_bounding_box,
+)
 
 
 def test_pad_defaults():
@@ -68,6 +77,19 @@ def test_rect_holds_fields():
     assert rect.layer == "F.CrtYd"
     assert rect.width == 0.05
     assert rect.fill == "no"
+
+
+def test_clamped_roundrect_rratio_stays_nominal_under_1mm():
+    # Real KiCad's nominal 0.25 ratio only gets clamped once it would
+    # imply a corner radius over 0.25mm absolute -- below a 1mm min pad
+    # dimension, 0.25 * min_dim is already under that, so it's unclamped.
+    assert clamped_roundrect_rratio((0.8, 0.95)) == 0.25
+
+
+def test_clamped_roundrect_rratio_clamps_above_1mm():
+    # Real KiCad clamps to an absolute 0.25mm max corner radius. R-1206's
+    # real pad (1.125mm min dimension) uses rratio 0.222... = 0.25/1.125.
+    assert abs(clamped_roundrect_rratio((1.125, 1.75)) - 0.222222) < 1e-5
 
 
 def test_pad_bounding_box_accounts_for_pad_size():
