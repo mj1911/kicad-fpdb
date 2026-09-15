@@ -21,6 +21,9 @@ def _dip16_geometry():
     params.pop("courtyard_margin_y", None)
     params.pop("notch_radius", None)
     params.pop("pin1_marker", None)
+    params.pop("fab_body_width", None)
+    params.pop("fab_body_margin", None)
+    params.pop("fab_chamfer", None)
     params.pop("fab_reference_rotation", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
@@ -35,6 +38,8 @@ def _qfp32_geometry():
     params.pop("courtyard_margin_x", None)
     params.pop("courtyard_margin_y", None)
     params.pop("courtyard_body_size", None)
+    params.pop("fab_outline", None)
+    params.pop("fab_chamfer", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "QFP32_TEST"
     return geometry
@@ -51,6 +56,8 @@ def _soic8_geometry():
     params.pop("courtyard_body_width", None)
     params.pop("courtyard_body_margin", None)
     params.pop("silk_two_lines", None)
+    params.pop("fab_outline", None)
+    params.pop("fab_chamfer", None)
     params.pop("fab_reference_rotation", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "SOIC8_TEST"
@@ -637,9 +644,13 @@ def test_generate_footprint_c0603_courtyard_matches_real_margin():
     assert "(end 1.475 0.725)" in text
 
 
-def test_generate_footprint_r0603_has_only_courtyard_rect():
+def test_generate_footprint_r0603_has_courtyard_and_fab_rects_only():
+    # Two plain fp_rect entries now: the F.CrtYd courtyard (unchanged)
+    # and the new F.Fab body outline (chip passives get no chamfer).
     text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
-    assert text.count("(fp_rect") == 1
+    assert text.count("(fp_rect") == 2
+    assert text.count('(layer "F.CrtYd")') == 1
+    assert '(layer "F.Fab")' in text
 
 
 def test_generate_footprint_does_not_leak_silk_line_params_to_generator():
@@ -861,3 +872,53 @@ def test_generate_footprint_does_not_leak_silk_segments_to_generator():
     # generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
     assert text  # got here without raising
+
+
+def test_generate_footprint_dip16_fab_body_matches_real_chamfer():
+    text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    fab_poly = text[text.index("(fp_poly"):text.index('(layer "F.Fab")', text.index("(fp_poly"))]
+    assert "(xy 1.635 -1.27)" in fab_poly
+    assert "(xy 6.985 -1.27)" in fab_poly
+    assert "(xy 6.985 19.05)" in fab_poly
+    assert "(xy 0.635 19.05)" in fab_poly
+    assert "(xy 0.635 -0.27)" in fab_poly
+
+
+def test_generate_footprint_soic8_fab_body_reuses_courtyard_true_body():
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    fab_poly = text[text.index("(fp_poly"):text.index('(layer "F.Fab")', text.index("(fp_poly"))]
+    assert "(xy -0.975 -2.45)" in fab_poly
+    assert "(xy 1.95 -2.45)" in fab_poly
+    assert "(xy -1.95 -1.475)" in fab_poly
+
+
+def test_generate_footprint_qfp32_fab_body_reuses_courtyard_true_body():
+    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    fab_poly = text[text.index("(fp_poly"):text.index('(layer "F.Fab")', text.index("(fp_poly"))]
+    assert "(xy -2.5 -3.5)" in fab_poly
+    assert "(xy 3.5 3.5)" in fab_poly
+
+
+def test_generate_footprint_sot23_fab_body_reuses_tuple_courtyard_true_body():
+    text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
+    fab_poly = text[text.index("(fp_poly"):text.index('(layer "F.Fab")', text.index("(fp_poly"))]
+    assert "(xy -0.325 -1.45)" in fab_poly
+    assert "(xy -0.65 -1.125)" in fab_poly
+
+
+def test_generate_footprint_r0603_fab_body_is_plain_rect_no_chamfer():
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert "(fp_poly" not in text
+    fab_block = text[text.rindex("(fp_rect"):]
+    assert "(start -0.8 -0.4125)" in fab_block
+    assert "(end 0.8 0.4125)" in fab_block
+    assert '(layer "F.Fab")' in fab_block
+
+
+def test_generate_footprint_does_not_leak_fab_body_params_to_generator():
+    # If pipeline.py forgot to pop any fab_body_*/fab_outline/fab_chamfer
+    # param before calling the generator, this raises
+    # TypeError("unexpected keyword argument").
+    for descriptor in ("DIP-16", "SOIC-8", "QFP-32", "R-0603", "SOT-23"):
+        text = generate_footprint(descriptor, FAMILY_TREE_PATH, name="X")
+        assert text

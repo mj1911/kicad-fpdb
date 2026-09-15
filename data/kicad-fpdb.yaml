@@ -16,6 +16,9 @@ DIP:
     courtyard_margin_y: 0.72
     notch_radius: 1.0
     pin1_marker: false
+    fab_body_width: {narrow: 6.35, regular: 6.35, wide: 14.73}
+    fab_body_margin: 1.27
+    fab_chamfer: 1.0
     fab_reference_rotation: 90
     pad_size: [1.6, 1.6]
     pad_shape: dip_pin1_marker
@@ -38,6 +41,8 @@ SOIC:
     courtyard_margin_y: 0.25
     courtyard_body_width: 3.9
     courtyard_body_margin: 0.545
+    fab_outline: true
+    fab_chamfer: 0.975
     fab_reference_rotation: 90
     pad_size: [1.95, 0.6]
     pad_shape: roundrect
@@ -53,19 +58,19 @@ R:
   children:
     R-0201:
       generator: two_pad_chip
-      params: {pad_pitch: 0.64, pad_size: [0.46, 0.4], no_silk: true, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15, fab_reference_font_size: 0.25, fab_reference_thickness: 0.04}
+      params: {pad_pitch: 0.64, pad_size: [0.46, 0.4], no_silk: true, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15, fab_body_size: [0.6, 0.3], fab_reference_font_size: 0.25, fab_reference_thickness: 0.04}
     R-0402:
       generator: two_pad_chip
-      params: {pad_pitch: 1.02, pad_size: [0.54, 0.64], silk_y: 0.38, silk_half_length: 0.153641, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15, fab_reference_font_size: 0.26, fab_reference_thickness: 0.04}
+      params: {pad_pitch: 1.02, pad_size: [0.54, 0.64], silk_y: 0.38, silk_half_length: 0.153641, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15, fab_body_size: [1.05, 0.54], fab_reference_font_size: 0.26, fab_reference_thickness: 0.04}
     R-0603:
       generator: two_pad_chip
-      params: {pad_pitch: 1.65, pad_size: [0.8, 0.95], silk_y: 0.5225, silk_half_length: 0.237258, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_reference_font_size: 0.4, fab_reference_thickness: 0.06}
+      params: {pad_pitch: 1.65, pad_size: [0.8, 0.95], silk_y: 0.5225, silk_half_length: 0.237258, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [1.6, 0.825], fab_reference_font_size: 0.4, fab_reference_thickness: 0.06}
     R-0805:
       generator: two_pad_chip
-      params: {pad_pitch: 1.825, pad_size: [1.025, 1.4], silk_y: 0.735, silk_half_length: 0.227064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_reference_font_size: 0.5, fab_reference_thickness: 0.08}
+      params: {pad_pitch: 1.825, pad_size: [1.025, 1.4], silk_y: 0.735, silk_half_length: 0.227064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [2, 1.25], fab_reference_font_size: 0.5, fab_reference_thickness: 0.08}
     R-1206:
       generator: two_pad_chip
-      params: {pad_pitch: 2.925, pad_size: [1.125, 1.75], silk_y: 0.91, silk_half_length: 0.727064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_reference_font_size: 0.8, fab_reference_thickness: 0.12}
+      params: {pad_pitch: 2.925, pad_size: [1.125, 1.75], silk_y: 0.91, silk_half_length: 0.727064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [3.2, 1.6], fab_reference_font_size: 0.8, fab_reference_thickness: 0.12}
 
 # Capacitors can be SMT or TH, this needs consideration.
 # They can also be non-polarized (most) or polarized.
@@ -77,13 +82,13 @@ C:
   children:
     C-0402:
       generator: two_pad_chip
-      params: {pad_pitch: 0.96, pad_size: [0.56, 0.62], silk_y: 0.36, silk_half_length: 0.107836, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15, fab_reference_font_size: 0.25, fab_reference_thickness: 0.04}
+      params: {pad_pitch: 0.96, pad_size: [0.56, 0.62], silk_y: 0.36, silk_half_length: 0.107836, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15, fab_body_size: [1.0, 0.5], fab_reference_font_size: 0.25, fab_reference_thickness: 0.04}
     C-0603:
       generator: two_pad_chip
-      params: {pad_pitch: 1.55, pad_size: [0.9, 0.95], silk_y: 0.51, silk_half_length: 0.14058, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_reference_font_size: 0.4, fab_reference_thickness: 0.06}
+      params: {pad_pitch: 1.55, pad_size: [0.9, 0.95], silk_y: 0.51, silk_half_length: 0.14058, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [1.6, 0.8], fab_reference_font_size: 0.4, fab_reference_thickness: 0.06}
     C-0805:
       generator: two_pad_chip
-      params: {pad_pitch: 1.9, pad_size: [1, 1.45], silk_y: 0.735, silk_half_length: 0.261252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_reference_font_size: 0.5, fab_reference_thickness: 0.08}
+      params: {pad_pitch: 1.9, pad_size: [1, 1.45], silk_y: 0.735, silk_half_length: 0.261252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [2, 1.25], fab_reference_font_size: 0.5, fab_reference_thickness: 0.08}
 
 # QFP is enumerated per-variant below rather than formula-driven like DIP/
 # SOIC: quad_perimeter's pad_offset depends on body size, which isn't
@@ -95,10 +100,10 @@ QFP:
   children:
     QFP-32:
       generator: quad_perimeter
-      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5], body_size: 7.22, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, courtyard_body_size: 7.0}
+      params: {pin_count: 32, pitch: 0.8, pad_offset: 4.175, pad_size: [1.5, 0.5], body_size: 7.22, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, courtyard_body_size: 7.0, fab_outline: true, fab_chamfer: 1.0}
     QFP-48:
       generator: quad_perimeter
-      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3], body_size: 7.22, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, courtyard_body_size: 7.0}
+      params: {pin_count: 48, pitch: 0.5, pad_offset: 4.1625, pad_size: [1.475, 0.3], body_size: 7.22, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, courtyard_body_size: 7.0, fab_outline: true, fab_chamfer: 1.0}
 
 # SOT-23's asymmetric pin layouts (2+1, 3+2, 3+3, 4+4) don't follow a
 # pin_count formula -- SOT-23-5's right column uses only the outer two
@@ -123,6 +128,8 @@ SOT:
         courtyard_margin_x: 0.25
         courtyard_margin_y: 0.25
         courtyard_body_size: [1.3, 2.9]
+        fab_outline: true
+        fab_chamfer: 0.325
         silk_segments:
           - [[-0.76, -1.56], [0.76, -1.56]]
           - [[-0.76, -1.51], [-0.76, -1.56]]
@@ -147,6 +154,8 @@ SOT:
         courtyard_margin_x: 0.25
         courtyard_margin_y: 0.25
         courtyard_body_size: [1.6, 2.9]
+        fab_outline: true
+        fab_chamfer: 0.4
         silk_segments:
           - [[-0.91, -1.56], [0.91, -1.56]]
           - [[-0.91, -1.51], [-0.91, -1.56]]
@@ -170,6 +179,8 @@ SOT:
         courtyard_margin_x: 0.25
         courtyard_margin_y: 0.25
         courtyard_body_size: [1.6, 2.9]
+        fab_outline: true
+        fab_chamfer: 0.4
         silk_segments:
           - [[-0.91, -1.56], [0.91, -1.56]]
           - [[-0.91, -1.51], [-0.91, -1.56]]
@@ -192,6 +203,8 @@ SOT:
         courtyard_margin_x: 0.25
         courtyard_margin_y: 0.25
         courtyard_body_size: [1.6, 2.9]
+        fab_outline: true
+        fab_chamfer: 0.4
         silk_segments:
           - [[-0.91, -1.56], [0.91, -1.56]]
           - [[-0.91, -1.485], [-0.91, -1.56]]
