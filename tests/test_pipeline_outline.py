@@ -19,6 +19,7 @@ def _dip16_geometry():
     params.pop("courtyard_margin_x", None)
     params.pop("courtyard_margin_y", None)
     params.pop("notch_radius", None)
+    params.pop("pin1_marker", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
@@ -314,9 +315,13 @@ def test_generate_footprint_includes_outline_geometry():
     assert "(fp_rect" in text
     assert '(layer "F.CrtYd")' in text
     assert "(fp_line" in text
-    assert "(fp_circle" in text
-    assert "(fill yes)" in text
     assert '(layer "F.SilkS")' in text
+
+    # Pin-1 marker circle geometry is exercised via a family that still
+    # has one (DIP itself doesn't -- see test_generate_footprint_dip16_has_no_pin1_marker).
+    soic_text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    assert "(fp_circle" in soic_text
+    assert "(fill yes)" in soic_text
 
 
 def test_generate_footprint_dip16_narrow_silk_matches_real_body():
@@ -390,8 +395,17 @@ def test_generate_footprint_c0603_has_no_pin1_marker():
     assert "fp_circle" not in text
 
 
-def test_generate_footprint_dip16_still_has_pin1_marker():
+def test_generate_footprint_dip16_has_no_pin1_marker():
+    # DIP already has a square pin-1 pad and a silk notch -- a separate
+    # circle marker is redundant.
     text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
+    assert "fp_circle" not in text
+
+
+def test_generate_footprint_soic8_still_has_pin1_marker():
+    # Regression guard: only DIP opted out -- other families with no
+    # square pin-1 pad shape of their own still get the circle marker.
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
     assert "fp_circle" in text
 
 

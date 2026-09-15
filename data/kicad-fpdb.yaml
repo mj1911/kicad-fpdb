@@ -15,6 +15,7 @@ DIP:
     courtyard_margin_x: 0.25
     courtyard_margin_y: 0.72
     notch_radius: 1.0
+    pin1_marker: false
     pad_size: [1.6, 1.6]
     pad_shape: dip_pin1_marker
     pad_type: thru_hole
