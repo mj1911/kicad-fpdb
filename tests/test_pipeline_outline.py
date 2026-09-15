@@ -70,6 +70,15 @@ def _r0603_geometry():
     return geometry
 
 
+def _r_axial0204_geometry():
+    geometry = two_pad_chip(
+        pad_pitch=7.62, pad_size=(1.4, 1.4), pad_shape="circle",
+        pad_type="thru_hole", drill=0.7, centered=False,
+    )
+    geometry.name = "R_AXIAL0204_TEST"
+    return geometry
+
+
 def _sot23_geometry():
     geometry = asymmetric_dual_row(
         left_offsets=[-0.95, 0.95], right_offsets=[0], row_spacing=1.875,
@@ -592,6 +601,68 @@ def test_add_outline_without_fab_params_draws_no_fab_geometry():
 
     assert not any(poly.layer == "F.Fab" for poly in geometry.polys)
     assert not any(rect.layer == "F.Fab" for rect in geometry.rects)
+
+
+def test_add_outline_with_silk_leads_draws_leads_and_body_rect():
+    # Real THT axial resistors draw two short lead lines from each pad's
+    # edge (plus a fixed clearance) to the oversized silk body's own
+    # edge, in addition to the body rectangle -- matches real
+    # R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal exactly.
+    geometry = _r_axial0204_geometry()
+    _add_outline(geometry, body_width=3.84, body_margin=0.92, silk_leads=True, pin1_marker=False)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    lead_lines = [line for line in silk_lines if line.start[1] == line.end[1] == 0]
+    assert len(lead_lines) == 2
+    rounded = {(round(l.start[0], 5), round(l.end[0], 5)) for l in lead_lines}
+    assert (0.94, 1.89) in rounded
+    assert (6.68, 5.73) in rounded
+    # Body rectangle is still drawn (4 more lines, since no notch_radius).
+    assert len(silk_lines) == 6
+
+
+def test_add_outline_with_fab_leads_draws_leads_from_pad_center():
+    # F.Fab leads start exactly at the pad center (no clearance), unlike
+    # the silk leads above.
+    geometry = _r_axial0204_geometry()
+    _add_outline(geometry, fab_body_size=(3.6, 1.6), fab_leads=True, pin1_marker=False)
+
+    fab_lines = [line for line in geometry.lines if line.layer == "F.Fab"]
+    assert len(fab_lines) == 2
+    rounded = {(round(l.start[0], 5), round(l.end[0], 5)) for l in fab_lines}
+    assert (0.0, 2.01) in rounded
+    assert (7.62, 5.61) in rounded
+    # Body rectangle is still drawn alongside the leads (no chamfer here).
+    fab_rects = [r for r in geometry.rects if r.layer == "F.Fab"]
+    assert len(fab_rects) == 1
+
+
+def test_add_outline_with_courtyard_includes_body_combines_bboxes():
+    # New flat-rectangle courtyard mode: combined bbox of (pad bbox, true
+    # F.Fab body), then one flat margin -- not the stepped union model
+    # SOIC/QFP/SOT use. Matches real R_Axial_DIN0204 exactly.
+    geometry = _r_axial0204_geometry()
+    _add_outline(geometry, fab_body_size=(3.6, 1.6), courtyard_includes_body=True,
+                  courtyard_margin_x=0.25, courtyard_margin_y=0.25, pin1_marker=False)
+
+    crtyd_rects = [r for r in geometry.rects if r.layer == "F.CrtYd"]
+    assert len(crtyd_rects) == 1
+    assert crtyd_rects[0].start == pytest.approx((-0.95, -1.05))
+    assert crtyd_rects[0].end == pytest.approx((8.57, 1.05))
+
+
+def test_add_outline_without_courtyard_includes_body_ignores_fab_body():
+    # Regression guard: fab_body_size alone (courtyard_includes_body not
+    # set) must not change the plain flat-margin-on-pad-bbox courtyard
+    # every chip passive already relies on.
+    geometry = _r0603_geometry()
+    _add_outline(geometry, fab_body_size=(1.6, 0.825), courtyard_margin_x=0.25, courtyard_margin_y=0.25,
+                  pin1_marker=False)
+
+    crtyd_rects = [r for r in geometry.rects if r.layer == "F.CrtYd"]
+    assert len(crtyd_rects) == 1
+    assert crtyd_rects[0].start == pytest.approx((-1.475, -0.725))
+    assert crtyd_rects[0].end == pytest.approx((1.475, 0.725))
 
 
 def test_generate_footprint_r0402_silk_matches_real_lines():

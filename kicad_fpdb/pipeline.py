@@ -47,6 +47,12 @@ PIN1_MARKER_CLEARANCE_MM = 0.3
 # with the "symbolic, not exact" approach documented in
 # docs/superpowers/specs/2026-09-14-qfp-corner-mark-silk-design.md.
 CORNER_MARK_MM = 0.3
+# Clearance, in mm, between a pad's own edge and where a THT axial
+# resistor's F.SilkS lead line starts (the far end lands on the body
+# rectangle's own edge, already computed elsewhere). Verified as a
+# constant 0.24mm across every DIN body size checked (0204/0207/0309/
+# 0414), independent of pad or body size.
+LEAD_CLEARANCE_MM = 0.24
 
 
 def _pad_center_extent(pads, axis: int) -> tuple[float, float]:
@@ -94,11 +100,45 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
                   notch_radius: float | None = None,
                   fab_body_width: float | None = None, fab_body_margin: float | None = None,
                   fab_body_size: float | tuple[float, float] | None = None,
-                  fab_outline: bool = False, fab_chamfer: float | None = None) -> None:
+                  fab_outline: bool = False, fab_chamfer: float | None = None,
+                  silk_leads: bool = False, fab_leads: bool = False,
+                  courtyard_includes_body: bool = False) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
     my = courtyard_margin_y if courtyard_margin_y is not None else COURTYARD_MARGIN_MM
+
+    # Computed early (not just where it's drawn on F.Fab below) so the
+    # courtyard's own courtyard_includes_body mode can fold it in too.
+    fab_body_rect = None
+    if fab_body_width is not None and fab_body_margin is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx = (min_px + max_px) / 2
+        fab_body_rect = (
+            fcx - fab_body_width / 2, min_py - fab_body_margin,
+            fcx + fab_body_width / 2, max_py + fab_body_margin,
+        )
+    elif fab_body_size is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx, fcy = (min_px + max_px) / 2, (min_py + max_py) / 2
+        fw, fh = fab_body_size if isinstance(fab_body_size, (tuple, list)) else (fab_body_size, fab_body_size)
+        fab_body_rect = (fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2)
+    elif fab_outline and courtyard_body_width is not None and courtyard_body_margin is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx = (min_px + max_px) / 2
+        fab_body_rect = (
+            fcx - courtyard_body_width / 2, min_py - courtyard_body_margin,
+            fcx + courtyard_body_width / 2, max_py + courtyard_body_margin,
+        )
+    elif fab_outline and courtyard_body_size is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx, fcy = (min_px + max_px) / 2, (min_py + max_py) / 2
+        fw, fh = courtyard_body_size if isinstance(courtyard_body_size, (tuple, list)) else (courtyard_body_size, courtyard_body_size)
+        fab_body_rect = (fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2)
 
     if courtyard_body_width is not None and courtyard_body_margin is not None:
         # Real stepped courtyard (SOIC-style): union of the true physical
@@ -150,9 +190,21 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         for start, end in union_outline(expanded):
             geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd", width=0.05))
     else:
-        cy0x, cy0y = min_x - mx, min_y - my
-        cy1x, cy1y = max_x + mx, max_y + my
-        geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
+        # Real THT axial resistor courtyard: not a stepped union like
+        # SOIC/QFP/SOT -- just the *combined* bounding box of pads and
+        # the true F.Fab body (reusing whichever fab_body_* param is
+        # already declared, via fab_body_rect above), then a single flat
+        # margin around that. Verified this is a plain rectangle (not
+        # stepped) because the pad bbox dominates in X while the body
+        # dominates in Y, so their combined bbox has no notches to trace.
+        cy0x, cy0y, cy1x, cy1y = min_x, min_y, max_x, max_y
+        if courtyard_includes_body and fab_body_rect is not None:
+            bx0, by0, bx1, by1 = fab_body_rect
+            cy0x, cy0y = min(cy0x, bx0), min(cy0y, by0)
+            cy1x, cy1y = max(cy1x, bx1), max(cy1y, by1)
+        geometry.rects.append(Rect(
+            start=(cy0x - mx, cy0y - my), end=(cy1x + mx, cy1y + my), layer="F.CrtYd",
+        ))
 
     if silk_segments is not None:
         # Verbatim escape hatch for a real notched-body silk shape no
@@ -210,6 +262,20 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             for i in range(4):
                 start, end = corners[i], corners[(i + 1) % 4]
                 geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
+        if silk_leads:
+            # Real THT axial resistor lead lines: from each pad's own
+            # edge (plus a fixed clearance) to the body rectangle's own
+            # edge, in addition to the rectangle itself.
+            left_pad = min(geometry.pads, key=lambda p: p.at[0])
+            right_pad = max(geometry.pads, key=lambda p: p.at[0])
+            geometry.lines.append(Line(
+                start=(left_pad.at[0] + left_pad.size[0] / 2 + LEAD_CLEARANCE_MM, left_pad.at[1]),
+                end=(sx0, left_pad.at[1]), layer="F.SilkS",
+            ))
+            geometry.lines.append(Line(
+                start=(right_pad.at[0] - right_pad.size[0] / 2 - LEAD_CLEARANCE_MM, right_pad.at[1]),
+                end=(sx1, right_pad.at[1]), layer="F.SilkS",
+            ))
     elif body_size is not None:
         # Real square body size (a physical constant, independent of pad
         # position), centered on the pad centroid. See docs/superpowers/
@@ -258,36 +324,6 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
     # verified exactly against real SOIC/QFP/SOT-23 reference
     # footprints. See docs/superpowers/specs/2026-09-15-fab-body-
     # outline-design.md.
-    fab_body_rect = None
-    if fab_body_width is not None and fab_body_margin is not None:
-        min_px, max_px = _pad_center_extent(geometry.pads, 0)
-        min_py, max_py = _pad_center_extent(geometry.pads, 1)
-        fcx = (min_px + max_px) / 2
-        fab_body_rect = (
-            fcx - fab_body_width / 2, min_py - fab_body_margin,
-            fcx + fab_body_width / 2, max_py + fab_body_margin,
-        )
-    elif fab_body_size is not None:
-        min_px, max_px = _pad_center_extent(geometry.pads, 0)
-        min_py, max_py = _pad_center_extent(geometry.pads, 1)
-        fcx, fcy = (min_px + max_px) / 2, (min_py + max_py) / 2
-        fw, fh = fab_body_size if isinstance(fab_body_size, (tuple, list)) else (fab_body_size, fab_body_size)
-        fab_body_rect = (fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2)
-    elif fab_outline and courtyard_body_width is not None and courtyard_body_margin is not None:
-        min_px, max_px = _pad_center_extent(geometry.pads, 0)
-        min_py, max_py = _pad_center_extent(geometry.pads, 1)
-        fcx = (min_px + max_px) / 2
-        fab_body_rect = (
-            fcx - courtyard_body_width / 2, min_py - courtyard_body_margin,
-            fcx + courtyard_body_width / 2, max_py + courtyard_body_margin,
-        )
-    elif fab_outline and courtyard_body_size is not None:
-        min_px, max_px = _pad_center_extent(geometry.pads, 0)
-        min_py, max_py = _pad_center_extent(geometry.pads, 1)
-        fcx, fcy = (min_px + max_px) / 2, (min_py + max_py) / 2
-        fw, fh = courtyard_body_size if isinstance(courtyard_body_size, (tuple, list)) else (courtyard_body_size, courtyard_body_size)
-        fab_body_rect = (fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2)
-
     if fab_body_rect is not None:
         fsx0, fsy0, fsx1, fsy1 = fab_body_rect
         if fab_chamfer is not None:
@@ -297,6 +333,14 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             geometry.polys.append(Poly(points=points, layer="F.Fab", width=0.1, fill="no"))
         else:
             geometry.rects.append(Rect(start=(fsx0, fsy0), end=(fsx1, fsy1), layer="F.Fab", width=0.1, fill="no"))
+        if fab_leads:
+            # Real THT axial resistor F.Fab leads start exactly at each
+            # pad's own center (no clearance, unlike the silk leads
+            # above) and run to the true body's own edge.
+            left_pad = min(geometry.pads, key=lambda p: p.at[0])
+            right_pad = max(geometry.pads, key=lambda p: p.at[0])
+            geometry.lines.append(Line(start=left_pad.at, end=(fsx0, left_pad.at[1]), layer="F.Fab", width=0.1))
+            geometry.lines.append(Line(start=right_pad.at, end=(fsx1, right_pad.at[1]), layer="F.Fab", width=0.1))
 
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pin1_marker and pad1 is not None:
@@ -410,6 +454,9 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     fab_body_size = params.pop("fab_body_size", None)
     fab_outline = params.pop("fab_outline", False)
     fab_chamfer = params.pop("fab_chamfer", None)
+    silk_leads = params.pop("silk_leads", False)
+    fab_leads = params.pop("fab_leads", False)
+    courtyard_includes_body = params.pop("courtyard_includes_body", False)
     fab_reference_font_size = params.pop("fab_reference_font_size", None)
     fab_reference_thickness = params.pop("fab_reference_thickness", None)
     fab_reference_rotation = params.pop("fab_reference_rotation", None)
@@ -425,7 +472,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
                  courtyard_body_size=courtyard_body_size,
                  notch_radius=notch_radius,
                  fab_body_width=fab_body_width, fab_body_margin=fab_body_margin, fab_body_size=fab_body_size,
-                 fab_outline=fab_outline, fab_chamfer=fab_chamfer)
+                 fab_outline=fab_outline, fab_chamfer=fab_chamfer,
+                 silk_leads=silk_leads, fab_leads=fab_leads, courtyard_includes_body=courtyard_includes_body)
     _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
                                    fab_reference_thickness=fab_reference_thickness,
                                    fab_reference_rotation=fab_reference_rotation)
