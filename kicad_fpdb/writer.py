@@ -54,7 +54,7 @@ def _write_fab_reference_text(text: Text) -> str:
     size = _fmt(text.font_size)
     return (
         f'  (fp_text user "{text.text}"\n'
-        f"    (at {_fmt(at_x)} {_fmt(at_y)} 0)\n"
+        f"    (at {_fmt(at_x)} {_fmt(at_y)} {_fmt(text.rotation)})\n"
         f'    (layer "{text.layer}")\n'
         "    (effects\n"
         "      (font\n"

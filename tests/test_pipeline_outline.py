@@ -20,6 +20,7 @@ def _dip16_geometry():
     params.pop("courtyard_margin_y", None)
     params.pop("notch_radius", None)
     params.pop("pin1_marker", None)
+    params.pop("fab_reference_rotation", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
@@ -49,6 +50,7 @@ def _soic8_geometry():
     params.pop("courtyard_body_width", None)
     params.pop("courtyard_body_margin", None)
     params.pop("silk_two_lines", None)
+    params.pop("fab_reference_rotation", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "SOIC8_TEST"
     return geometry

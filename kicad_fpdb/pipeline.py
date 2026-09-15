@@ -269,7 +269,8 @@ def _outline_bounding_box(geometry) -> tuple[float, float, float, float]:
 
 
 def _add_reference_and_value_text(geometry, name: str, fab_reference_font_size: float | None = None,
-                                   fab_reference_thickness: float | None = None) -> None:
+                                   fab_reference_thickness: float | None = None,
+                                   fab_reference_rotation: float | None = None) -> None:
     min_x, min_y, max_x, max_y = _outline_bounding_box(geometry)
     center_x = _snap_to_grid((min_x + max_x) / 2)
     geometry.texts.append(
@@ -292,6 +293,8 @@ def _add_reference_and_value_text(geometry, name: str, fab_reference_font_size: 
         fab_reference_kwargs["font_size"] = fab_reference_font_size
     if fab_reference_thickness is not None:
         fab_reference_kwargs["thickness"] = fab_reference_thickness
+    if fab_reference_rotation is not None:
+        fab_reference_kwargs["rotation"] = fab_reference_rotation
     geometry.texts.append(
         Text(kind="fab_reference", text="${REFERENCE}", at=true_center, layer="F.Fab", **fab_reference_kwargs)
     )
@@ -319,6 +322,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     notch_radius = params.pop("notch_radius", None)
     fab_reference_font_size = params.pop("fab_reference_font_size", None)
     fab_reference_thickness = params.pop("fab_reference_thickness", None)
+    fab_reference_rotation = params.pop("fab_reference_rotation", None)
 
     generator_fn = GENERATORS[resolved.generator]
     geometry = generator_fn(**params)
@@ -331,6 +335,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
                  courtyard_body_size=courtyard_body_size,
                  notch_radius=notch_radius)
     _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
-                                   fab_reference_thickness=fab_reference_thickness)
+                                   fab_reference_thickness=fab_reference_thickness,
+                                   fab_reference_rotation=fab_reference_rotation)
 
     return write_kicad_mod(name, geometry)

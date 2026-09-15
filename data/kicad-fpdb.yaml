@@ -16,6 +16,7 @@ DIP:
     courtyard_margin_y: 0.72
     notch_radius: 1.0
     pin1_marker: false
+    fab_reference_rotation: 90
     pad_size: [1.6, 1.6]
     pad_shape: dip_pin1_marker
     pad_type: thru_hole
@@ -37,6 +38,7 @@ SOIC:
     courtyard_margin_y: 0.25
     courtyard_body_width: 3.9
     courtyard_body_margin: 0.545
+    fab_reference_rotation: 90
     pad_size: [1.95, 0.6]
     pad_shape: roundrect
     pad_type: smd

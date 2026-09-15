@@ -112,6 +112,26 @@ def test_fab_reference_text_uses_smaller_font_on_tiny_chip_passives():
     assert "(thickness 0.06)" in fab_ref_block
 
 
+def test_fab_reference_text_is_rotated_90_for_dip():
+    # Real KiCad rotates this 90 degrees for DIP/SOIC's tall/narrow
+    # bodies so it reads along the long axis; QFP/chip passives don't.
+    text = generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    assert "(at 3.81 8.89 90)" in fab_ref_block
+
+
+def test_fab_reference_text_is_rotated_90_for_soic():
+    text = generate_footprint("SOIC-8", "data/kicad-fpdb.yaml", name="SOIC8_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    assert " 90)" in fab_ref_block.splitlines()[1]
+
+
+def test_fab_reference_text_is_not_rotated_for_qfp():
+    text = generate_footprint("QFP-32", "data/kicad-fpdb.yaml", name="QFP32_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    assert " 0)" in fab_ref_block.splitlines()[1]
+
+
 def test_fab_reference_text_is_centered_on_the_footprint():
     # Matches real KiCad exactly: centered at the midpoint of the pad
     # grid, e.g. DIP-16's real fp_text user "${REFERENCE}" sits at
@@ -119,7 +139,9 @@ def test_fab_reference_text_is_centered_on_the_footprint():
     # span.
     text = generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
     fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
-    at_x, at_y = (float(v) for v in AT_3.search(fab_ref_block).groups())
+    at_x, at_y, _rotation = (
+        float(v) for v in re.search(r"\(at ([-\d.]+) ([-\d.]+) ([-\d.]+)\)", fab_ref_block).groups()
+    )
     assert (at_x, at_y) == (3.81, 8.89)
 
 

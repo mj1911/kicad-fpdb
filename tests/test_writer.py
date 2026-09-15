@@ -60,6 +60,16 @@ def test_write_fab_reference_text():
     assert "(thickness 0.15)" in text
 
 
+def test_write_fab_reference_text_with_rotation():
+    # Real KiCad rotates this 90 degrees for tall/narrow packages (DIP,
+    # SOIC) so it reads along the body's long axis.
+    geom = FootprintGeometry(name="TEST_MIN", texts=[
+        Text(kind="fab_reference", text="${REFERENCE}", at=(3.81, 8.89), layer="F.Fab", rotation=90),
+    ])
+    text = write_kicad_mod("TEST_MIN", geom)
+    assert "(at 3.81 8.89 90)" in text
+
+
 def test_write_fab_reference_text_with_custom_font_size():
     # Real KiCad uses a much smaller font (0.4mm) for this on tiny chip
     # passives -- the default 1mm size badly overflows their courtyard.

@@ -29,6 +29,7 @@ class Text:
     layer: str
     font_size: float = 1.0
     thickness: float = 0.15
+    rotation: float = 0.0
 
 
 @dataclass
