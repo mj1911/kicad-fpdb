@@ -2,6 +2,12 @@
 
 2026-09-15 v0.0.9:
 
+* Added the F.Fab body outline (chamfered at pin 1 for polarized
+  families, plain for R/C) to every family. SOIC, QFP, and SOT-23
+  reuse their already-declared courtyard true-body values exactly
+  (`fab_outline: true`); DIP and each R/C variant get their own new
+  values, hand-verified against the real reference footprints. See
+  `docs/superpowers/specs/2026-09-15-fab-body-outline-design.md`.
 * Removed the pin-1 marker from SOT-23 and SOT-23-5 — their asymmetric
   layouts (2+1, 3+2) are only placeable one way, so it's redundant;
   SOT-23-6/-8 (symmetric, 3+3/4+4) keep it.

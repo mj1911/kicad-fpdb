@@ -215,6 +215,24 @@ and become available for everyone to automatically update to.
   only placeable one way; SOT-23-6 (3+3) and SOT-23-8 (4+4) are
   symmetric (a 180° rotation still fits) and keep the marker. See
   `docs/superpowers/specs/2026-09-15-sot23-family-design.md`.
+* Generated footprints also draw the true physical body on `F.Fab`
+  (`kicad_fpdb.pipeline._add_outline`, near the pin-1 marker block),
+  chamfered at pin 1's corner for polarized families — an
+  assembly-drawing outline distinct from both the oversized F.SilkS
+  body and the margin-expanded F.CrtYd courtyard. SOIC, QFP, and all 4
+  SOT-23 variants reuse their already-declared
+  `courtyard_body_width`/`courtyard_body_margin` or
+  `courtyard_body_size` directly via `fab_outline: true` (verified
+  those values are already the exact true body real KiCad's own F.Fab
+  outline uses); DIP (no reusable courtyard true-body concept — its
+  courtyard is a flat margin on the pad bbox) and each `R`/`C` variant
+  (no reusable value either) declare their own new
+  `fab_body_width`/`fab_body_margin` or `fab_body_size`. Chamfer size
+  is its own per-family constant (DIP/QFP 1.0mm, SOIC 0.975mm, SOT-23
+  0.325mm, SOT-23-5/6/8 0.4mm); `R`/`C` get no chamfer (no polarity,
+  matching their existing `pin1_marker: false`) — a plain `Rect`
+  instead of the chamfered `Poly`. See
+  `docs/superpowers/specs/2026-09-15-fab-body-outline-design.md`.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
