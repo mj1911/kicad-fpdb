@@ -13,10 +13,16 @@ GENERATORS = {
     "quad_perimeter": quad_perimeter,
 }
 
-# Margin, in mm, between the pad bounding box and the Reference/Value text
-# placed above/below it. Generic default until real silkscreen/courtyard
-# geometry exists to anchor text to instead.
-TEXT_MARGIN_MM = 1.0
+# Margin, in mm, between the outermost silk/courtyard outline edge and
+# the Reference/Value text placed above/below it. Real KiCad's own gap
+# here varies a little per family (~0.7-0.8mm checked); this project
+# uses one flat value, then snaps the result to TEXT_GRID_MM.
+TEXT_MARGIN_MM = 0.7
+# Grid, in mm, that Reference/Value text placement snaps to (0.05in),
+# matching a common KiCad hand-placement convention rather than real
+# KiCad's own generator scripts, whose exact per-family text offsets
+# aren't themselves grid-aligned.
+TEXT_GRID_MM = 1.27
 
 # Generic outline conventions: not meant to pixel-match real KiCad's own
 # family-specific outline styles (which vary a lot), just to produce a
@@ -100,7 +106,7 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         rects = [body_rect, (min_x, min_y, max_x, max_y)]
         expanded = [(r[0] - mx, r[1] - my, r[2] + mx, r[3] + my) for r in rects]
         for start, end in union_outline(expanded):
-            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd"))
+            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd", width=0.05))
     elif courtyard_body_size is not None:
         # Real stepped courtyard (QFP-style): union of the true physical
         # body square and one pad-group rect per side, independently
@@ -114,7 +120,7 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         rects = [body_rect] + list(_quad_side_groups(geometry.pads).values())
         expanded = [(r[0] - mx, r[1] - my, r[2] + mx, r[3] + my) for r in rects]
         for start, end in union_outline(expanded):
-            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd"))
+            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd", width=0.05))
     else:
         cy0x, cy0y = min_x - mx, min_y - my
         cy1x, cy1y = max_x + mx, max_y + my
@@ -210,14 +216,39 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         geometry.circles.append(Circle(center=(cx, cy), radius=radius, layer="F.SilkS"))
 
 
+def _snap_to_grid(value: float, grid: float = TEXT_GRID_MM) -> float:
+    return round(round(value / grid) * grid, 6)
+
+
+def _outline_bounding_box(geometry) -> tuple[float, float, float, float]:
+    """Bounding box of the actual silk/courtyard outline geometry already
+    added by _add_outline (rects, lines, arcs) -- deliberately excludes
+    circles, since the only circle this project ever draws is the pin-1
+    marker, an ornament with no equivalent in real KiCad that shouldn't
+    drive text placement."""
+    xs: list[float] = []
+    ys: list[float] = []
+    for rect in geometry.rects:
+        xs += [rect.start[0], rect.end[0]]
+        ys += [rect.start[1], rect.end[1]]
+    for line in geometry.lines:
+        xs += [line.start[0], line.end[0]]
+        ys += [line.start[1], line.end[1]]
+    for arc in geometry.arcs:
+        for point in (arc.start, arc.mid, arc.end):
+            xs.append(point[0])
+            ys.append(point[1])
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def _add_reference_and_value_text(geometry, name: str) -> None:
-    min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
-    center_x = (min_x + max_x) / 2
+    min_x, min_y, max_x, max_y = _outline_bounding_box(geometry)
+    center_x = _snap_to_grid((min_x + max_x) / 2)
     geometry.texts.append(
-        Text(kind="reference", text="REF**", at=(center_x, min_y - TEXT_MARGIN_MM), layer="F.SilkS")
+        Text(kind="reference", text="REF**", at=(center_x, _snap_to_grid(min_y - TEXT_MARGIN_MM)), layer="F.SilkS")
     )
     geometry.texts.append(
-        Text(kind="value", text=name, at=(center_x, max_y + TEXT_MARGIN_MM), layer="F.Fab")
+        Text(kind="value", text=name, at=(center_x, _snap_to_grid(max_y + TEXT_MARGIN_MM)), layer="F.Fab")
     )
 
 

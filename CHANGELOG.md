@@ -2,6 +2,15 @@
 
 2026-09-15 v0.0.9:
 
+* Review viewer panel titles now show which case is on screen
+  ("Generator: DIP-16" / "Reference: Package_DIP.pretty/
+  DIP-16_W7.62mm.kicad_mod"), and dropped the now-redundant
+  descriptor-vs-reference line above the panels.
+* Reference/Value text now sits 0.7mm outside the real silk/courtyard
+  outline (matching real KiCad's own convention, which the previous
+  flat 1.0mm-from-pad-bbox margin predates) rather than the pin-1
+  marker circle (an ornament with no real-KiCad equivalent), with both
+  coordinates snapped to the nearest 0.05in grid point.
 * Gave SOIC and QFP their real stepped `F.CrtYd` courtyard shape (union
   of the true physical body outline and one pad-bbox arm per side,
   each expanded by a flat 0.25mm margin) via a new generic

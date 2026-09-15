@@ -131,8 +131,16 @@ and become available for everyone to automatically update to.
   future polarized capacitor variant opts back in with
   `pin1_marker: true` in its own params.
 * Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
-  (the footprint's own name, on `F.Fab`) text properties, placed above/
-  below the pad bounding box — matches real KiCad's layer convention.
+  (the footprint's own name, on `F.Fab`) text properties — matches real
+  KiCad's layer convention. Placed 0.7mm above/below the outermost edge
+  of the actual silk/courtyard outline (not the pad bounding box, and
+  not the pin-1 marker circle, an ornament with no real-KiCad
+  equivalent — see `kicad_fpdb.pipeline._outline_bounding_box`), then
+  snapped to the nearest 0.05in (`TEXT_GRID_MM`). Real KiCad's own gap
+  here varies a little per family (~0.7-0.8mm checked across DIP, SOIC,
+  R, QFP) and isn't itself grid-aligned; this project uses one flat gap
+  then grid-snaps for a clean look, rather than chasing per-family
+  exactness.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
