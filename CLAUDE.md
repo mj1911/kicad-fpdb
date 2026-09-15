@@ -116,7 +116,10 @@ and become available for everyone to automatically update to.
   `.frame`'s flex-centering splits overflow evenly on both sides, but
   `overflow:auto`'s default scroll origin can only reach the end-side
   half, permanently hiding the start-side half (a tall footprint's top
-  edge) — axes that fit stay centered as before.
+  edge) — axes that fit stay centered as before. `_pad1_frame_position_px`
+  (the dot-grid/checkerboard anchor) applies this same per-axis
+  centered-vs-flex-start condition, or the grid drifts off pin 1 on
+  exactly the panels the overflow fix touches.
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a
