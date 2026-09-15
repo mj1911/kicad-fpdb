@@ -6,7 +6,7 @@ from kicad_fpdb.generators.asymmetric_dual_row import asymmetric_dual_row
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.geometry import Arc, Circle, Line, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import Arc, Circle, Line, Poly, Rect, Text, pad_bounding_box
 from kicad_fpdb.rect_union import union_outline
 from kicad_fpdb.writer import write_kicad_mod
 
@@ -91,7 +91,10 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
                   courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None,
                   courtyard_body_width: float | None = None, courtyard_body_margin: float | None = None,
                   courtyard_body_size: float | tuple[float, float] | None = None,
-                  notch_radius: float | None = None) -> None:
+                  notch_radius: float | None = None,
+                  fab_body_width: float | None = None, fab_body_margin: float | None = None,
+                  fab_body_size: float | tuple[float, float] | None = None,
+                  fab_outline: bool = False, fab_chamfer: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
@@ -245,6 +248,56 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             start, end = corners[i], corners[(i + 1) % 4]
             geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
 
+    # Real KiCad also draws the true (non-oversized) physical body on
+    # F.Fab, chamfered at pin 1's corner for polarized families -- an
+    # assembly-drawing outline, independent of the F.SilkS/F.CrtYd
+    # bodies above. Reuses whichever "true body" source is already
+    # declared: a family's own fab_body_width/_margin or fab_body_size
+    # if given, else (fab_outline=True) the same courtyard_body_width/
+    # _margin or courtyard_body_size already used for the courtyard --
+    # verified exactly against real SOIC/QFP/SOT-23 reference
+    # footprints. See docs/superpowers/specs/2026-09-15-fab-body-
+    # outline-design.md.
+    fab_body_rect = None
+    if fab_body_width is not None and fab_body_margin is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx = (min_px + max_px) / 2
+        fab_body_rect = (
+            fcx - fab_body_width / 2, min_py - fab_body_margin,
+            fcx + fab_body_width / 2, max_py + fab_body_margin,
+        )
+    elif fab_body_size is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx, fcy = (min_px + max_px) / 2, (min_py + max_py) / 2
+        fw, fh = fab_body_size if isinstance(fab_body_size, (tuple, list)) else (fab_body_size, fab_body_size)
+        fab_body_rect = (fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2)
+    elif fab_outline and courtyard_body_width is not None and courtyard_body_margin is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx = (min_px + max_px) / 2
+        fab_body_rect = (
+            fcx - courtyard_body_width / 2, min_py - courtyard_body_margin,
+            fcx + courtyard_body_width / 2, max_py + courtyard_body_margin,
+        )
+    elif fab_outline and courtyard_body_size is not None:
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        fcx, fcy = (min_px + max_px) / 2, (min_py + max_py) / 2
+        fw, fh = courtyard_body_size if isinstance(courtyard_body_size, (tuple, list)) else (courtyard_body_size, courtyard_body_size)
+        fab_body_rect = (fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2)
+
+    if fab_body_rect is not None:
+        fsx0, fsy0, fsx1, fsy1 = fab_body_rect
+        if fab_chamfer is not None:
+            points = [
+                (fsx0 + fab_chamfer, fsy0), (fsx1, fsy0), (fsx1, fsy1), (fsx0, fsy1), (fsx0, fsy0 + fab_chamfer),
+            ]
+            geometry.polys.append(Poly(points=points, layer="F.Fab", width=0.1, fill="no"))
+        else:
+            geometry.rects.append(Rect(start=(fsx0, fsy0), end=(fsx1, fsy1), layer="F.Fab", width=0.1, fill="no"))
+
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pin1_marker and pad1 is not None:
         # A filled circle directly above pad 1: same X as the pad,
@@ -352,6 +405,11 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     courtyard_body_margin = params.pop("courtyard_body_margin", None)
     courtyard_body_size = params.pop("courtyard_body_size", None)
     notch_radius = params.pop("notch_radius", None)
+    fab_body_width = params.pop("fab_body_width", None)
+    fab_body_margin = params.pop("fab_body_margin", None)
+    fab_body_size = params.pop("fab_body_size", None)
+    fab_outline = params.pop("fab_outline", False)
+    fab_chamfer = params.pop("fab_chamfer", None)
     fab_reference_font_size = params.pop("fab_reference_font_size", None)
     fab_reference_thickness = params.pop("fab_reference_thickness", None)
     fab_reference_rotation = params.pop("fab_reference_rotation", None)
@@ -365,7 +423,9 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
                  courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
                  courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
                  courtyard_body_size=courtyard_body_size,
-                 notch_radius=notch_radius)
+                 notch_radius=notch_radius,
+                 fab_body_width=fab_body_width, fab_body_margin=fab_body_margin, fab_body_size=fab_body_size,
+                 fab_outline=fab_outline, fab_chamfer=fab_chamfer)
     _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
                                    fab_reference_thickness=fab_reference_thickness,
                                    fab_reference_rotation=fab_reference_rotation)

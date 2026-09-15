@@ -512,6 +512,81 @@ def test_add_outline_with_silk_segments_draws_verbatim_lines():
     assert geometry.rects[0].layer == "F.CrtYd"
 
 
+def test_add_outline_with_fab_body_width_draws_chamfered_poly():
+    # DIP-style: own fab_body_width/_margin pair (distinct from the
+    # oversized silk body_width/body_margin), chamfered at pin 1's
+    # corner. Matches real DIP-16 exactly.
+    geometry = _dip16_geometry()
+    _add_outline(geometry, fab_body_width=6.35, fab_body_margin=1.27, fab_chamfer=1.0, pin1_marker=False)
+
+    fab_polys = [poly for poly in geometry.polys if poly.layer == "F.Fab"]
+    assert len(fab_polys) == 1
+    poly = fab_polys[0]
+    assert poly.fill == "no"
+    rounded_points = [(round(x, 6), round(y, 6)) for x, y in poly.points]
+    assert rounded_points == [
+        (1.635, -1.27), (6.985, -1.27), (6.985, 19.05), (0.635, 19.05), (0.635, -0.27),
+    ]
+    assert not any(rect.layer == "F.Fab" for rect in geometry.rects)  # no plain fab rect when chamfered
+
+
+def test_add_outline_with_fab_outline_reuses_courtyard_body_width():
+    # SOIC-style: no separate fab_body_width declared -- fab_outline
+    # reuses the existing courtyard_body_width/_margin (already the
+    # true physical body), matching real KiCad exactly.
+    geometry = _soic8_geometry()
+    _add_outline(geometry, fab_outline=True, fab_chamfer=0.975,
+                  courtyard_body_width=3.9, courtyard_body_margin=0.545, pin1_marker=False)
+
+    fab_polys = [poly for poly in geometry.polys if poly.layer == "F.Fab"]
+    assert len(fab_polys) == 1
+    rounded_points = [(round(x, 6), round(y, 6)) for x, y in fab_polys[0].points]
+    assert rounded_points == [
+        (-0.975, -2.45), (1.95, -2.45), (1.95, 2.45), (-1.95, 2.45), (-1.95, -1.475),
+    ]
+
+
+def test_add_outline_with_fab_outline_reuses_tuple_courtyard_body_size():
+    # SOT-style: fab_outline reuses the existing tuple courtyard_body_size.
+    geometry = _sot23_geometry()
+    _add_outline(geometry, fab_outline=True, fab_chamfer=0.325,
+                  courtyard_body_size=(1.3, 2.9), pin1_marker=False)
+
+    fab_polys = [poly for poly in geometry.polys if poly.layer == "F.Fab"]
+    assert len(fab_polys) == 1
+    rounded_points = [(round(x, 6), round(y, 6)) for x, y in fab_polys[0].points]
+    assert rounded_points == [
+        (-0.325, -1.45), (0.65, -1.45), (0.65, 1.45), (-0.65, 1.45), (-0.65, -1.125),
+    ]
+
+
+def test_add_outline_with_fab_body_size_draws_plain_rect_no_chamfer():
+    # R/C-style: chip passives get their own new fab_body_size (no
+    # existing courtyard "true body" to reuse, since their courtyard is
+    # just a margin-expanded pad bbox) and no chamfer (no polarity).
+    geometry = _r0603_geometry()
+    _add_outline(geometry, fab_body_size=(1.6, 0.825), pin1_marker=False)
+
+    assert len([p for p in geometry.polys if p.layer == "F.Fab"]) == 0
+    fab_rects = [r for r in geometry.rects if r.layer == "F.Fab"]
+    assert len(fab_rects) == 1
+    assert fab_rects[0].start == pytest.approx((-0.8, -0.4125))
+    assert fab_rects[0].end == pytest.approx((0.8, 0.4125))
+    assert fab_rects[0].fill == "no"
+
+
+def test_add_outline_without_fab_params_draws_no_fab_geometry():
+    # Regression guard: a family that declares none of the new fab_*
+    # params gets no F.Fab body geometry at all (only the pre-existing
+    # Value property, added later by _add_reference_and_value_text, not
+    # _add_outline).
+    geometry = _dip16_geometry()
+    _add_outline(geometry)
+
+    assert not any(poly.layer == "F.Fab" for poly in geometry.polys)
+    assert not any(rect.layer == "F.Fab" for rect in geometry.rects)
+
+
 def test_generate_footprint_r0402_silk_matches_real_lines():
     text = generate_footprint("R-0402", FAMILY_TREE_PATH, name="R0402_TEST")
     assert "(start -0.153641 -0.38)" in text
