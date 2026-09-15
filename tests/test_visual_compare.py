@@ -5,9 +5,11 @@ import pytest
 from kicad_fpdb.reference_cases import KICAD_FOOTPRINTS
 from kicad_fpdb.visual_compare import (
     FRAME_PX,
+    PX_PER_MM,
     build_review_html,
     render_comparison,
     _frame_overflow_style,
+    _pad1_frame_position_px,
     _raise_pad_numbers_on_top,
 )
 
@@ -73,6 +75,33 @@ def test_frame_overflow_style_flex_start_when_height_overflows():
 def test_frame_overflow_style_justify_start_when_width_overflows():
     svg = f'<svg width="{FRAME_PX + 200}" height="{FRAME_PX - 1}">'
     assert _frame_overflow_style(svg) == "justify-content: flex-start"
+
+
+def test_pad1_frame_position_centers_when_svg_fits_both_axes():
+    svg = (
+        '<svg width="100" height="50">'
+        '<g style="fill:#C83434;"><circle cx="2" cy="1" r="0.3"/></g>'
+        "</svg>"
+    )
+    x, y = _pad1_frame_position_px(svg)
+    assert x == pytest.approx((FRAME_PX - 100) / 2 + 2 * PX_PER_MM)
+    assert y == pytest.approx((FRAME_PX - 50) / 2 + 1 * PX_PER_MM)
+
+
+def test_pad1_frame_position_flush_to_start_when_axis_overflows():
+    # A frame taller than FRAME_PX falls back to flex-start on that axis
+    # (see _frame_overflow_style) -- the anchor must use offset 0 there
+    # too, not the centered offset, or the grid drifts out of alignment
+    # with the pad it's supposed to be locked to.
+    tall_height = FRAME_PX + 200
+    svg = (
+        f'<svg width="100" height="{tall_height}">'
+        '<g style="fill:#C83434;"><circle cx="2" cy="300" r="0.3"/></g>'
+        "</svg>"
+    )
+    x, y = _pad1_frame_position_px(svg)
+    assert x == pytest.approx((FRAME_PX - 100) / 2 + 2 * PX_PER_MM)
+    assert y == pytest.approx(300 * PX_PER_MM)
 
 
 def test_render_comparison_produces_two_svgs(tmp_path):

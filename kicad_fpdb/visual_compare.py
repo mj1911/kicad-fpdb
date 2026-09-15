@@ -236,14 +236,20 @@ def _pad1_center_mm(svg_markup: str) -> tuple[float, float] | None:
 
 
 def _pad1_frame_position_px(svg_markup: str) -> tuple[float, float] | None:
-    """Returns pad 1's pixel position within its FRAME_PX-square .frame box
-    (which centers the svg via flexbox), or None if pad 1 can't be found."""
+    """Returns pad 1's pixel position within its FRAME_PX-square .frame box,
+    or None if pad 1 can't be found. Matches whichever alignment
+    _frame_overflow_style picked for this same svg_markup: centered
+    (offset (FRAME_PX - size) / 2) on an axis that fits, flex-start
+    (offset 0) on an axis that overflows -- using the centered offset
+    unconditionally would drift the anchor out of alignment with the pad
+    on any panel taller or wider than the frame."""
     center_mm = _pad1_center_mm(svg_markup)
     if center_mm is None:
         return None
     size_match = _SVG_PX_SIZE.search(svg_markup)
     svg_w_px, svg_h_px = float(size_match.group(1)), float(size_match.group(2))
-    offset_x, offset_y = (FRAME_PX - svg_w_px) / 2, (FRAME_PX - svg_h_px) / 2
+    offset_x = 0.0 if svg_w_px > FRAME_PX else (FRAME_PX - svg_w_px) / 2
+    offset_y = 0.0 if svg_h_px > FRAME_PX else (FRAME_PX - svg_h_px) / 2
     return offset_x + center_mm[0] * PX_PER_MM, offset_y + center_mm[1] * PX_PER_MM
 
 
