@@ -58,6 +58,12 @@ def _r0603_geometry():
     return geometry
 
 
+def _r0201_geometry():
+    geometry = two_pad_chip(pad_pitch=0.64, pad_size=(0.46, 0.4))
+    geometry.name = "R0201_TEST"
+    return geometry
+
+
 def test_add_outline_produces_courtyard_rect():
     geometry = _dip16_geometry()
     _add_outline(geometry)
@@ -375,6 +381,24 @@ def test_add_outline_with_silk_line_params_draws_two_lines():
     assert len(geometry.circles) == 0
     assert len(geometry.rects) == 1
     assert geometry.rects[0].layer == "F.CrtYd"
+
+
+def test_add_outline_with_no_silk_draws_courtyard_but_no_silk_geometry():
+    # R-0201 is too small for real KiCad to draw any silk outline at all
+    # -- no_silk suppresses the whole F.SilkS branch while leaving the
+    # courtyard untouched.
+    geometry = _r0201_geometry()
+    _add_outline(geometry, no_silk=True, courtyard_margin_x=0.15, courtyard_margin_y=0.15, pin1_marker=False)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 0
+    assert len(geometry.arcs) == 0
+    assert len(geometry.circles) == 0
+
+    assert len(geometry.rects) == 1
+    assert geometry.rects[0].layer == "F.CrtYd"
+    assert geometry.rects[0].start == pytest.approx((-0.7, -0.35))
+    assert geometry.rects[0].end == pytest.approx((0.7, 0.35))
 
 
 def test_generate_footprint_r0402_silk_matches_real_lines():

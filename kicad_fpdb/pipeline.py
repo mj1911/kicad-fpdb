@@ -81,6 +81,7 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
                   body_size: float | None = None, pin1_marker: bool = True,
                   silk_y: float | None = None, silk_half_length: float | None = None,
+                  no_silk: bool = False,
                   courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None,
                   courtyard_body_width: float | None = None, courtyard_body_margin: float | None = None,
                   courtyard_body_size: float | None = None,
@@ -126,7 +127,13 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         cy1x, cy1y = max_x + mx, max_y + my
         geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
 
-    if body_width is not None and body_margin is not None:
+    if no_silk:
+        # Real KiCad draws no F.SilkS outline at all for the smallest chip
+        # passives (e.g. 0201): the body is too small to fit a safely
+        # visible line. Declared explicitly per variant, since every other
+        # chip-passive size does get silk lines.
+        pass
+    elif body_width is not None and body_margin is not None:
         # Real body dimensions: a physical package constant, independent of
         # the pad bounding box. Width is centered on the pad-row centerline;
         # length runs from the first/last pad *center* (not pad edge) plus
@@ -264,6 +271,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     pin1_marker = params.pop("pin1_marker", True)
     silk_y = params.pop("silk_y", None)
     silk_half_length = params.pop("silk_half_length", None)
+    no_silk = params.pop("no_silk", False)
     courtyard_margin_x = params.pop("courtyard_margin_x", None)
     courtyard_margin_y = params.pop("courtyard_margin_y", None)
     courtyard_body_width = params.pop("courtyard_body_width", None)
@@ -275,7 +283,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     geometry = generator_fn(**params)
     geometry.name = name
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
-                 pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
+                 pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length, no_silk=no_silk,
                  courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
                  courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
                  courtyard_body_size=courtyard_body_size,
