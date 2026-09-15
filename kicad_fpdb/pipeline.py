@@ -2,6 +2,7 @@ import math
 
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
+from kicad_fpdb.generators.asymmetric_dual_row import asymmetric_dual_row
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
@@ -13,6 +14,7 @@ GENERATORS = {
     "dual_row_grid": dual_row_grid,
     "two_pad_chip": two_pad_chip,
     "quad_perimeter": quad_perimeter,
+    "asymmetric_dual_row": asymmetric_dual_row,
 }
 
 # Margin, in mm, between the outermost silk/courtyard outline edge and
