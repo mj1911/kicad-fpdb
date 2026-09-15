@@ -2,6 +2,12 @@
 
 2026-09-15 v0.0.9:
 
+* Added `fp_text user "${REFERENCE}"` on `F.Fab` — a separate
+  assembly-drawing overlay real KiCad carries on every footprint,
+  distinct from the Reference/Value properties. Chip passives get a
+  smaller font per package size (`fab_reference_font_size`/
+  `_thickness`, hand-copied from real values) since the default 1mm
+  font badly overflowed their tiny courtyard.
 * Fixed Reference/Value text landing too close to (or visibly
   overlapping, on R-1206) the courtyard on several chip-passive sizes:
   the 0.05in grid snap rounded to the *nearest* multiple, which could

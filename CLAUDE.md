@@ -171,6 +171,19 @@ and become available for everyone to automatically update to.
   family's margin sits close enough to a grid line, confirmed visually
   overlapping the courtyard on R-1206 (only 0.145mm actual gap) and
   tighter than intended on R-0603/R-0805/C-0603/C-0805.
+* Generated footprints also carry a separate `fp_text user "${REFERENCE}"`
+  on `F.Fab` (`Text.kind == "fab_reference"`, written via a dedicated
+  `_write_fab_reference_text` — a distinct s-expression, not a
+  `property` block) — matches real KiCad exactly: an assembly-drawing
+  overlay, centered on the footprint's true midpoint (not grid-snapped,
+  unlike Reference/Value), that resolves to whatever reference
+  designator gets assigned (e.g. "U1"). Font size defaults to the
+  standard 1mm/0.15 but chip passives override it per package size via
+  `fab_reference_font_size`/`fab_reference_thickness` in
+  `data/kicad-fpdb.yaml` (hand-copied from real values, same
+  no-shared-formula convention as `silk_y`/`silk_half_length`) — the
+  default 1mm font badly overflowed their tiny courtyard, confirmed
+  visually on R-0603 and R-1206 before adding the override.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
