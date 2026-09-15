@@ -2,6 +2,11 @@
 
 2026-09-15 v0.0.9:
 
+* Changed SOIC's F.SilkS to two horizontal lines (top/bottom body
+  edges only, no vertical sides) instead of a closed rectangle,
+  matching real KiCad's own SOIC silk convention. New opt-in
+  `silk_two_lines` param on the existing body_width/body_margin
+  branch; DIP is unaffected.
 * Fixed review viewer panels permanently hiding part of a footprint
   taller or wider than the 500px frame (e.g. DIP-24 w): scrolling down
   reached the bottom fine, but scrolling up always cut off the top a

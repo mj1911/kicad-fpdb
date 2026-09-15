@@ -193,19 +193,20 @@ and become available for everyone to automatically update to.
   generated pads just opt into the board's default mask/paste
   expansion via the pad's `layers` list, so there's no gap there today
   (see TODO for a possible future per-footprint override). For F.SilkS
-  geometry: DIP and
-  SOIC draw a real body-derived rectangle (`body_width`/`body_margin`
-  in `data/kicad-fpdb.yaml`) — DIP's body_width is keyed by width class
-  (narrow/regular/wide), matching real KiCad almost exactly (SOIC's
-  margin is an averaged approximation, off by ~0.01-0.02mm — see
-  `docs/superpowers/specs/2026-09-14-real-body-silk-outline-design.md`).
-  DIP additionally cuts a semicircular notch into the top edge
-  (`notch_radius: 1.0` in `data/kicad-fpdb.yaml`, constant across every
-  pin count and width checked), matching real KiCad's own DIP
-  pin-1-side indicator exactly — see
-  `docs/superpowers/specs/2026-09-14-dip-notch-arc-design.md`. SOIC
-  shares the same rectangle branch but has no such notch in real
-  KiCad, so it doesn't declare `notch_radius`.
+  geometry: DIP and SOIC both derive body position from `body_width`/
+  `body_margin` in `data/kicad-fpdb.yaml` (DIP's body_width keyed by
+  width class narrow/regular/wide; SOIC's margin an averaged
+  approximation, off by ~0.01-0.02mm — see
+  `docs/superpowers/specs/2026-09-14-real-body-silk-outline-design.md`),
+  but draw different shapes from it. DIP cuts a semicircular notch into
+  the top edge of an otherwise closed rectangle (`notch_radius: 1.0` in
+  `data/kicad-fpdb.yaml`, constant across every pin count and width
+  checked), matching real KiCad's own DIP pin-1-side indicator exactly
+  — see `docs/superpowers/specs/2026-09-14-dip-notch-arc-design.md`.
+  SOIC instead declares `silk_two_lines: true` and draws only the
+  top/bottom body edges, no vertical sides at all — matching real
+  KiCad's own SOIC silk (which is not a closed rectangle either),
+  and never declares `notch_radius`.
   QFP draws real corner-mark brackets instead of a rectangle
   (`body_size` in `data/kicad-fpdb.yaml`, both current variants sharing
   7.22mm since both are 7x7mm packages), matching real KiCad's own QFP

@@ -140,8 +140,9 @@ def test_add_outline_with_notch_radius_splits_top_edge():
 
 
 def test_add_outline_without_notch_radius_keeps_plain_top_edge():
-    # SOIC shares this same body_width/body_margin branch but never
-    # declares notch_radius — must keep today's plain 4-line rectangle.
+    # Regression guard for the plain rectangle fallback (neither
+    # notch_radius nor silk_two_lines declared) -- must keep today's
+    # 4-line rectangle.
     geometry = _dip16_geometry()
     _add_outline(geometry, body_width=5.3, body_margin=1.33)
 
