@@ -47,6 +47,9 @@ R:
   params:
     pin1_marker: false
   children:
+    R-0201:
+      generator: two_pad_chip
+      params: {pad_pitch: 0.64, pad_size: [0.46, 0.4], no_silk: true, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15}
     R-0402:
       generator: two_pad_chip
       params: {pad_pitch: 1.02, pad_size: [0.54, 0.64], silk_y: 0.38, silk_half_length: 0.153641, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15}
@@ -56,6 +59,9 @@ R:
     R-0805:
       generator: two_pad_chip
       params: {pad_pitch: 1.825, pad_size: [1.025, 1.4], silk_y: 0.735, silk_half_length: 0.227064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25}
+    R-1206:
+      generator: two_pad_chip
+      params: {pad_pitch: 2.925, pad_size: [1.125, 1.75], silk_y: 0.91, silk_half_length: 0.727064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25}
 
 # Capacitors can be SMT or TH, this needs consideration.
 # They can also be non-polarized (most) or polarized.
@@ -65,9 +71,15 @@ C:
   params:
     pin1_marker: false
   children:
+    C-0402:
+      generator: two_pad_chip
+      params: {pad_pitch: 0.96, pad_size: [0.56, 0.62], silk_y: 0.36, silk_half_length: 0.107836, courtyard_margin_x: 0.15, courtyard_margin_y: 0.15}
     C-0603:
       generator: two_pad_chip
       params: {pad_pitch: 1.55, pad_size: [0.9, 0.95], silk_y: 0.51, silk_half_length: 0.14058, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25}
+    C-0805:
+      generator: two_pad_chip
+      params: {pad_pitch: 1.9, pad_size: [1, 1.45], silk_y: 0.735, silk_half_length: 0.261252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25}
 
 # QFP is enumerated per-variant below rather than formula-driven like DIP/
 # SOIC: quad_perimeter's pad_offset depends on body size, which isn't

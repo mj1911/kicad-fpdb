@@ -538,3 +538,66 @@ def test_generate_footprint_does_not_leak_notch_radius_to_generator():
     # generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("DIP-16", FAMILY_TREE_PATH, name="DIP16_TEST")
     assert text  # got here without raising
+
+
+def test_generate_footprint_dip24_wide_matches_real_body_courtyard_and_notch():
+    # DIP's wide width class (row_spacing 15.24) had no verified regression
+    # case before this — confirms the shared body_margin/courtyard_margin/
+    # notch_radius constants (calibrated on narrow/regular) hold exactly
+    # for wide too.
+    text = generate_footprint("DIP-24 w", FAMILY_TREE_PATH, name="DIP24W_TEST")
+    assert "(start 1.16 -1.33)" in text
+    assert "(end 14.08 29.27)" in text
+    assert "(start -1.05 -1.52)" in text
+    assert "(end 16.29 29.46)" in text
+    assert "(start 8.62 -1.33)" in text
+    assert "(mid 7.62 -0.33)" in text
+    assert "(end 6.62 -1.33)" in text
+
+
+def test_generate_footprint_soic16_courtyard_and_silk_match_formula():
+    # Third SOIC pin count validated (after SOIC-8/14) -- confirms the
+    # shared body_margin/courtyard_body_margin formula keeps working as
+    # pin count (and therefore body length) grows, with the larger but
+    # still small approximation already accepted for this family.
+    text = generate_footprint("SOIC-16", FAMILY_TREE_PATH, name="SOIC16_TEST")
+    assert "(start -2.06 -5.085)" in text
+    assert "(end 2.06 5.085)" in text
+    assert "(start -2.2 -5.24)" in text
+    assert "(start -3.7 -4.995)" in text
+    assert "(end 3.7 4.995)" in text
+
+
+def test_generate_footprint_r0201_has_no_silk_and_real_courtyard():
+    text = generate_footprint("R-0201", FAMILY_TREE_PATH, name="R0201_TEST")
+    # No silk outline geometry at all -- only the Reference text property
+    # (itself on F.SilkS) remains, matching real KiCad's R-0201.
+    assert "(fp_arc" not in text
+    assert "(fp_line" not in text
+    assert "(fp_circle" not in text
+    assert "(start -0.7 -0.35)" in text
+    assert "(end 0.7 0.35)" in text
+
+
+def test_generate_footprint_r1206_silk_and_courtyard_match_real_values():
+    text = generate_footprint("R-1206", FAMILY_TREE_PATH, name="R1206_TEST")
+    assert "(start -0.727064 -0.91)" in text
+    assert "(end 0.727064 -0.91)" in text
+    assert "(start -2.275 -1.125)" in text
+    assert "(end 2.275 1.125)" in text
+
+
+def test_generate_footprint_c0402_silk_and_courtyard_match_real_values():
+    text = generate_footprint("C-0402", FAMILY_TREE_PATH, name="C0402_TEST")
+    assert "(start -0.107836 -0.36)" in text
+    assert "(end 0.107836 -0.36)" in text
+    assert "(start -0.91 -0.46)" in text
+    assert "(end 0.91 0.46)" in text
+
+
+def test_generate_footprint_c0805_silk_and_courtyard_match_real_values():
+    text = generate_footprint("C-0805", FAMILY_TREE_PATH, name="C0805_TEST")
+    assert "(start -0.261252 -0.735)" in text
+    assert "(end 0.261252 -0.735)" in text
+    assert "(start -1.7 -0.975)" in text
+    assert "(end 1.7 0.975)" in text
