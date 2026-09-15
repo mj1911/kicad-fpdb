@@ -1,3 +1,5 @@
+import math
+
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.dual_row import dual_row_grid
@@ -233,6 +235,18 @@ def _snap_to_grid(value: float, grid: float = TEXT_GRID_MM) -> float:
     return round(round(value / grid) * grid, 6)
 
 
+def _snap_outward(value: float, sign: float, grid: float = TEXT_GRID_MM) -> float:
+    """Snaps to the grid, but only in the direction away from zero along
+    `sign` (negative or positive) -- never inward. Rounding to the
+    *nearest* grid point (as _snap_to_grid does) can land closer to the
+    part than the intended TEXT_MARGIN_MM clearance, visually
+    overlapping the outline once a family's margin sits close enough to
+    a grid line (confirmed on R-1206's courtyard)."""
+    if sign < 0:
+        return round(math.floor(value / grid) * grid, 6)
+    return round(math.ceil(value / grid) * grid, 6)
+
+
 def _outline_bounding_box(geometry) -> tuple[float, float, float, float]:
     """Bounding box of the actual silk/courtyard outline geometry already
     added by _add_outline (rects, lines, arcs) -- deliberately excludes
@@ -258,10 +272,10 @@ def _add_reference_and_value_text(geometry, name: str) -> None:
     min_x, min_y, max_x, max_y = _outline_bounding_box(geometry)
     center_x = _snap_to_grid((min_x + max_x) / 2)
     geometry.texts.append(
-        Text(kind="reference", text="REF**", at=(center_x, _snap_to_grid(min_y - TEXT_MARGIN_MM)), layer="F.SilkS")
+        Text(kind="reference", text="REF**", at=(center_x, _snap_outward(min_y - TEXT_MARGIN_MM, -1)), layer="F.SilkS")
     )
     geometry.texts.append(
-        Text(kind="value", text=name, at=(center_x, _snap_to_grid(max_y + TEXT_MARGIN_MM)), layer="F.Fab")
+        Text(kind="value", text=name, at=(center_x, _snap_outward(max_y + TEXT_MARGIN_MM, 1)), layer="F.Fab")
     )
 
 

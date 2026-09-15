@@ -88,3 +88,25 @@ def test_reference_and_value_use_real_dip16_positions():
 
     assert (ref_x, ref_y) == (3.81, -2.54)
     assert (value_x, value_y) == (3.81, 20.32)
+
+
+def test_reference_and_value_never_land_closer_than_the_intended_gap():
+    # Rounding to the *nearest* grid point can round inward, landing
+    # closer to the part than TEXT_MARGIN_MM and visually overlapping
+    # the courtyard -- confirmed on R-1206 (courtyard edge 1.125mm,
+    # nearest-grid text landed at 1.27mm, only 0.145mm clear). Every
+    # chip-passive size must keep at least the intended clearance.
+    for descriptor in ("R-0201", "R-0402", "R-0603", "R-0805", "R-1206", "C-0402", "C-0603", "C-0805"):
+        text = generate_footprint(descriptor, "data/kicad-fpdb.yaml", name="T")
+        courtyard_match = re.search(
+            r"\(fp_rect\n\s*\(start [\-\d.]+ ([\-\d.]+)\)\n\s*\(end [\-\d.]+ ([\-\d.]+)\)", text,
+        )
+        courtyard_min_y, courtyard_max_y = (float(v) for v in courtyard_match.groups())
+
+        ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
+        value_block = text[text.index('(property "Value"'):]
+        ref_y = float(AT_3.search(ref_block).group(2))
+        value_y = float(AT_3.search(value_block).group(2))
+
+        assert courtyard_min_y - ref_y >= 0.7 - 1e-6, descriptor
+        assert value_y - courtyard_max_y >= 0.7 - 1e-6, descriptor
