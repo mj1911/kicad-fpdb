@@ -2,6 +2,15 @@
 
 2026-09-15 v0.0.9:
 
+* Made QFP formula-driven like DIP/SOIC: `quad_perimeter` derives
+  `pad_offset` and `_add_outline` derives the silk corner-mark
+  `body_size`, both from a single declared `courtyard_body_size`
+  (`pad_offset = courtyard_body_size/2 + pad_lead_extension`,
+  `body_size = courtyard_body_size + 0.22`), verified exact against 8
+  real LQFP reference footprints spanning 7mm-28mm bodies. Added 6 new
+  real QFP variants (64/80/100/144/176/208-pin) this unlocks — 8 total,
+  up from 2. See
+  `docs/superpowers/specs/2026-09-15-qfp-formula-driven-design.md`.
 * Added a size-comparison footer to the review viewer: total bytes of
   `data/kicad-fpdb.yaml` vs. the combined bytes of the unique real
   `.kicad_mod` reference files it replaces, with a ratio — the

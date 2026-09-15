@@ -311,11 +311,25 @@ and become available for everyone to automatically update to.
   KiCad's own SOIC silk (which is not a closed rectangle either),
   and never declares `notch_radius`.
   QFP draws real corner-mark brackets instead of a rectangle
-  (`body_size` in `data/kicad-fpdb.yaml`, both current variants sharing
-  7.22mm since both are 7x7mm packages), matching real KiCad's own QFP
-  silk convention except for a fixed 0.3mm bracket leg length shared by
-  all QFP variants (real values vary — see
+  (`body_size` in `data/kicad-fpdb.yaml`, derived per variant — see
+  below), matching real KiCad's own QFP silk convention except for a
+  fixed 0.3mm bracket leg length shared by all QFP variants (real
+  values vary — see
   `docs/superpowers/specs/2026-09-14-qfp-corner-mark-silk-design.md`).
+  QFP is now formula-driven like DIP/SOIC rather than each variant
+  hand-computing its own `pad_offset`: `quad_perimeter` derives
+  `pad_offset = courtyard_body_size/2 + pad_lead_extension` (default
+  `0.675`, overridden per variant for the 2 of 8 real LQFP samples
+  that need a different value), and `_add_outline` derives the silk
+  corner-mark `body_size = courtyard_body_size + 0.22` (exact across
+  all 8 samples, 7mm-28mm bodies) — both explicit-value escape
+  hatches, same convention as `silk_segments` elsewhere.
+  `courtyard_body_size` is now the single body-size input for a QFP
+  variant, feeding pad placement, the silk corner marks, the
+  courtyard, and (via `fab_outline: true`) the F.Fab body outline all
+  at once. 8 QFP variants total now (was 2), spanning 7mm-28mm real
+  bodies — see `docs/superpowers/specs/2026-09-15-qfp-formula-driven-
+  design.md`.
   R and C (chip passives) draw two short silk lines instead of a
   rectangle (`silk_y`/`silk_half_length` in `data/kicad-fpdb.yaml`,
   declared per variant with no shared formula — each is copied verbatim
@@ -348,10 +362,6 @@ and become available for everyone to automatically update to.
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Make QFP a formula family like DIP/SOIC (currently each QFP variant is a
-  fully enumerated leaf in `data/kicad-fpdb.yaml` because `pad_offset`
-  can't be derived from `pin_count` alone) — needs a declared body-size
-  parameter to derive `pad_offset` from.
 * Per-pad solder mask/paste margin modifier: none of the 12 reference
   footprints checked so far declare an explicit `solder_mask_margin`/
   `solder_paste_margin` override (all just opt into the board's default
