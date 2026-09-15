@@ -2,6 +2,11 @@
 
 2026-09-15 v0.0.9:
 
+* Deduped `data/kicad-fpdb.yaml`: hoisted QFP-32/QFP-48's shared
+  params to QFP's root, and SOT-23's 4-variant-shared params to SOT's
+  root, with a new intermediate node grouping SOT-23-5/6/8's
+  additionally-shared lead-frame/body/chamfer values. Pure
+  restructuring — verified byte-for-byte identical generated output.
 * Added the F.Fab body outline (chamfered at pin 1 for polarized
   families, plain for R/C) to every family. SOIC, QFP, and SOT-23
   reuse their already-declared courtyard true-body values exactly

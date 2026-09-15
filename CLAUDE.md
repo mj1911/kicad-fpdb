@@ -214,7 +214,14 @@ and become available for everyone to automatically update to.
   and SOT-23-5 specifically — their asymmetric layouts (2+1, 3+2) are
   only placeable one way; SOT-23-6 (3+3) and SOT-23-8 (4+4) are
   symmetric (a 180° rotation still fits) and keep the marker. See
-  `docs/superpowers/specs/2026-09-15-sot23-family-design.md`.
+  `docs/superpowers/specs/2026-09-15-sot23-family-design.md`. `SOT`'s
+  yaml root now carries every param shared across all 4 variants
+  (`generator`, `pad_shape`/`pad_type`, `courtyard_margin_x`/`_y`,
+  `fab_outline`, all 3 `fab_reference_*`), plus an intermediate
+  `SOT-23-5-6-8` node (never itself a valid descriptor — just a
+  chain-merge grouping point) for the `row_spacing`/
+  `courtyard_body_size`/`fab_chamfer` those three additionally share.
+  QFP's own root got the same treatment for QFP-32/48's shared params.
 * Generated footprints also draw the true physical body on `F.Fab`
   (`kicad_fpdb.pipeline._add_outline`, near the pin-1 marker block),
   chamfered at pin 1's corner for polarized families — an
