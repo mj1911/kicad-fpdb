@@ -210,7 +210,10 @@ and become available for everyone to automatically update to.
   param takes a verbatim per-variant line list, same "no shared
   formula, hand-copied" convention as chip-passive `silk_y`/
   `silk_half_length`. F.Fab reference text rotated 90° with a smaller
-  font (0.72mm), matching real KiCad. See
+  font (0.72mm), matching real KiCad. `pin1_marker: false` for SOT-23
+  and SOT-23-5 specifically — their asymmetric layouts (2+1, 3+2) are
+  only placeable one way; SOT-23-6 (3+3) and SOT-23-8 (4+4) are
+  symmetric (a 180° rotation still fits) and keep the marker. See
   `docs/superpowers/specs/2026-09-15-sot23-family-design.md`.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use

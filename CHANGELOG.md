@@ -2,6 +2,9 @@
 
 2026-09-15 v0.0.9:
 
+* Removed the pin-1 marker from SOT-23 and SOT-23-5 — their asymmetric
+  layouts (2+1, 3+2) are only placeable one way, so it's redundant;
+  SOT-23-6/-8 (symmetric, 3+3/4+4) keep it.
 * Added the SOT-23 family (SOT-23, SOT-23-5, SOT-23-6, SOT-23-8) —
   the first family with an asymmetric pin layout (2+1, 3+2, 3+3, 4+4),
   via a new `asymmetric_dual_row` generator taking explicit per-pin
