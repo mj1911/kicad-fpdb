@@ -1,5 +1,25 @@
 # Changes
 
+2026-09-14 v0.0.8:
+
+* Pushed the repo to GitHub (`mj1911/kicad-fpdb`) to work across machines.
+* Review viewer: anchored both the checkerboard and dot-grid backgrounds to
+  pad 1's true geometric center (taken from the first F.Cu-colored pad
+  shape in document order in the reference SVG, not the pad-number text,
+  which has a variable baseline offset from the true center), applied
+  identically to the generated and reference panels — so any misalignment
+  of the generated footprint's own pad 1 against that shared grid is now
+  a visible signal. Fixed `.frame` to a true 500x500px square (previously
+  only height was fixed) so the anchor lines up correctly in both panels.
+* Review viewer: added a grey/white dot-grid overlay at standard 0.1in
+  (2.54mm) pitch on top of the existing 0.5mm checkerboard, as a second
+  scale reference at a more familiar perfboard/breadboard spacing.
+* Added a terse "Under Construction" `README.md` for GitHub.
+* Left a design question comment in `data/kicad-fpdb.yaml` on whether
+  `two_pad_chip` should move to `params` (rather than being called out
+  per-family) to accommodate future through-hole resistor variants —
+  unresolved, for a later session.
+
 2026-09-14 v0.0.7:
 
 * Updated CLAUDE.md's TODO list with follow-ups surfaced this session
