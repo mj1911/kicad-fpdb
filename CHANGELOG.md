@@ -2,6 +2,13 @@
 
 2026-09-15 v0.0.9:
 
+* Added the SOT-23 family (SOT-23, SOT-23-5, SOT-23-6, SOT-23-8) —
+  the first family with an asymmetric pin layout (2+1, 3+2, 3+3, 4+4),
+  via a new `asymmetric_dual_row` generator taking explicit per-pin
+  offsets. Real stepped courtyard and notched-body silk shape both
+  verified against the real reference footprints; pad geometry matches
+  exactly (0.0mm delta). See
+  `docs/superpowers/specs/2026-09-15-sot23-family-design.md`.
 * Rotated DIP and SOIC's F.Fab `${REFERENCE}` text 90 degrees to match
   the library — it reads along their tall/narrow body's long axis;
   QFP and chip passives stay unrotated like real KiCad.

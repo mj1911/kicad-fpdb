@@ -188,6 +188,30 @@ and become available for everyone to automatically update to.
   each family's root) so it reads along their tall/narrow body's long
   axis, matching real KiCad exactly; QFP and chip passives stay
   unrotated like real KiCad.
+* SOT-23 family added (SOT-23, SOT-23-5, SOT-23-6, SOT-23-8 —
+  `data/kicad-fpdb.yaml`'s `SOT` root): the first family with an
+  asymmetric pin layout (2+1, 3+2, 3+3, 4+4), handled by a new
+  `asymmetric_dual_row` generator (`kicad_fpdb/generators/
+  asymmetric_dual_row.py`) taking explicit per-pin `left_offsets`/
+  `right_offsets` rather than a `pin_count` formula — verified real
+  SOT-23-5's right column uses only the outer two positions of a
+  3-position lead-frame grid shared with SOT-23-6, not independently
+  centered with its own pitch, so no formula holds generally. Real
+  courtyard is the same union-of-margin-expanded-rects model already
+  used for SOIC/QFP, generalized to accept a `(width, height)` tuple
+  for `courtyard_body_size` (a non-square true body) and to union each
+  *individual* pad's own bbox rather than a per-side group — needed so
+  a gap between two same-side pads (SOT-23-5's right column) stays
+  open instead of being bridged; QFP's own per-side-group code is
+  untouched, unaffected by this. Real silk is a body rectangle with
+  notches cut out wherever a pad crosses an edge — subtractive, the
+  opposite topology from the courtyard's additive union, so not worth
+  a general algorithm for one family — instead a new `silk_segments`
+  param takes a verbatim per-variant line list, same "no shared
+  formula, hand-copied" convention as chip-passive `silk_y`/
+  `silk_half_length`. F.Fab reference text rotated 90° with a smaller
+  font (0.72mm), matching real KiCad. See
+  `docs/superpowers/specs/2026-09-15-sot23-family-design.md`.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
   one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
@@ -289,9 +313,12 @@ each session, in roughly chronological order:
   different edge entirely (not top) would need the offset direction
   derived rather than assumed.
 * Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
-  widths, more chip passive sizes, additional package families (QFN, BGA,
-  SOT, etc.) — each needs its own hand-verified real-footprint regression
-  case per the existing pattern in `tests/test_pipeline_regression.py`.
+  widths, more chip passive sizes, additional package families (QFN,
+  BGA, etc.) — each needs its own hand-verified real-footprint
+  regression case per the existing pattern in
+  `tests/test_pipeline_regression.py`. SOT-23/-5/-6/-8 are done; TSOT-23
+  variants (identical pad geometry to SOT-23-5/6/8, per investigation)
+  and SOT-23W are a natural follow-up under the existing `SOT` root.
 * Descriptor grammar will need to grow to express more variation (see the
   spec's "Expected evolution" note) — grow it deliberately, not organically.
 * Convert the entire existing KiCad footprint library into descriptor form
