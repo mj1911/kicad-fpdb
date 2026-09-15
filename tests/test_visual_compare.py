@@ -140,3 +140,25 @@ def test_build_review_html_embeds_both_svgs_and_case_metadata(tmp_path):
     assert text.count("<svg") >= 2
     assert "Pass (P)" in text
     assert "Fail (F)" in text
+
+
+def test_review_html_grid_scrolls_with_footprint(tmp_path):
+    # Default background-attachment: scroll keeps the grid fixed to the
+    # frame's own viewport, ignoring scroll position -- local makes it
+    # move with the svg content instead, so it stays visually locked to
+    # the footprint on a panel tall/wide enough to scroll.
+    reference_path = f"{KICAD_FOOTPRINTS}/Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod"
+    generated_svg, reference_svg = render_comparison(
+        "DIP-16", reference_path, str(tmp_path), name="dip16_test",
+    )
+    cases = [{
+        "name": "dip16_test",
+        "descriptor": "DIP-16",
+        "reference_relpath": "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod",
+        "generated_svg": generated_svg,
+        "reference_svg": reference_svg,
+    }]
+
+    review_path = build_review_html(cases, tmp_path / "review.html")
+
+    assert "background-attachment: local" in review_path.read_text()

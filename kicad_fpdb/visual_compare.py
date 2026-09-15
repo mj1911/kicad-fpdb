@@ -341,6 +341,12 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
       {DOT_GRID_PX:g}px {DOT_GRID_PX:g}px,
       {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px, {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px,
       {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px, {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
+    /* Default background-attachment: scroll keeps a background fixed to
+       the element's own box, ignoring its content's scroll position --
+       local makes it scroll together with the svg, so the grid stays
+       visually locked to the footprint (not just the frame's viewport)
+       on panels tall/wide enough to scroll. */
+    background-attachment: local, local, local, local, local;
     /* background-position is set per-case (inline style), anchored to the
        reference footprint's pad 1 center — see _grid_position_style. */
   }}
