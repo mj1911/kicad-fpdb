@@ -403,6 +403,30 @@ def test_generate_footprint_c0603_silk_matches_real_lines():
     assert "(end 0.14058 -0.51)" in text
 
 
+def test_generate_footprint_r0402_courtyard_matches_real_margin():
+    text = generate_footprint("R-0402", FAMILY_TREE_PATH, name="R0402_TEST")
+    assert "(start -0.93 -0.47)" in text
+    assert "(end 0.93 0.47)" in text
+
+
+def test_generate_footprint_r0603_courtyard_matches_real_margin():
+    text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
+    assert "(start -1.475 -0.725)" in text
+    assert "(end 1.475 0.725)" in text
+
+
+def test_generate_footprint_r0805_courtyard_matches_real_margin():
+    text = generate_footprint("R-0805", FAMILY_TREE_PATH, name="R0805_TEST")
+    assert "(start -1.675 -0.95)" in text
+    assert "(end 1.675 0.95)" in text
+
+
+def test_generate_footprint_c0603_courtyard_matches_real_margin():
+    text = generate_footprint("C-0603", FAMILY_TREE_PATH, name="C0603_TEST")
+    assert "(start -1.475 -0.725)" in text
+    assert "(end 1.475 0.725)" in text
+
+
 def test_generate_footprint_r0603_has_only_courtyard_rect():
     text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
     assert text.count("(fp_rect") == 1
