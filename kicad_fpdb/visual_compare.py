@@ -207,7 +207,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
     display: flex; align-items: center; justify-content: center;
     background-color: #000;
     background-image:
-      radial-gradient(circle, rgba(255,255,255,0.35) 0.5px, transparent 0.5px),
+      radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px),
       linear-gradient(45deg, rgba(255,255,255,0.12) 25%, transparent 25%),
       linear-gradient(-45deg, rgba(255,255,255,0.12) 25%, transparent 25%),
       linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.12) 75%),
