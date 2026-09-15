@@ -101,7 +101,16 @@ and become available for everyone to automatically update to.
   against a light backdrop; on this dark frame only the copper pads
   reliably show up). Use this instead of ad-hoc SVG exports when
   eyeballing generator output — regenerate it after any change to
-  `kicad_fpdb/visual_compare.py`.
+  `kicad_fpdb/visual_compare.py`. Embedded SVGs get their viewBox
+  padded slightly (`SVG_VIEWBOX_PAD_MM`, far edge only, origin
+  untouched) before inlining: `kicad-cli`'s exported viewBox wraps path
+  centerlines exactly with no stroke-width allowance, and a hairline
+  courtyard line sitting right on that boundary (routine now that a
+  stepped courtyard's own arm is often the single widest feature) had
+  its outer half clipped by the SVG viewport's default
+  `overflow:hidden` — invisible at this tool's ~1px render scale.
+  Discovered on QFP-32/48 and SOIC-14's right-edge courtyard line
+  going missing.
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a
@@ -126,18 +135,35 @@ and become available for everyone to automatically update to.
   below the pad bounding box — matches real KiCad's layer convention.
 * Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
   outline (`F.SilkS`, with a pin-1 corner marker on families that use
-  one) geometry (see `kicad_fpdb.pipeline._add_outline`). Courtyard is
-  still generic (flat 0.5mm pad-bounding-box margin) for SOIC, QFP,
-  and chip passives (R/C); no family uses the generic pad-bbox
-  F.SilkS rectangle anymore. DIP's courtyard instead uses a real,
-  asymmetric margin (`courtyard_margin_x`/`courtyard_margin_y` in
-  `data/kicad-fpdb.yaml`: 0.25mm perpendicular to the pin rows, 0.72mm
-  along them), matching real KiCad almost exactly across every pin
-  count and width checked — see
-  `docs/superpowers/specs/2026-09-14-dip-courtyard-margin-design.md`.
-  SOIC's real courtyard is a more complex stepped shape, not a simple
-  rectangle with a bigger margin, so it's intentionally not matched
-  yet. For F.SilkS geometry: DIP and
+  one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
+  uses a generic pad-bbox margin/rectangle for either layer anymore.
+  DIP's courtyard uses a real, asymmetric margin
+  (`courtyard_margin_x`/`courtyard_margin_y` in `data/kicad-fpdb.yaml`:
+  0.25mm perpendicular to the pin rows, 0.72mm along them), matching
+  real KiCad almost exactly across every pin count and width checked —
+  see `docs/superpowers/specs/2026-09-14-dip-courtyard-margin-design.md`.
+  SOIC and QFP have a real *stepped* courtyard instead: the union of
+  the true physical body outline (`courtyard_body_width`/
+  `courtyard_body_margin` for SOIC, `courtyard_body_size` for QFP —
+  deliberately different, smaller numbers than `body_width`/`body_size`,
+  which stay oversized for F.SilkS) and one pad-bounding-box arm per
+  side that has pads, both independently expanded by a flat 0.25mm
+  margin (`courtyard_margin_x`/`_y`), verified exactly against SOIC-8,
+  SOIC-14, LQFP-32, and LQFP-48 reference footprints (SOIC-14 carries
+  the same ~0.02mm approximation already accepted for SOIC's silk
+  body). The rectangle-union math lives in `kicad_fpdb/rect_union.py`
+  (`union_outline`), generic over any number of margin-expanded
+  rectangles — see
+  `docs/superpowers/specs/2026-09-15-stepped-courtyard-design.md`. Chip
+  passives (R/C) needed no shape change, just their real per-variant
+  flat margin (0.15mm for R-0402, 0.25mm for R-0603/R-0805/C-0603)
+  instead of the old generic 0.5mm fallback. None of these 12 reference
+  footprints declare an explicit `solder_mask_margin`/
+  `solder_paste_margin` override on any pad — both they and the
+  generated pads just opt into the board's default mask/paste
+  expansion via the pad's `layers` list, so there's no gap there today
+  (see TODO for a possible future per-footprint override). For F.SilkS
+  geometry: DIP and
   SOIC draw a real body-derived rectangle (`body_width`/`body_margin`
   in `data/kicad-fpdb.yaml`) — DIP's body_width is keyed by width class
   (narrow/regular/wide), matching real KiCad almost exactly (SOIC's
@@ -180,11 +206,13 @@ each session, in roughly chronological order:
   fully enumerated leaf in `data/kicad-fpdb.yaml` because `pad_offset`
   can't be derived from `pin_count` alone) — needs a declared body-size
   parameter to derive `pad_offset` from.
-* Match SOIC's real courtyard shape: real SOIC footprints use a stepped
-  multi-segment courtyard (hugging the pad envelope more closely at the
-  ends than in the middle), not a simple rectangle with a bigger margin
-  like DIP's. Parked when DIP's courtyard was tightened (see
-  `docs/superpowers/specs/2026-09-14-dip-courtyard-margin-design.md`).
+* Per-pad solder mask/paste margin modifier: none of the 12 reference
+  footprints checked so far declare an explicit `solder_mask_margin`/
+  `solder_paste_margin` override (all just opt into the board's default
+  expansion via the pad's `layers` list, and the generated pads match
+  that exactly), but a user may want to override this per footprint when
+  selecting one. Would need a new `Pad` field threaded through the
+  writer once a real reference case actually needs it.
 * Generalize the pin-1 marker's "above pad 1" direction: every current
   generator places pin 1 at the top, so the marker just offsets in -Y.
   Real packages sometimes put pin 1 mid-side rather than at a corner

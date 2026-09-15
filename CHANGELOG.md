@@ -1,5 +1,35 @@
 # Changes
 
+2026-09-15 v0.0.9:
+
+* Gave SOIC and QFP their real stepped `F.CrtYd` courtyard shape (union
+  of the true physical body outline and one pad-bbox arm per side,
+  each expanded by a flat 0.25mm margin) via a new generic
+  `kicad_fpdb/rect_union.py` rectangle-union utility, verified exactly
+  against SOIC-8, SOIC-14, LQFP-32, and LQFP-48 real reference
+  footprints.
+* Fixed chip-passive (R/C) courtyard margins to their real per-variant
+  values (0.15mm for R-0402, 0.25mm for R-0603/R-0805/C-0603),
+  replacing the generic flat 0.5mm fallback — a data-only change, no
+  shape change needed.
+* Fixed the new stepped courtyard lines rendering at the wrong stroke
+  width (0.12mm silkscreen-line default instead of real KiCad's
+  0.05mm courtyard stroke) — caught by eye in the review viewer.
+* Fixed a review-viewer-only display bug where a stepped courtyard's
+  outer edge could vanish entirely on one side (seen on QFP-32/48 and
+  SOIC-14): `kicad-cli`'s exported SVG viewBox wraps path centerlines
+  with no stroke-width margin, so a hairline stroke sitting exactly on
+  that boundary had its outer half clipped by the SVG viewport. The
+  underlying `.kicad_mod` geometry was already correct; fixed by
+  padding the embedded SVG's viewBox in `visual_compare.py`.
+* Added a design spec for the courtyard work
+  (`docs/superpowers/specs/2026-09-15-stepped-courtyard-design.md`).
+* Confirmed neither the library nor generated pads declare an explicit
+  solder mask/paste margin override on any of the 12 reference
+  footprints checked — both just opt into the board's default
+  expansion. Noted as a possible future per-footprint modifier in the
+  TODO list.
+
 2026-09-14 v0.0.8:
 
 * Pushed the repo to GitHub (`mj1911/kicad-fpdb`) to work across machines.
@@ -19,9 +49,6 @@
   `two_pad_chip` should move to `params` (rather than being called out
   per-family) to accommodate future through-hole resistor variants —
   unresolved, for a later session.
-
-2026-09-14 v0.0.7:
-
 * Updated CLAUDE.md's TODO list with follow-ups surfaced this session
   (matching SOIC's real stepped courtyard shape; generalizing the pin-1
   marker's "above pad 1" direction assumption for a future family with
@@ -67,9 +94,6 @@
   where moving pad-number/REF**/value text groups to the top of the
   SVG dropped the styled wrapper carrying their stroke color, making
   them invisible against any background.
-
-2026-09-14 v0.0.6:
-
 * Fixed occluded pad numbers in the review viewer: kicad-cli draws
   drill-hole circles after pad-number text regardless of `--layers`
   selection, painting over them (worst on through-hole pads) — a
