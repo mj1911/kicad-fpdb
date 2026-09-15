@@ -133,6 +133,11 @@ and become available for everyone to automatically update to.
   its own pad 1 on DIP-18/DIP-24 w. This is purely a viewer artifact —
   the actual generated pad positions already match the real library
   exactly (0.0mm delta, per `tests/test_pipeline_regression.py`).
+  The page footer also shows a size comparison: `data/kicad-fpdb.yaml`'s
+  own byte size vs. the combined size of the unique real `.kicad_mod`
+  reference files behind every known case, plus the ratio between them
+  (`_size_comparison_html`/`_size_stats_html`) — the project's core
+  value proposition, made concrete on every run.
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a

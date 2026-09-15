@@ -288,6 +288,56 @@ def _grid_position_style(anchor_px: tuple[float, float] | None) -> str:
     )
 
 
+def _size_stats_html(yaml_size: int, real_total_size: int, real_count: int) -> str:
+    """HTML for the size-comparison footer: the single descriptor
+    database file vs. the combined size of the real .kicad_mod files it
+    replaces -- the core value proposition from this project's own
+    stated goals. Empty string when there's nothing to compare (no real
+    files resolved, e.g. running without KiCad's own library present)."""
+    if real_count == 0 or real_total_size == 0:
+        return ""
+    ratio = real_total_size / yaml_size
+    return (
+        '<div id="size-stats">'
+        f"<code>{html.escape(FAMILY_TREE_PATH)}</code>: {yaml_size:,} bytes"
+        f" &mdash; {real_count} real reference .kicad_mod file{'s' if real_count != 1 else ''}: "
+        f"{real_total_size:,} bytes combined"
+        f" &mdash; <strong>{ratio:.1f}&times; smaller</strong>"
+        "</div>"
+    )
+
+
+def _resolve_reference_path(relpath: str) -> Path | None:
+    """A case's reference_relpath is relative to KICAD_FOOTPRINTS for
+    every known-cases run, but the ad-hoc --reference CLI path can be
+    absolute -- try both."""
+    direct = Path(relpath)
+    if direct.is_file():
+        return direct
+    joined = Path(KICAD_FOOTPRINTS) / relpath
+    if joined.is_file():
+        return joined
+    return None
+
+
+def _size_comparison_html(cases: list[dict]) -> str:
+    yaml_path = Path(FAMILY_TREE_PATH)
+    if not yaml_path.is_file():
+        return ""
+    seen: set[Path] = set()
+    real_sizes = []
+    for case in cases:
+        relpath = case.get("reference_relpath")
+        if not relpath:
+            continue
+        resolved = _resolve_reference_path(relpath)
+        if resolved is None or resolved in seen:
+            continue
+        seen.add(resolved)
+        real_sizes.append(resolved.stat().st_size)
+    return _size_stats_html(yaml_path.stat().st_size, sum(real_sizes), len(real_sizes))
+
+
 def build_review_html(cases: list[dict], output_path: str) -> Path:
     """Builds a self-contained HTML review page for the given cases (each a
     dict with name/descriptor/reference_relpath/generated_svg/reference_svg,
@@ -323,6 +373,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   </div>
 </div>""")
 
+    size_stats_html = _size_comparison_html(cases)
     page = f"""<!doctype html>
 <html>
 <head>
@@ -373,6 +424,8 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   .status.fail {{ color:#e55; }}
   .status.unmarked {{ color:#888; }}
   #summary {{ white-space: pre-wrap; background:#2a2a2a; color:#ddd; border:1px solid #444; border-radius:8px; padding:12px; margin-top:16px; font-family: monospace; }}
+  #size-stats {{ color:#888; margin-top:12px; font-size:0.85rem; }}
+  #size-stats strong {{ color:#4c4; }}
 </style>
 </head>
 <body>
@@ -387,6 +440,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   <span class="tally" id="tally"></span>
 </div>
 <div id="summary"></div>
+{size_stats_html}
 <script>
 const results = {{}};
 let idx = 0;

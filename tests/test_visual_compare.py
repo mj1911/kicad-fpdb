@@ -12,6 +12,8 @@ from kicad_fpdb.visual_compare import (
     _frame_overflow_style,
     _pad1_frame_position_px,
     _raise_pad_numbers_on_top,
+    _size_comparison_html,
+    _size_stats_html,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -202,3 +204,52 @@ def test_review_html_grid_scrolls_with_footprint(tmp_path):
     review_path = build_review_html(cases, tmp_path / "review.html")
 
     assert "background-attachment: local" in review_path.read_text()
+
+
+def test_size_stats_html_shows_ratio():
+    html_block = _size_stats_html(yaml_size=1000, real_total_size=38900, real_count=26)
+    assert "1,000" in html_block
+    assert "38,900" in html_block
+    assert "26" in html_block
+    assert "38.9" in html_block
+
+
+def test_size_stats_html_empty_when_no_real_files():
+    assert _size_stats_html(yaml_size=1000, real_total_size=0, real_count=0) == ""
+
+
+def test_size_comparison_html_sums_unique_real_files(tmp_path):
+    reference_path = f"{KICAD_FOOTPRINTS}/Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod"
+    generated_svg, reference_svg = render_comparison(
+        "DIP-16", reference_path, str(tmp_path), name="dip16_test",
+    )
+    # Two cases pointing at the *same* real file must only count its size once.
+    cases = [
+        {"name": "a", "descriptor": "DIP-16", "reference_relpath": "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod",
+         "generated_svg": generated_svg, "reference_svg": reference_svg},
+        {"name": "b", "descriptor": "DIP-16", "reference_relpath": "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod",
+         "generated_svg": generated_svg, "reference_svg": reference_svg},
+    ]
+    html_block = _size_comparison_html(cases)
+    real_size = os.path.getsize(reference_path)
+    # Counted once, not twice, even though two cases reference it.
+    assert str(real_size) in html_block.replace(",", "")
+    assert str(real_size * 2) not in html_block.replace(",", "")
+
+
+def test_build_review_html_includes_size_comparison(tmp_path):
+    reference_path = f"{KICAD_FOOTPRINTS}/Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod"
+    generated_svg, reference_svg = render_comparison(
+        "DIP-16", reference_path, str(tmp_path), name="dip16_test",
+    )
+    cases = [{
+        "name": "dip16_test",
+        "descriptor": "DIP-16",
+        "reference_relpath": "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod",
+        "generated_svg": generated_svg,
+        "reference_svg": reference_svg,
+    }]
+
+    review_path = build_review_html(cases, tmp_path / "review.html")
+
+    assert 'id="size-stats"' in review_path.read_text()

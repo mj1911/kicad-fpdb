@@ -2,6 +2,11 @@
 
 2026-09-15 v0.0.9:
 
+* Added a size-comparison footer to the review viewer: total bytes of
+  `data/kicad-fpdb.yaml` vs. the combined bytes of the unique real
+  `.kicad_mod` reference files it replaces, with a ratio — the
+  project's core value proposition, made visible on every run
+  (`kicad_fpdb/visual_compare.py`).
 * Added the first through-hole family: `R-AXIAL0204`/`0207`/`0309`/
   `0414` axial resistors. `two_pad_chip` extended with `pad_type`/
   `drill`/`centered` instead of a new generator; new `silk_leads`/
