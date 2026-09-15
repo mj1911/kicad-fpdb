@@ -712,3 +712,59 @@ def test_generate_footprint_c0805_silk_and_courtyard_match_real_values():
     assert "(end 0.261252 -0.735)" in text
     assert "(start -1.7 -0.975)" in text
     assert "(end 1.7 0.975)" in text
+
+
+def test_generate_footprint_sot23_matches_real_silk_and_courtyard():
+    text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
+    assert text.count("(fp_rect") == 0
+    # Silk: verbatim segments copied from the real reference footprint.
+    assert "(start -0.76 -1.56)" in text
+    assert "(end 0.76 -1.56)" in text
+    # Courtyard: union-of-rects model, matches real within the same
+    # ~0.005mm rounding already documented elsewhere.
+    assert "(start -1.925 -1.5)" in text
+    assert "(start -0.9 -1.7)" in text
+
+
+def test_generate_footprint_sot23_5_matches_real_silk_and_courtyard():
+    text = generate_footprint("SOT-23-5", FAMILY_TREE_PATH, name="SOT235_TEST")
+    assert "(start -0.91 -1.56)" in text
+    assert "(start -2.05 -1.5)" in text
+    assert "(start -1.05 -1.7)" in text
+
+
+def test_generate_footprint_sot23_6_matches_real_silk_and_courtyard():
+    text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
+    assert "(start -0.91 -1.56)" in text
+    assert "(start -2.05 -1.5)" in text
+    # SOT-23-6's 3+3 columns are fully populated (no gap) -- no middle
+    # silk segment, unlike SOT-23-5's 3+2.
+    assert "(start 0.91 -0.39)" not in text
+
+
+def test_generate_footprint_sot23_8_matches_real_silk_and_courtyard():
+    text = generate_footprint("SOT-23-8", FAMILY_TREE_PATH, name="SOT238_TEST")
+    assert "(start -0.91 -1.56)" in text
+    assert "(start -2.05 -1.475)" in text
+
+
+def test_generate_footprint_sot23_still_has_pin1_marker():
+    # SOT-23 has no pad shape of its own indicating pin 1 -- keeps this
+    # project's own circle marker, like SOIC/QFP.
+    text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
+    assert "fp_circle" in text
+
+
+def test_generate_footprint_sot23_fab_reference_is_rotated_and_small():
+    text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
+    fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
+    assert "(at 0 0 90)" in fab_ref_block
+    assert "(size 0.72 0.72)" in fab_ref_block
+    assert "(thickness 0.11)" in fab_ref_block
+
+
+def test_generate_footprint_does_not_leak_silk_segments_to_generator():
+    # If pipeline.py forgot to pop silk_segments before calling the
+    # generator, this raises TypeError("unexpected keyword argument").
+    text = generate_footprint("SOT-23", FAMILY_TREE_PATH, name="SOT23_TEST")
+    assert text  # got here without raising

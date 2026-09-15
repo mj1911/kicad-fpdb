@@ -26,6 +26,10 @@ CASES = [
     ("C-0402", "Capacitor_SMD.pretty/C_0402_1005Metric.kicad_mod"),
     ("C-0603", "Capacitor_SMD.pretty/C_0603_1608Metric.kicad_mod"),
     ("C-0805", "Capacitor_SMD.pretty/C_0805_2012Metric.kicad_mod"),
+    ("SOT-23", "Package_TO_SOT_SMD.pretty/SOT-23.kicad_mod"),
+    ("SOT-23-5", "Package_TO_SOT_SMD.pretty/SOT-23-5.kicad_mod"),
+    ("SOT-23-6", "Package_TO_SOT_SMD.pretty/SOT-23-6.kicad_mod"),
+    ("SOT-23-8", "Package_TO_SOT_SMD.pretty/SOT-23-8.kicad_mod"),
     ("QFP-32", "Package_QFP.pretty/LQFP-32_7x7mm_P0.8mm.kicad_mod"),
     ("QFP-48", "Package_QFP.pretty/LQFP-48_7x7mm_P0.5mm.kicad_mod"),
 ]
