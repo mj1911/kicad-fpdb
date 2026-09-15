@@ -4,6 +4,7 @@ import pytest
 
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
+from kicad_fpdb.generators.asymmetric_dual_row import asymmetric_dual_row
 from kicad_fpdb.generators.two_pad import two_pad_chip
 from kicad_fpdb.pipeline import GENERATORS, _add_outline, generate_footprint
 
@@ -59,6 +60,15 @@ def _soic8_geometry():
 def _r0603_geometry():
     geometry = two_pad_chip(pad_pitch=1.65, pad_size=(0.8, 0.95))
     geometry.name = "R0603_TEST"
+    return geometry
+
+
+def _sot23_geometry():
+    geometry = asymmetric_dual_row(
+        left_offsets=[-0.95, 0.95], right_offsets=[0], row_spacing=1.875,
+        pad_size=(1.475, 0.6), pad_shape="roundrect", pad_type="smd",
+    )
+    geometry.name = "SOT23_TEST"
     return geometry
 
 
@@ -455,6 +465,51 @@ def test_add_outline_with_no_silk_draws_courtyard_but_no_silk_geometry():
     assert geometry.rects[0].layer == "F.CrtYd"
     assert geometry.rects[0].start == pytest.approx((-0.7, -0.35))
     assert geometry.rects[0].end == pytest.approx((0.7, 0.35))
+
+
+def test_add_outline_with_tuple_courtyard_body_size_unions_per_pad_rects():
+    # SOT-style stepped courtyard: union of the true (non-square) body
+    # rect and each individual pad's own bbox (not grouped per side --
+    # a family with a gap between two same-side pads, like SOT-23-5,
+    # needs the gap to stay open).
+    geometry = _sot23_geometry()
+    _add_outline(geometry, courtyard_body_size=(1.3, 2.9),
+                  courtyard_margin_x=0.25, courtyard_margin_y=0.25, pin1_marker=False)
+
+    assert len(geometry.rects) == 0
+    crtyd_lines = [line for line in geometry.lines if line.layer == "F.CrtYd"]
+    assert len(crtyd_lines) == 16
+
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in crtyd_lines for pt in (line.start, line.end)}
+    # Matches real SOT-23 courtyard corners within the same ~0.005mm
+    # rounding already documented elsewhere (our flat 0.25 margin vs
+    # real's ~0.255): real (-1.93, -1.5) etc.
+    assert (-1.925, -1.5) in endpoints
+    assert (-0.9, -1.7) in endpoints
+    assert (0.9, -1.7) in endpoints
+    assert (1.925, -0.55) in endpoints
+    assert (1.925, 0.55) in endpoints
+
+
+def test_add_outline_with_silk_segments_draws_verbatim_lines():
+    geometry = _sot23_geometry()
+    segments = [
+        ((-0.76, -1.56), (0.76, -1.56)),
+        ((-0.76, -1.51), (-0.76, -1.56)),
+        ((-0.76, 0.39), (-0.76, -0.39)),
+    ]
+    _add_outline(geometry, silk_segments=segments, pin1_marker=False)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 3
+    assert len(geometry.arcs) == 0
+    for (start, end), line in zip(segments, silk_lines):
+        assert line.start == pytest.approx(start)
+        assert line.end == pytest.approx(end)
+
+    # Courtyard is unaffected -- still the generic flat-margin fallback.
+    assert len(geometry.rects) == 1
+    assert geometry.rects[0].layer == "F.CrtYd"
 
 
 def test_generate_footprint_r0402_silk_matches_real_lines():

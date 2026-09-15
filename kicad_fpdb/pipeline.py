@@ -86,10 +86,11 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
                   body_size: float | None = None, pin1_marker: bool = True,
                   silk_y: float | None = None, silk_half_length: float | None = None,
                   silk_two_lines: bool = False,
+                  silk_segments: list[tuple[tuple[float, float], tuple[float, float]]] | None = None,
                   no_silk: bool = False,
                   courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None,
                   courtyard_body_width: float | None = None, courtyard_body_margin: float | None = None,
-                  courtyard_body_size: float | None = None,
+                  courtyard_body_size: float | tuple[float, float] | None = None,
                   notch_radius: float | None = None) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
@@ -113,6 +114,24 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         expanded = [(r[0] - mx, r[1] - my, r[2] + mx, r[3] + my) for r in rects]
         for start, end in union_outline(expanded):
             geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd", width=0.05))
+    elif isinstance(courtyard_body_size, (tuple, list)):
+        # Real stepped courtyard (SOT-style): union of the true physical
+        # (non-square) body rect and each individual pad's own bbox --
+        # not grouped per side, so a gap between two same-side pads
+        # (e.g. SOT-23-5's right column) stays open rather than being
+        # incorrectly bridged. Adjacent pads still merge into one
+        # continuous arm wherever their own margin-expanded boxes
+        # overlap. See docs/superpowers/specs/2026-09-15-sot23-family-
+        # design.md.
+        min_px, max_px = _pad_center_extent(geometry.pads, 0)
+        min_py, max_py = _pad_center_extent(geometry.pads, 1)
+        ccx, ccy = (min_px + max_px) / 2, (min_py + max_py) / 2
+        half_w, half_h = courtyard_body_size[0] / 2, courtyard_body_size[1] / 2
+        body_rect = (ccx - half_w, ccy - half_h, ccx + half_w, ccy + half_h)
+        rects = [body_rect] + [pad_bounding_box([pad]) for pad in geometry.pads]
+        expanded = [(r[0] - mx, r[1] - my, r[2] + mx, r[3] + my) for r in rects]
+        for start, end in union_outline(expanded):
+            geometry.lines.append(Line(start=start, end=end, layer="F.CrtYd", width=0.05))
     elif courtyard_body_size is not None:
         # Real stepped courtyard (QFP-style): union of the true physical
         # body square and one pad-group rect per side, independently
@@ -132,7 +151,17 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         cy1x, cy1y = max_x + mx, max_y + my
         geometry.rects.append(Rect(start=(cy0x, cy0y), end=(cy1x, cy1y), layer="F.CrtYd"))
 
-    if no_silk:
+    if silk_segments is not None:
+        # Verbatim escape hatch for a real notched-body silk shape no
+        # formula covers (SOT-23's silk is a body rectangle with bites
+        # cut out wherever a pad crosses an edge -- subtractive, unlike
+        # the additive union model courtyards use, so not worth a
+        # general algorithm for the families that need it so far). Each
+        # pair is copied verbatim from the real reference footprint. See
+        # docs/superpowers/specs/2026-09-15-sot23-family-design.md.
+        for start, end in silk_segments:
+            geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
+    elif no_silk:
         # Real KiCad draws no F.SilkS outline at all for the smallest chip
         # passives (e.g. 0201): the body is too small to fit a safely
         # visible line. Declared explicitly per variant, since every other
@@ -315,6 +344,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     silk_y = params.pop("silk_y", None)
     silk_half_length = params.pop("silk_half_length", None)
     silk_two_lines = params.pop("silk_two_lines", False)
+    silk_segments = params.pop("silk_segments", None)
     no_silk = params.pop("no_silk", False)
     courtyard_margin_x = params.pop("courtyard_margin_x", None)
     courtyard_margin_y = params.pop("courtyard_margin_y", None)
@@ -331,7 +361,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     geometry.name = name
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
                  pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
-                 silk_two_lines=silk_two_lines, no_silk=no_silk,
+                 silk_two_lines=silk_two_lines, silk_segments=silk_segments, no_silk=no_silk,
                  courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
                  courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
                  courtyard_body_size=courtyard_body_size,
