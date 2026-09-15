@@ -34,6 +34,11 @@ PX_PER_MM = 20.0
 CHECKER_MM = 0.5
 CHECKER_PX = PX_PER_MM * CHECKER_MM
 
+# Dot-grid pitch, in mm, drawn on top of the checkerboard as a second scale
+# reference at standard 0.1in (2.54mm) perfboard/breadboard spacing.
+DOT_GRID_MM = 0.1 * 25.4
+DOT_GRID_PX = PX_PER_MM * DOT_GRID_MM
+
 _SVG_ROOT_SIZE = re.compile(r'width="([\d.]+)mm" height="([\d.]+)mm"')
 
 # kicad-cli's --sketch-pads-on-fab-layers draws each pad's number early in
@@ -202,12 +207,18 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
     display: flex; align-items: center; justify-content: center;
     background-color: #000;
     background-image:
+      radial-gradient(circle, rgba(255,255,255,0.35) 0.5px, transparent 0.5px),
       linear-gradient(45deg, rgba(255,255,255,0.12) 25%, transparent 25%),
       linear-gradient(-45deg, rgba(255,255,255,0.12) 25%, transparent 25%),
       linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.12) 75%),
       linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.12) 75%);
-    background-size: {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
-    background-position: 0 0, 0 {CHECKER_PX:g}px, {CHECKER_PX:g}px -{CHECKER_PX:g}px, -{CHECKER_PX:g}px 0;
+    background-size:
+      {DOT_GRID_PX:g}px {DOT_GRID_PX:g}px,
+      {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px, {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px,
+      {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px, {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
+    background-position:
+      0 0,
+      0 0, 0 {CHECKER_PX:g}px, {CHECKER_PX:g}px -{CHECKER_PX:g}px, -{CHECKER_PX:g}px 0;
   }}
   .frame svg {{ display: block; flex-shrink: 0; }}
   .controls {{ display:flex; gap:8px; align-items:center; margin: 16px 0; flex-wrap: wrap; }}
