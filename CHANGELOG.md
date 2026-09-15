@@ -2,6 +2,12 @@
 
 2026-09-15 v0.0.9:
 
+* Fixed review viewer panels permanently hiding part of a footprint
+  taller or wider than the 500px frame (e.g. DIP-24 w): scrolling down
+  reached the bottom fine, but scrolling up always cut off the top a
+  couple mm. Falls back from centered to flex-start on whichever axis
+  overflows, since `overflow:auto`'s default scroll origin can't reach
+  the start-side half of a centered, overflowing flex item.
 * Widened `data/kicad-fpdb.yaml` coverage with 6 new hand-verified
   variants: DIP-24 w (first verified case for DIP's wide width class),
   SOIC-16 (third verified pin count), and four new chip-passive sizes

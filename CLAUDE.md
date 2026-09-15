@@ -110,7 +110,13 @@ and become available for everyone to automatically update to.
   its outer half clipped by the SVG viewport's default
   `overflow:hidden` — invisible at this tool's ~1px render scale.
   Discovered on QFP-32/48 and SOIC-14's right-edge courtyard line
-  going missing.
+  going missing. Panels for a footprint taller/wider than the 500px
+  frame (e.g. DIP-24 w at 696px tall) also fall back from centered to
+  `flex-start` on whichever axis overflows (`_frame_overflow_style`):
+  `.frame`'s flex-centering splits overflow evenly on both sides, but
+  `overflow:auto`'s default scroll origin can only reach the end-side
+  half, permanently hiding the start-side half (a tall footprint's top
+  edge) — axes that fit stay centered as before.
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a
