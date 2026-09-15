@@ -405,6 +405,16 @@ def test_generate_footprint_qfp48_silk_matches_real_corner_position():
     assert "(end -3.31 -3.61)" in text
 
 
+def test_generate_footprint_qfp100_silk_matches_real_corner_position():
+    # Real LQFP-100_14x14mm_P0.5mm.kicad_mod corner marks are at
+    # (+-7.11, +-7.11) -- proves body_size derivation
+    # (courtyard_body_size + 0.22) generalizes beyond the 7x7mm bodies
+    # QFP-32/QFP-48 share, to a 14x14mm body.
+    text = generate_footprint("QFP-100", FAMILY_TREE_PATH, name="QFP100_TEST")
+    assert "(start -7.11 -7.11)" in text
+    assert "(end -6.81 -7.11)" in text
+
+
 def test_generate_footprint_qfp32_pad_offset_derived_from_courtyard_body_size():
     # QFP-32's yaml no longer declares pad_offset directly -- this proves
     # generate_footprint() forwards courtyard_body_size through to

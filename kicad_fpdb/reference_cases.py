@@ -36,4 +36,10 @@ CASES = [
     ("R-AXIAL0414", "Resistor_THT.pretty/R_Axial_DIN0414_L11.9mm_D4.5mm_P15.24mm_Horizontal.kicad_mod"),
     ("QFP-32", "Package_QFP.pretty/LQFP-32_7x7mm_P0.8mm.kicad_mod"),
     ("QFP-48", "Package_QFP.pretty/LQFP-48_7x7mm_P0.5mm.kicad_mod"),
+    ("QFP-64", "Package_QFP.pretty/LQFP-64_10x10mm_P0.5mm.kicad_mod"),
+    ("QFP-80", "Package_QFP.pretty/LQFP-80_12x12mm_P0.5mm.kicad_mod"),
+    ("QFP-100", "Package_QFP.pretty/LQFP-100_14x14mm_P0.5mm.kicad_mod"),
+    ("QFP-144", "Package_QFP.pretty/LQFP-144_20x20mm_P0.5mm.kicad_mod"),
+    ("QFP-176", "Package_QFP.pretty/LQFP-176_24x24mm_P0.5mm.kicad_mod"),
+    ("QFP-208", "Package_QFP.pretty/LQFP-208_28x28mm_P0.5mm.kicad_mod"),
 ]
