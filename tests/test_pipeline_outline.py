@@ -47,6 +47,7 @@ def _soic8_geometry():
     params.pop("courtyard_margin_y", None)
     params.pop("courtyard_body_width", None)
     params.pop("courtyard_body_margin", None)
+    params.pop("silk_two_lines", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "SOIC8_TEST"
     return geometry
@@ -147,6 +148,34 @@ def test_add_outline_without_notch_radius_keeps_plain_top_edge():
     silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
     assert len(silk_lines) == 4
     assert len(geometry.arcs) == 0
+
+
+def test_add_outline_with_silk_two_lines_draws_only_top_and_bottom():
+    # SOIC's real silk is just the top/bottom body edges, not a closed
+    # rectangle -- no vertical sides.
+    geometry = _soic8_geometry()
+    _add_outline(geometry, body_width=4.12, body_margin=0.64, silk_two_lines=True)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 2
+    assert len(geometry.arcs) == 0
+
+    ys = sorted({round(line.start[1], 5) for line in silk_lines} | {round(line.end[1], 5) for line in silk_lines})
+    assert ys == pytest.approx([-2.545, 2.545])
+    for line in silk_lines:
+        assert line.start[1] == line.end[1]
+        xs = sorted([round(line.start[0], 5), round(line.end[0], 5)])
+        assert xs == pytest.approx([-2.06, 2.06])
+
+
+def test_add_outline_without_silk_two_lines_keeps_plain_rectangle():
+    # Regression guard: DIP (and anything else that doesn't opt in) is
+    # unaffected -- still the full 4-line rectangle (or notch variant).
+    geometry = _dip16_geometry()
+    _add_outline(geometry, body_width=5.3, body_margin=1.33)
+
+    silk_lines = [line for line in geometry.lines if line.layer == "F.SilkS"]
+    assert len(silk_lines) == 4
 
 
 def test_add_outline_without_body_params_keeps_generic_margin_behavior():
@@ -308,6 +337,16 @@ def test_generate_footprint_soic8_silk_matches_body_formula():
     assert "(start -2.06 -2.545)" in text
     assert "(end 2.06 -2.545)" in text
     assert "(end 2.06 2.545)" in text
+
+
+def test_generate_footprint_soic8_silk_has_no_vertical_sides():
+    # Real SOIC silk is just the top/bottom body edges -- no closed
+    # rectangle. Only 2 F.SilkS fp_line entries (silk_two_lines: true).
+    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+    silk_line_blocks = [
+        block for block in text.split("(fp_line")[1:] if '(layer "F.SilkS")' in block
+    ]
+    assert len(silk_line_blocks) == 2
 
 
 def test_generate_footprint_does_not_leak_body_params_to_generator():

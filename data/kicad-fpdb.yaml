@@ -31,6 +31,7 @@ SOIC:
     row_spacing: 4.95
     body_width: 4.12
     body_margin: 0.64
+    silk_two_lines: true
     courtyard_margin_x: 0.25
     courtyard_margin_y: 0.25
     courtyard_body_width: 3.9

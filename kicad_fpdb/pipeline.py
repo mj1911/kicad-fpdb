@@ -81,6 +81,7 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
                   body_size: float | None = None, pin1_marker: bool = True,
                   silk_y: float | None = None, silk_half_length: float | None = None,
+                  silk_two_lines: bool = False,
                   no_silk: bool = False,
                   courtyard_margin_x: float | None = None, courtyard_margin_y: float | None = None,
                   courtyard_body_width: float | None = None, courtyard_body_margin: float | None = None,
@@ -163,6 +164,11 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             geometry.lines.append(Line(start=(sx1, sy0), end=(sx1, sy1), layer="F.SilkS"))
             geometry.lines.append(Line(start=(sx1, sy1), end=(sx0, sy1), layer="F.SilkS"))
             geometry.lines.append(Line(start=(sx0, sy1), end=(sx0, sy0), layer="F.SilkS"))
+        elif silk_two_lines:
+            # Real SOIC silk is just the top/bottom body edges, not a
+            # closed rectangle -- no vertical sides.
+            geometry.lines.append(Line(start=(sx0, sy0), end=(sx1, sy0), layer="F.SilkS"))
+            geometry.lines.append(Line(start=(sx0, sy1), end=(sx1, sy1), layer="F.SilkS"))
         else:
             corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
             for i in range(4):
@@ -271,6 +277,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     pin1_marker = params.pop("pin1_marker", True)
     silk_y = params.pop("silk_y", None)
     silk_half_length = params.pop("silk_half_length", None)
+    silk_two_lines = params.pop("silk_two_lines", False)
     no_silk = params.pop("no_silk", False)
     courtyard_margin_x = params.pop("courtyard_margin_x", None)
     courtyard_margin_y = params.pop("courtyard_margin_y", None)
@@ -283,7 +290,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     geometry = generator_fn(**params)
     geometry.name = name
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
-                 pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length, no_silk=no_silk,
+                 pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
+                 silk_two_lines=silk_two_lines, no_silk=no_silk,
                  courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
                  courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
                  courtyard_body_size=courtyard_body_size,
