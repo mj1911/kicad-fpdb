@@ -247,6 +247,27 @@ def _pad1_frame_position_px(svg_markup: str) -> tuple[float, float] | None:
     return offset_x + center_mm[0] * PX_PER_MM, offset_y + center_mm[1] * PX_PER_MM
 
 
+def _frame_overflow_style(svg_markup: str) -> str:
+    """CSS overrides for `.frame`'s flex centering when an embedded SVG is
+    larger than FRAME_PX on either axis. Centering an overflowing flex
+    item splits the excess evenly on both sides, but overflow:auto's
+    default scroll origin can only reach the *end*-side excess -- the
+    start-side portion (e.g. a tall footprint's top edge) is
+    permanently unreachable by scrolling. Falling back to flex-start on
+    whichever axis overflows keeps that axis's content fully
+    scrollable, while axes that fit stay centered as before."""
+    match = _SVG_PX_SIZE.search(svg_markup)
+    if not match:
+        return ""
+    width_px, height_px = float(match.group(1)), float(match.group(2))
+    overrides = []
+    if width_px > FRAME_PX:
+        overrides.append("justify-content: flex-start")
+    if height_px > FRAME_PX:
+        overrides.append("align-items: flex-start")
+    return "; ".join(overrides)
+
+
 def _grid_position_style(anchor_px: tuple[float, float] | None) -> str:
     """CSS background-position aligning both grid layers (dot centers, and
     checker square corners) to `anchor_px` within a .frame box — or, if
@@ -273,12 +294,14 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
         generated_markup = _inline_svg(Path(case["generated_svg"]))
         reference_markup = _inline_svg(Path(case["reference_svg"]))
         anchor = _pad1_frame_position_px(reference_markup)
-        grid_style = html.escape(_grid_position_style(anchor), quote=True)
+        grid_style = _grid_position_style(anchor)
+        generated_style = html.escape(f"{grid_style} {_frame_overflow_style(generated_markup)}", quote=True)
+        reference_style = html.escape(f"{grid_style} {_frame_overflow_style(reference_markup)}", quote=True)
         case_divs.append(f"""
 <div class="case" data-name="{name}">
   <div class="panels">
-    <div class="panel"><h3>Generator: {descriptor}</h3><div class="frame" style="{grid_style}">{generated_markup}</div></div>
-    <div class="panel"><h3>Reference: {reference_relpath}</h3><div class="frame" style="{grid_style}">{reference_markup}</div></div>
+    <div class="panel"><h3>Generator: {descriptor}</h3><div class="frame" style="{generated_style}">{generated_markup}</div></div>
+    <div class="panel"><h3>Reference: {reference_relpath}</h3><div class="frame" style="{reference_style}">{reference_markup}</div></div>
   </div>
 </div>""")
 

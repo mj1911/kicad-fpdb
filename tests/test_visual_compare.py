@@ -3,7 +3,13 @@ import os
 import pytest
 
 from kicad_fpdb.reference_cases import KICAD_FOOTPRINTS
-from kicad_fpdb.visual_compare import build_review_html, render_comparison, _raise_pad_numbers_on_top
+from kicad_fpdb.visual_compare import (
+    FRAME_PX,
+    build_review_html,
+    render_comparison,
+    _frame_overflow_style,
+    _raise_pad_numbers_on_top,
+)
 
 pytestmark = pytest.mark.skipif(
     not os.path.isdir(KICAD_FOOTPRINTS),
@@ -48,6 +54,25 @@ def test_raise_pad_numbers_on_top_preserves_stroke_color():
 def test_raise_pad_numbers_on_top_is_a_noop_without_stroked_text():
     svg = "<svg><circle cx=\"1\" cy=\"1\" r=\"1\" /></svg>"
     assert _raise_pad_numbers_on_top(svg) == svg
+
+
+def test_frame_overflow_style_empty_when_svg_fits():
+    svg = f'<svg width="{FRAME_PX - 1}" height="{FRAME_PX - 1}">'
+    assert _frame_overflow_style(svg) == ""
+
+
+def test_frame_overflow_style_flex_start_when_height_overflows():
+    # A tall footprint (e.g. DIP-24 wide) centered via flex in an
+    # overflow:auto frame has its top-side excess permanently
+    # unreachable by scrolling -- flex-start on the overflowing axis
+    # keeps the whole footprint scrollable into view.
+    svg = f'<svg width="{FRAME_PX - 1}" height="{FRAME_PX + 200}">'
+    assert _frame_overflow_style(svg) == "align-items: flex-start"
+
+
+def test_frame_overflow_style_justify_start_when_width_overflows():
+    svg = f'<svg width="{FRAME_PX + 200}" height="{FRAME_PX - 1}">'
+    assert _frame_overflow_style(svg) == "justify-content: flex-start"
 
 
 def test_render_comparison_produces_two_svgs(tmp_path):
