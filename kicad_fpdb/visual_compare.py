@@ -299,10 +299,22 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
         reference_relpath = html.escape(str(case.get("reference_relpath", "")))
         generated_markup = _inline_svg(Path(case["generated_svg"]))
         reference_markup = _inline_svg(Path(case["reference_svg"]))
-        anchor = _pad1_frame_position_px(reference_markup)
-        grid_style = _grid_position_style(anchor)
-        generated_style = html.escape(f"{grid_style} {_frame_overflow_style(generated_markup)}", quote=True)
-        reference_style = html.escape(f"{grid_style} {_frame_overflow_style(reference_markup)}", quote=True)
+        # Each panel's grid is anchored to that panel's *own* pad 1, not
+        # shared from the reference: kicad-cli assigns each exported svg
+        # its own coordinate origin from that file's own bounding box, and
+        # the generated file has at least one feature the reference
+        # doesn't (the pin-1 marker circle) that can shift it -- sharing
+        # one anchor drifts the generated panel's grid off its own pad 1.
+        generated_style = html.escape(
+            f"{_grid_position_style(_pad1_frame_position_px(generated_markup))} "
+            f"{_frame_overflow_style(generated_markup)}",
+            quote=True,
+        )
+        reference_style = html.escape(
+            f"{_grid_position_style(_pad1_frame_position_px(reference_markup))} "
+            f"{_frame_overflow_style(reference_markup)}",
+            quote=True,
+        )
         case_divs.append(f"""
 <div class="case" data-name="{name}">
   <div class="panels">

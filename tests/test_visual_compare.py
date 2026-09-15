@@ -1,4 +1,5 @@
 import os
+import re
 
 import pytest
 
@@ -140,6 +141,45 @@ def test_build_review_html_embeds_both_svgs_and_case_metadata(tmp_path):
     assert text.count("<svg") >= 2
     assert "Pass (P)" in text
     assert "Fail (F)" in text
+
+
+def _write_fake_svg(path, width_mm, height_mm, pad1_cx_mm, pad1_cy_mm):
+    path.write_text(
+        f'<svg width="{width_mm}mm" height="{height_mm}mm" '
+        f'viewBox="0.000000 0.000000 {width_mm} {height_mm}">'
+        f'<g style="fill:#C83434;"><circle cx="{pad1_cx_mm}" cy="{pad1_cy_mm}" r="0.3"/></g>'
+        "</svg>"
+    )
+
+
+def test_review_html_anchors_each_panel_to_its_own_pad1(tmp_path):
+    # The generated svg's own coordinate origin can legitimately differ
+    # from the reference's (e.g. the pin-1 marker circle, a feature real
+    # KiCad's file doesn't have, shifts kicad-cli's computed bounding
+    # box) -- sharing one anchor derived only from the reference drifts
+    # off the generated panel's own pad 1. Each panel's grid must be
+    # computed from that panel's own svg.
+    generated_svg = tmp_path / "gen.svg"
+    reference_svg = tmp_path / "ref.svg"
+    _write_fake_svg(generated_svg, 10, 10, pad1_cx_mm=2.0, pad1_cy_mm=3.0)
+    _write_fake_svg(reference_svg, 10, 10, pad1_cx_mm=2.0, pad1_cy_mm=2.5)
+
+    cases = [{
+        "name": "fake_test",
+        "descriptor": "FAKE",
+        "reference_relpath": "fake.kicad_mod",
+        "generated_svg": generated_svg,
+        "reference_svg": reference_svg,
+    }]
+    review_path = build_review_html(cases, tmp_path / "review.html")
+    text = review_path.read_text()
+
+    frames = re.findall(r'<div class="frame" style="([^"]*)">', text)
+    assert len(frames) == 2
+    gen_y = float(re.search(r"px ([\-\d.]+)px,", frames[0]).group(1))
+    ref_y = float(re.search(r"px ([\-\d.]+)px,", frames[1]).group(1))
+    # 0.5mm y difference between the two svgs' own pad1 -> 10px at 20px/mm.
+    assert abs((gen_y - ref_y) - 10.0) < 1e-6
 
 
 def test_review_html_grid_scrolls_with_footprint(tmp_path):
