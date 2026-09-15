@@ -278,8 +278,8 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
 <div class="case" data-name="{name}">
   <p><strong>{descriptor}</strong> vs <code>{reference_relpath}</code></p>
   <div class="panels">
-    <div class="panel"><h3>Generated</h3><div class="frame" style="{grid_style}">{generated_markup}</div></div>
-    <div class="panel"><h3>Reference</h3><div class="frame" style="{grid_style}">{reference_markup}</div></div>
+    <div class="panel"><h3>Generator: {descriptor}</h3><div class="frame" style="{grid_style}">{generated_markup}</div></div>
+    <div class="panel"><h3>Reference: {reference_relpath}</h3><div class="frame" style="{grid_style}">{reference_markup}</div></div>
   </div>
 </div>""")
 
