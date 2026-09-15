@@ -40,6 +40,22 @@ DOT_GRID_MM = 0.1 * 25.4
 DOT_GRID_PX = PX_PER_MM * DOT_GRID_MM
 
 _SVG_ROOT_SIZE = re.compile(r'width="([\d.]+)mm" height="([\d.]+)mm"')
+_SVG_PX_SIZE = re.compile(r'width="([\d.]+)" height="([\d.]+)"')
+
+# kicad-cli's default theme fills F.Cu copper (pads) with this exact color —
+# verified across every reference/generated SVG this tool produces. Pads are
+# the only filled shapes using it, and kicad-cli plots them in a footprint's
+# own pad-declaration order, so the first #C83434 shape in document order is
+# always pad "1" for every case in kicad_fpdb.reference_cases (each lists
+# pad "1" first in its .kicad_mod, the near-universal KiCad convention).
+_PAD1_PATH = re.compile(r'<path style="fill:#C83434[^"]*"\s*d="([^"]+)"', re.DOTALL)
+_PAD1_CIRCLE = re.compile(r'<g style="fill:#C83434[^"]*">\s*<circle cx="(-?[\d.]+)" cy="(-?[\d.]+)"')
+_COORD_PAIR = re.compile(r'(-?[\d.]+),(-?[\d.]+)')
+
+# Grid frame size, in px — both panels render into a fixed square box (per
+# CLAUDE.md's documented review-viewer design) so a background-position
+# computed from one panel lines up identically in the other.
+FRAME_PX = 500.0
 
 # kicad-cli's --sketch-pads-on-fab-layers draws each pad's number early in
 # the SVG, then draws drill-hole circles for through-hole pads afterward —
@@ -166,6 +182,53 @@ def _inline_svg(svg_path: Path) -> str:
     return _raise_pad_numbers_on_top(markup)
 
 
+def _pad1_center_mm(svg_markup: str) -> tuple[float, float] | None:
+    """Returns pad 1's exact geometric center, in viewBox mm units (every
+    case's viewBox origin is confirmed 0,0, so this is a direct px scale
+    away), or None if no pad shape is found."""
+    candidates = []
+    path_match = _PAD1_PATH.search(svg_markup)
+    if path_match:
+        candidates.append((path_match.start(), path_match))
+    circle_match = _PAD1_CIRCLE.search(svg_markup)
+    if circle_match:
+        candidates.append((circle_match.start(), circle_match))
+    if not candidates:
+        return None
+    _, match = min(candidates, key=lambda c: c[0])
+    if match.re is _PAD1_CIRCLE:
+        return float(match.group(1)), float(match.group(2))
+    coords = [(float(x), float(y)) for x, y in _COORD_PAIR.findall(match.group(1))]
+    xs, ys = [x for x, _ in coords], [y for _, y in coords]
+    return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+
+
+def _pad1_frame_position_px(svg_markup: str) -> tuple[float, float] | None:
+    """Returns pad 1's pixel position within its FRAME_PX-square .frame box
+    (which centers the svg via flexbox), or None if pad 1 can't be found."""
+    center_mm = _pad1_center_mm(svg_markup)
+    if center_mm is None:
+        return None
+    size_match = _SVG_PX_SIZE.search(svg_markup)
+    svg_w_px, svg_h_px = float(size_match.group(1)), float(size_match.group(2))
+    offset_x, offset_y = (FRAME_PX - svg_w_px) / 2, (FRAME_PX - svg_h_px) / 2
+    return offset_x + center_mm[0] * PX_PER_MM, offset_y + center_mm[1] * PX_PER_MM
+
+
+def _grid_position_style(anchor_px: tuple[float, float] | None) -> str:
+    """CSS background-position aligning both grid layers (dot centers, and
+    checker square corners) to `anchor_px` within a .frame box — or, if
+    None, the same phase the grids always used before per-case alignment."""
+    x, y = anchor_px or (0.0, 0.0)
+    c = CHECKER_PX
+    return (
+        "background-position: "
+        f"{x - DOT_GRID_PX / 2:g}px {y - DOT_GRID_PX / 2:g}px, "
+        f"{x:g}px {y:g}px, {x:g}px {y + c:g}px, "
+        f"{x + c:g}px {y - c:g}px, {x - c:g}px {y:g}px;"
+    )
+
+
 def build_review_html(cases: list[dict], output_path: str) -> Path:
     """Builds a self-contained HTML review page for the given cases (each a
     dict with name/descriptor/reference_relpath/generated_svg/reference_svg,
@@ -177,12 +240,14 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
         reference_relpath = html.escape(str(case.get("reference_relpath", "")))
         generated_markup = _inline_svg(Path(case["generated_svg"]))
         reference_markup = _inline_svg(Path(case["reference_svg"]))
+        anchor = _pad1_frame_position_px(reference_markup)
+        grid_style = html.escape(_grid_position_style(anchor), quote=True)
         case_divs.append(f"""
 <div class="case" data-name="{name}">
   <p><strong>{descriptor}</strong> vs <code>{reference_relpath}</code></p>
   <div class="panels">
-    <div class="panel"><h3>Generated</h3><div class="frame">{generated_markup}</div></div>
-    <div class="panel"><h3>Reference</h3><div class="frame">{reference_markup}</div></div>
+    <div class="panel"><h3>Generated</h3><div class="frame" style="{grid_style}">{generated_markup}</div></div>
+    <div class="panel"><h3>Reference</h3><div class="frame" style="{grid_style}">{reference_markup}</div></div>
   </div>
 </div>""")
 
@@ -203,7 +268,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   }}
   .panel h3 {{ margin: 0 0 8px; font-size: 0.9rem; color: #aaa; }}
   .frame {{
-    height: 500px; overflow: auto;
+    width: {FRAME_PX:g}px; height: {FRAME_PX:g}px; overflow: auto;
     display: flex; align-items: center; justify-content: center;
     background-color: #000;
     background-image:
@@ -216,9 +281,8 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
       {DOT_GRID_PX:g}px {DOT_GRID_PX:g}px,
       {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px, {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px,
       {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px, {CHECKER_PX * 2:g}px {CHECKER_PX * 2:g}px;
-    background-position:
-      0 0,
-      0 0, 0 {CHECKER_PX:g}px, {CHECKER_PX:g}px -{CHECKER_PX:g}px, -{CHECKER_PX:g}px 0;
+    /* background-position is set per-case (inline style), anchored to the
+       reference footprint's pad 1 center — see _grid_position_style. */
   }}
   .frame svg {{ display: block; flex-shrink: 0; }}
   .controls {{ display:flex; gap:8px; align-items:center; margin: 16px 0; flex-wrap: wrap; }}
