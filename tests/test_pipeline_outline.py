@@ -1080,3 +1080,158 @@ def test_generate_footprint_does_not_leak_lead_and_courtyard_body_params_to_gene
     # TypeError("unexpected keyword argument").
     text = generate_footprint("R-AXIAL0204", FAMILY_TREE_PATH, name="X")
     assert text
+
+
+def test_dip_regular_width_uses_larger_body_at_pin_count_22_and_24():
+    # Real KiCad's DIP-22/DIP-24_W10.16mm.kicad_mod have a genuinely
+    # larger real body (silk 7.84mm/fab 9.14mm) than every other
+    # regular-width pin count checked (4-16: 6.47mm/6.35mm) -- confirmed
+    # by byte-level bounding-box comparison. DIP-22/DIP-24's own
+    # children in data/kicad-fpdb.yaml override this via a dict-merge
+    # (see test_family_tree.py's equivalent synthetic-yaml test); this
+    # locks in the exact real-data values.
+    for descriptor in ("DIP-22 r", "DIP-24 r"):
+        resolved = resolve_descriptor(load_family_tree(FAMILY_TREE_PATH), parse_descriptor(descriptor))
+        assert resolved.params["body_width"] == 7.84, descriptor
+        assert resolved.params["fab_body_width"] == 9.14, descriptor
+
+
+def test_dip_24_narrow_and_wide_are_unaffected_by_regular_override():
+    # DIP-24's narrow/wide widths must keep the root's own (unchanged)
+    # body_width -- the "regular" override on DIP-24's child node must
+    # not leak onto its sibling width classes.
+    narrow = resolve_descriptor(load_family_tree(FAMILY_TREE_PATH), parse_descriptor("DIP-24"))
+    assert narrow.params["body_width"] == 5.3
+    wide = resolve_descriptor(load_family_tree(FAMILY_TREE_PATH), parse_descriptor("DIP-24 w"))
+    assert wide.params["body_width"] == 12.92
+
+
+def test_socket_courtyard_sits_outside_the_socket_silk_rectangle():
+    # A real _Socket footprint's courtyard is measured from each pin's
+    # own center by a flat 1.52mm (x) / 1.58mm (y) -- *larger* than the
+    # socket silk rectangle's own 1.33mm/1.39mm center-based margin, so
+    # the courtyard properly sits outside the silk describing the
+    # socket's own typical size/shape. Confirmed by byte-level
+    # comparison against DIP-8/14/16 and CERDIP-16/24's own Socket
+    # reference files -- this locks in the exact real-data values.
+    for descriptor in ("DIP-14 socket", "CERDIP-16 socket"):
+        resolved = resolve_descriptor(load_family_tree(FAMILY_TREE_PATH), parse_descriptor(descriptor))
+        assert resolved.params["courtyard_margin_x"] == 1.52, descriptor
+        assert resolved.params["courtyard_margin_y"] == 1.58, descriptor
+        assert resolved.params["courtyard_margin_x"] > resolved.params["socket_margin_x"], descriptor
+        assert resolved.params["courtyard_margin_y"] > resolved.params["socket_margin_y"], descriptor
+
+
+def test_longpads_shrinks_body_width_for_narrow_and_wide_but_not_regular():
+    # Real KiCad's LongPads variant shrinks the oversized F.SilkS body by
+    # a flat 0.8mm for narrow/wide, but leaves "regular" completely
+    # unchanged at small pin counts (6.47mm either way) -- confirmed by
+    # byte-level comparison against DIP-8_W10.16mm(_LongPads).
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    narrow = resolve_descriptor(tree, parse_descriptor("DIP-14 longpads"))
+    assert narrow.params["body_width"] == 4.5
+    wide = resolve_descriptor(tree, parse_descriptor("DIP-24 w longpads"))
+    assert wide.params["body_width"] == 12.12
+    regular_small = resolve_descriptor(tree, parse_descriptor("DIP-8 r longpads"))
+    assert regular_small.params["body_width"] == 6.47
+
+
+def test_longpads_shrinks_the_already_oversized_regular_body_at_22_and_24():
+    # DIP-22/DIP-24's regular body is already overridden to 7.84mm (see
+    # test_dip_regular_width_uses_larger_body_at_pin_count_22_and_24);
+    # LongPads applies the same -0.8mm shrink to *that* value (7.04mm),
+    # not the small-pin-count default -- these two variants declare
+    # their own "longpads" modifier for exactly this reason.
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    for descriptor in ("DIP-22 r longpads", "DIP-24 r longpads"):
+        resolved = resolve_descriptor(tree, parse_descriptor(descriptor))
+        assert resolved.params["body_width"] == 7.04, descriptor
+
+
+def test_longpads_pad_size_is_elongated():
+    resolved = resolve_descriptor(
+        load_family_tree(FAMILY_TREE_PATH), parse_descriptor("DIP-14 longpads")
+    )
+    assert resolved.params["pad_size"] == [2.4, 1.6]
+
+
+def test_longpads_generates_oval_shape_for_non_pin1_pads():
+    text = generate_footprint("DIP-14 longpads", FAMILY_TREE_PATH, name="X")
+    assert '(pad "1" thru_hole roundrect' in text
+    assert '(pad "2" thru_hole oval' in text
+
+
+def test_socket_margin_is_measured_from_pad_center_not_edge():
+    # Real KiCad's Socket silk margin is fixed relative to each pin's
+    # own center (1.33mm), not the pad bbox edge -- this only coincided
+    # with an edge-based 0.53mm margin as long as every pad was the same
+    # 1.6mm size. Confirmed exact against DIP-8/14/16_Socket.
+    resolved = resolve_descriptor(load_family_tree(FAMILY_TREE_PATH), parse_descriptor("DIP-14 socket"))
+    assert resolved.params["socket_margin_x"] == 1.33
+    assert resolved.params["courtyard_from_pad_center"] is True
+
+
+def test_socket_longpads_combo_uses_a_distinct_socket_margin():
+    # Real KiCad's Socket+LongPads combo has its own socket_margin_x
+    # (1.44mm), different from Socket alone (1.33mm) -- confirmed exact
+    # against DIP-14/DIP-24_Socket_LongPads. Order of the two modifier
+    # tokens in the descriptor must not matter (the "_with" override is
+    # checked against the full active-token set, not applied
+    # sequentially).
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    for descriptor in ("DIP-14 socket longpads", "DIP-14 longpads socket"):
+        resolved = resolve_descriptor(tree, parse_descriptor(descriptor))
+        assert resolved.params["socket_margin_x"] == 1.44, descriptor
+
+
+def test_socket_longpads_combo_courtyard_is_unchanged_from_socket_alone():
+    # Unlike the silk margin, the real Socket courtyard is byte-identical
+    # whether or not LongPads is also active (confirmed against
+    # DIP-14_Socket vs. DIP-14_Socket_LongPads) -- it's already
+    # center-based and LongPads doesn't move the pin centers.
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    socket_only = resolve_descriptor(tree, parse_descriptor("DIP-14 socket"))
+    socket_longpads = resolve_descriptor(tree, parse_descriptor("DIP-14 socket longpads"))
+    assert socket_only.params["courtyard_margin_x"] == socket_longpads.params["courtyard_margin_x"]
+    assert socket_only.params["courtyard_margin_y"] == socket_longpads.params["courtyard_margin_y"]
+
+
+def test_cerdip_8_socket_longpads_combo_uses_its_own_oversized_y_margin_but_shared_x():
+    # CERDIP-8's own "socket" override replaces the root's entirely (see
+    # its yaml comment), so it must redeclare its own "_with: longpads"
+    # too, or the combo's socket_margin_x correction would silently be
+    # lost for this specific variant.
+    resolved = resolve_descriptor(
+        load_family_tree(FAMILY_TREE_PATH), parse_descriptor("CERDIP-8 socket longpads")
+    )
+    assert resolved.params["socket_margin_x"] == 1.44
+    assert resolved.params["socket_margin_y"] == 2.915
+
+
+def test_smdip_reuses_dip_constants_but_has_its_own_body_width_tiers():
+    # SMDIP reuses DIP's own body_margin/fab_body_margin/fab_chamfer/
+    # notch_radius/courtyard_margin_x exactly (confirmed via
+    # _pad_center_extent-based margins against real SMDIP files), but
+    # its silk/fab body_width is keyed by its own width tiers, not
+    # DIP's narrow/regular/wide -- "medium" (9.53mm) and "broad"
+    # (11.48mm) share the same body_width/fab_body_width pair despite
+    # different row spacing, confirmed exact against SMDIP-*_W9.53mm
+    # and SMDIP-*_W11.48mm.
+    tree = load_family_tree(FAMILY_TREE_PATH)
+    narrow = resolve_descriptor(tree, parse_descriptor("SMDIP-14"))
+    assert narrow.params["body_margin"] == 1.33
+    assert narrow.params["fab_body_margin"] == 1.27
+    assert narrow.params["courtyard_margin_x"] == 0.25
+    assert narrow.params["body_width"] == 4.9
+
+    medium = resolve_descriptor(tree, parse_descriptor("SMDIP-14 m"))
+    broad = resolve_descriptor(tree, parse_descriptor("SMDIP-14 b"))
+    assert medium.params["body_width"] == broad.params["body_width"] == 6.47
+    assert medium.params["fab_body_width"] == broad.params["fab_body_width"] == 6.35
+
+
+def test_smdip_pads_are_smd_centered_and_uniformly_roundrect():
+    text = generate_footprint("SMDIP-14", FAMILY_TREE_PATH, name="X")
+    assert '(pad "1" smd roundrect' in text
+    assert '(pad "2" smd roundrect' in text
+    assert "(drill" not in text

@@ -18,6 +18,7 @@ def test_write_pad_thru_hole_with_drill():
     assert "(size 1.6 1.6)" in text
     assert "(drill 0.8)" in text
     assert '(layers "*.Cu" "*.Mask")' in text
+    assert "(remove_unused_layers no)" in text
     assert "(roundrect_rratio 0.15625)" in text
 
 
@@ -29,6 +30,9 @@ def test_write_pad_smd_no_drill():
     assert '(pad "2" smd roundrect' in text
     assert "(drill" not in text
     assert '(layers "F.Cu" "F.Mask" "F.Paste")' in text
+    # Real KiCad never emits this on an SMD pad -- only thru_hole ones
+    # (verified across DIP/R-AXIAL vs. SOIC/SOT/chip-passive references).
+    assert "remove_unused_layers" not in text
 
 
 def test_write_pad_with_solder_mask_and_paste_margin():

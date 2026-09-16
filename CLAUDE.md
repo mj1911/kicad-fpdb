@@ -450,9 +450,94 @@ and become available for everyone to automatically update to.
   The footprint-count footer reads `CASES` directly, so it still
   correctly reports 35.
 * Real KiCad's own library has 281 DIP footprints (`Package_DIP.pretty`)
-  against our 5 verified DIP variants (DIP-14, DIP-16 narrow/regular,
-  DIP-18, DIP-24 wide) — a concrete sense of scale for the "convert the
-  entire library" TODO item below.
+  — grown from 5 to 230 total verified reference cases across all
+  families since, closing a large share of that gap; see below.
+* DIP grew two more width classes, `extra_wide`/`ultra_wide` (letters
+  `x`/`u`, row spacing 22.86mm/25.4mm) — same mechanism as the existing
+  narrow/regular/wide classes, no new code.
+* Added `CERDIP` (ceramic side-brazed DIP, JEDEC MS-015) as a sibling
+  family reusing `dual_row_grid` and almost all of DIP's own constants
+  — only the F.Fab true-body width differs (7.49mm flat vs DIP's
+  6.35mm). `CERDIP-8`/`CERDIP-14` additionally override `body_margin`/
+  `fab_body_margin`/`courtyard_margin_y` for a JEDEC-mandated minimum
+  ceramic body length at small pin counts. Real KiCad names always
+  carry a trailing `_SideBrazed`, unconditional (not a selectable
+  modifier) — see `kicad_fpdb.naming.descriptive_suffix`.
+* Added a "socket" modifier (e.g. `DIP-14 socket`, also on CERDIP):
+  real KiCad's `_Socket` variant draws one extra F.SilkS rectangle
+  around the pads. Its silk *and* courtyard margins are measured from
+  each pin's own **center**, not the pad bbox edge (`socket_margin_x/y`,
+  `courtyard_from_pad_center` in `kicad_fpdb.pipeline._add_outline`) —
+  this only looked edge-based before because every pad was the same
+  1.6mm size; LongPads (below) exposed the real behavior.
+* Added a "longpads" modifier (e.g. `DIP-14 longpads`): widens the pad
+  to 2.4×1.6mm and shrinks the silk body by a flat 0.8mm (except DIP's
+  "regular" width at pin counts 4–16, which real KiCad leaves
+  unchanged). Required generalizing `dual_row_grid`'s non-pin-1 pad
+  shape to "oval" whenever the pad is non-square (`_non_pin1_shape` in
+  `kicad_fpdb/generators/dual_row.py`) — previously always "circle".
+  Socket+LongPads together need their own distinct silk margin
+  (1.44mm vs Socket-alone's 1.33mm, courtyard unchanged) — handled by
+  a new reserved `_with` key inside a modifier's own override dict in
+  `data/kicad-fpdb.yaml`, applied order-independently against the full
+  set of active modifier tokens rather than sequentially (see
+  `kicad_fpdb.family_tree.resolve_descriptor`).
+* Fixed a naming redundancy: `DIP-16 r` produced a Value of
+  `DIP-16_r_W10.16mm` — the width letter, now redundant since the
+  dimension suffix already encodes it. Root cause was `_default_case_name`
+  (which keeps every modifier token, for unique on-disk file naming)
+  being reused as the footprint's own identity name; decoupled via a
+  new `footprint_name` parameter on `render_comparison` backed by
+  `_descriptor_head` (strips modifier tokens entirely). Fixed alongside:
+  Socket's suffix ordering (`_socket_W7.62mm` → `_W7.62mm_Socket`) and
+  CERDIP getting no suffix at all (`descriptive_suffix` only checked
+  `family == "DIP"`). `MODIFIER_DISPLAY_NAMES` in `kicad_fpdb/naming.py`
+  maps a modifier token to its exact-capitalization real-KiCad display
+  name (`"longpads"` → `"LongPads"`, not `.capitalize()`'s `"Longpads"`).
+* `remove_unused_layers no` was missing from every thru-hole pad the
+  writer emits — real KiCad puts it on every one (never on SMD pads);
+  fixed in `kicad_fpdb/writer.py`.
+* Fixed the review viewer's footer size-comparison stat going stale
+  once `PREVIEW_ONLY_DESCRIPTORS` (below) started filtering the
+  rendered case list — `_size_comparison_html` was being passed that
+  filtered list instead of the full `CASES`.
+* Added `SMDIP` (surface-mount DIP): reuses essentially all of DIP's
+  numeric constants but has its own `body_width`/`fab_body_width`
+  tiers and `courtyard_margin_y`, `pad_type: smd`, `centered: true`.
+* The review viewer's preview can now be pinned to just the newest
+  batch of cases via `PREVIEW_ONLY_DESCRIPTORS` in
+  `kicad_fpdb/visual_compare.py` (checked before the existing
+  `PREVIEW_EXCLUDED_DESCRIPTORS` exclusion list) — `CASES` and the
+  regression suite always cover everything regardless; this only
+  narrows what `review.html` renders, so a reviewer isn't stuck
+  paging through hundreds of already-verified cases every round.
+  Left non-empty between sessions is intentional-for-now, not a
+  leftover bug.
+* Added SOIC's `wide` width class (the real `*W` 7.5mm-body variants,
+  e.g. `SOIC-16W`), selected the same way as DIP's width classes
+  (`SOIC-16 w`) — zero generator changes, same `dual_row_grid` +
+  stepped-courtyard/naming code already used for narrow.
+* Added SOIC-8's exposed-pad (`-1EP`) variants: a center thermal
+  ("heatsink") pad plus a 4-way paste-stencil split, both new pad
+  concepts. `Pad` gained optional `layers`/`pad_prop`/`zone_connect`
+  overrides (`kicad_fpdb/geometry.py`, `kicad_fpdb/writer.py`) since
+  these don't fit the plain pad_type-derived layer set every other pad
+  uses. The paste-split size/position formula was reverse-engineered
+  from all 8 real `SOIC-8-1EP_*.kicad_mod` files (no formula is
+  published for it): per axis, `size = 0.8094 * (H/1) - 0.0057` where
+  H is half the effective size, position = `effective_size / 4`, fit
+  by least squares (max residual 0.006mm across all 8 samples). Two of
+  the eight additionally declare a separate `ep_mask_size` (a smaller
+  solder-mask opening over the same copper pad) — real KiCad computes
+  the paste split from *that* size instead, and drops F.Mask from the
+  copper pad itself in favor of a dedicated mask-only pad. Each of the
+  8 real files needed its own hand-verified outer-pad `row_spacing`/
+  `pad_size` too (5 of the 8 shrink/shift the ordinary 8 pads to clear
+  the larger EP; only 3 sit on the plain narrow SOIC-8 grid unchanged)
+  — modeled as one SOIC modifier per EP size (e.g. `SOIC-8
+  ep2_41x3_3`) rather than a formula, since vendor EP sizing has none.
+  Real KiCad's own `_ThermalVias` sibling of each of these (adds an
+  actual via array inside the pad) is not yet implemented — see TODO.
 
 ## TODO
 
@@ -482,6 +567,41 @@ each session, in roughly chronological order:
   before it fits the existing pattern.
 * Descriptor grammar will need to grow to express more variation (see the
   spec's "Expected evolution" note) — grow it deliberately, not organically.
+* SOIC-8-1EP's `_ThermalVias` siblings (8 real files): same EP/paste
+  layout as the plain EP variants already done, plus an actual via
+  array inside the thermal pad — a genuinely new primitive.
+* SOIC-32 (`SOIC-32_7.518x20.777mm_P1.27mm.kicad_mod`): looks like it
+  should fit the `wide` class but its pad width/pitch is subtly
+  different from the other six real `*W` files (4.7875mm vs 4.65mm
+  pad-x) — likely its own anomaly, needs its own investigation before
+  it can be added (same category as DIP-32_W7.62mm's rect-vs-roundrect
+  anomaly).
+* SOIC-10 (`SOIC-10_3.9x4.9mm_P1mm.kicad_mod`): a genuinely different
+  pitch (1mm, not 1.27mm) and its own row spacing — not a clean fit
+  under the existing narrow/wide classes without a custom-pitch case.
+* SOIC-14-16 and SOIC-5-6 (combined-pin-count files: one real footprint
+  populating two different pin counts via unpopulated pads) aren't
+  expressible in the current per-descriptor model — same unsupported
+  modeling quirk as DIP-24's RTC-module files below.
+* DIP: `SMDSocket` (51 files) — a third, distinct socket-adapter style
+  needing new design work beyond the existing thru-hole Socket.
+  Oddball partial-pin DIPs (`DIP-5-6`, `DIP-8-16`, `DIP-8-N6`,
+  `DIP-8-N7`, 13 files) need generator support for a non-full pin
+  population. `DIP-24_18.0mmx34.29mm_*` (4 files) is not a real DIP-24
+  variant at all — a distinct RTC/battery-module footprint using
+  `pcbnew`-generator-specific features (UUIDs, `unlocked` properties)
+  this project's writer doesn't support — out of scope.
+* SMDIP: a `Clearance8mm` modifier (10 files) and a `_W25.24mm` 5th
+  width tier (4 files) are still unconverted; plus 12 vendor one-off
+  footprints across the library that don't fit the family model at all.
+* SOT-23W: a natural follow-up under the existing `SOT` root, but NOT a
+  mechanical addition like TSOT-23-5/6/8 was — its real reference
+  footprint uses a filled-triangle silk polygon for the pin-1 marker
+  and a chamfered-pentagon F.Fab outline, neither of which the current
+  outline generator supports (today's shapes are: notch, two-lines,
+  corner-marks, or plain rect for silk; plain-rect or single-corner-
+  chamfer for fab). Needs a small design pass for the new primitives
+  before it fits the existing pattern.
 * Convert the entire existing KiCad footprint library into descriptor form
   (separate future spec, per the original design spec's non-goals).
 * KiCad plugin/UI integration (separate future spec).

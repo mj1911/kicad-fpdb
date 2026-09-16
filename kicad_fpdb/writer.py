@@ -159,12 +159,27 @@ def _write_pad(pad: Pad) -> str:
     lines.append(f"    (size {_fmt(size_x)} {_fmt(size_y)})")
     if pad.drill is not None:
         lines.append(f"    (drill {_fmt(pad.drill)})")
-    if pad.pad_type == "thru_hole":
+    if pad.pad_prop is not None:
+        lines.append(f"    (property {pad.pad_prop})")
+    if pad.layers is not None:
+        # Exposed-pad heatsink/mask/paste pads don't fit the plain
+        # pad_type-derived layer set below -- see Pad.layers.
+        layer_list = " ".join(f'"{layer}"' for layer in pad.layers)
+        lines.append(f"    (layers {layer_list})")
+    elif pad.pad_type == "thru_hole":
         lines.append('    (layers "*.Cu" "*.Mask")')
+        # Real KiCad emits this on every thru_hole pad (never on SMD
+        # pads) -- verified across DIP, R-AXIAL. Harmless no-op for a
+        # generated footprint (nothing has customized per-layer pad
+        # shapes to preserve), but matching it exactly avoids a
+        # spurious diff against the real reference file.
+        lines.append("    (remove_unused_layers no)")
     else:
         lines.append('    (layers "F.Cu" "F.Mask" "F.Paste")')
     if pad.roundrect_rratio is not None:
         lines.append(f"    (roundrect_rratio {_fmt(pad.roundrect_rratio)})")
+    if pad.zone_connect is not None:
+        lines.append(f"    (zone_connect {pad.zone_connect})")
     if pad.solder_mask_margin is not None:
         lines.append(f"    (solder_mask_margin {_fmt(pad.solder_mask_margin)})")
     if pad.solder_paste_margin is not None:

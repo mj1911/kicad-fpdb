@@ -23,6 +23,7 @@ def test_r1206_pad_uses_clamped_roundrect_rratio():
     # 0.25mm max corner radius, not the flat nominal 0.25 ratio.
     geom = two_pad_chip(pad_pitch=2.925, pad_size=(1.125, 1.75))
     pad1 = geom.pads[0]
+    assert pad1.roundrect_rratio is not None
     assert abs(pad1.roundrect_rratio - 0.222222) < 1e-5
 
 

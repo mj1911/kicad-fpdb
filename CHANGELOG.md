@@ -1,5 +1,50 @@
 # Changes
 
+2026-09-16 v0.0.15:
+
+* Added two more DIP width classes (`extra_wide`/`ultra_wide`, letters
+  `x`/`u`) and a whole new `CERDIP` sibling family (ceramic side-brazed
+  DIP), reusing DIP's `dual_row_grid` generator and constants almost
+  entirely — only the F.Fab true-body width and, for CERDIP-8/14, a
+  JEDEC-mandated minimum body length differ.
+* Added "socket" and "longpads" modifiers for DIP/CERDIP (e.g. `DIP-14
+  socket`, `DIP-14 longpads`, and combined). Real KiCad measures a
+  Socket's silk/courtyard margins from each pin's own center, not the
+  pad edge — only looked edge-based before because every pad was the
+  same size; LongPads' wider pad exposed the real behavior and needed
+  a new `courtyard_from_pad_center` flag plus a `dual_row_grid` pad-
+  shape generalization (oval for non-square pads). Socket+LongPads
+  together need a distinct margin from Socket alone, handled by a new
+  order-independent `_with` combo-override key in the family tree.
+* Fixed a naming redundancy where width-letter tokens (`r`/`w`/...)
+  were leaking into the Value text alongside the dimension suffix that
+  already encodes them (e.g. `DIP-16_r_W10.16mm` → `DIP-16_W10.16mm`).
+  Fixed alongside: Socket's suffix ordering and CERDIP getting no
+  suffix at all.
+* Fixed the DIP "regular" width's body size at pin counts 22/24 (real
+  KiCad's body genuinely jumps larger there) and the Socket courtyard
+  not following the Socket silk margin outward (it should sit slightly
+  outside the silk, not reuse the plain DIP courtyard).
+* Added `remove_unused_layers no` to every thru-hole pad the writer
+  emits, matching real KiCad, which never omits it there.
+* Fixed the review viewer's footer size-comparison stat going stale
+  once the new `PREVIEW_ONLY_DESCRIPTORS` per-round preview filter was
+  introduced — it was reading the filtered case list instead of the
+  full reference set.
+* Added `SMDIP` (surface-mount DIP): its own body-width tiers, reusing
+  the rest of DIP's constants.
+* Added SOIC's `wide` width class (the real `*W` 7.5mm-body variants)
+  and its `-1EP` exposed-pad variants (a center heatsink pad plus a
+  4-way paste-stencil split, reverse-engineered by least-squares fit
+  against all 8 real reference files since no formula for it is
+  published) — the latter needed a small `Pad` model extension
+  (optional `layers`/`pad_prop`/`zone_connect` overrides) for the
+  heatsink/mask/paste pads, none of which fit the plain
+  pad-type-derived layer set every other pad uses.
+* Grew `reference_cases.py` from 35 to 230 hand-verified real-footprint
+  cases across DIP/CERDIP/SMDIP/SOIC, each locked in with regression
+  tests. Full suite: 482 tests passing, pyright clean throughout.
+
 2026-09-15 v0.0.14:
 
 * Fixed a bug where the review viewer's default case-name derivation
@@ -68,9 +113,6 @@
   No real reference footprint declares this yet (all 18 just opt into
   the board's default mask/paste expansion), so `data/kicad-fpdb.yaml`
   is untouched; covered by synthetic writer and pipeline tests instead.
-
-2026-09-15 v0.0.9:
-
 * Made QFP formula-driven like DIP/SOIC: `quad_perimeter` derives
   `pad_offset` and `_add_outline` derives the silk corner-mark
   `body_size`, both from a single declared `courtyard_body_size`

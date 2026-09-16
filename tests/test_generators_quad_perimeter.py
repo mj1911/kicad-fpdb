@@ -37,6 +37,7 @@ def test_quad_perimeter_pad_stays_nominal_under_1mm():
 def test_quad_perimeter_pad_clamps_above_1mm():
     geom = quad_perimeter(pin_count=32, pitch=0.8, pad_offset=4.175, pad_size=(1.2, 1.5))
     pad1 = geom.pads[0]
+    assert pad1.roundrect_rratio is not None
     assert abs(pad1.roundrect_rratio - (0.25 / 1.2)) < 1e-5
 
 

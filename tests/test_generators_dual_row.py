@@ -27,6 +27,7 @@ def test_dip16_matches_real_kicad_footprint():
     assert pad1.shape == "roundrect"
     assert pad1.pad_type == "thru_hole"
     assert pad1.drill == 0.8
+    assert pad1.roundrect_rratio is not None
     assert abs(pad1.roundrect_rratio - 0.15625) < 1e-4
 
     pad2 = by_number["2"]
@@ -80,4 +81,5 @@ def test_generic_roundrect_pad_uses_clamped_rratio_above_1mm():
         pad_type="smd", drill=None, centered=True,
     )
     pad1 = geom.pads[0]
+    assert pad1.roundrect_rratio is not None
     assert abs(pad1.roundrect_rratio - (0.25 / 1.2)) < 1e-5

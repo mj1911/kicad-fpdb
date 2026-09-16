@@ -11,6 +11,7 @@ from kicad_fpdb.visual_compare import (
     render_comparison,
     _count_library_footprints,
     _default_case_name,
+    _descriptor_head,
     _footprint_count_html,
     _frame_overflow_style,
     _pad1_frame_position_px,
@@ -90,7 +91,9 @@ def test_pad1_frame_position_centers_when_svg_fits_both_axes():
         '<g style="fill:#C83434;"><circle cx="2" cy="1" r="0.3"/></g>'
         "</svg>"
     )
-    x, y = _pad1_frame_position_px(svg)
+    position = _pad1_frame_position_px(svg)
+    assert position is not None
+    x, y = position
     assert x == pytest.approx((FRAME_PX - 100) / 2 + 2 * PX_PER_MM)
     assert y == pytest.approx((FRAME_PX - 50) / 2 + 1 * PX_PER_MM)
 
@@ -106,7 +109,9 @@ def test_pad1_frame_position_flush_to_start_when_axis_overflows():
         '<g style="fill:#C83434;"><circle cx="2" cy="300" r="0.3"/></g>'
         "</svg>"
     )
-    x, y = _pad1_frame_position_px(svg)
+    position = _pad1_frame_position_px(svg)
+    assert position is not None
+    x, y = position
     assert x == pytest.approx((FRAME_PX - 100) / 2 + 2 * PX_PER_MM)
     assert y == pytest.approx(300 * PX_PER_MM)
 
@@ -124,6 +129,22 @@ def test_render_comparison_produces_two_svgs(tmp_path):
     assert reference_svg.name == "dip16_test_reference.svg"
     assert "<svg" in generated_svg.read_text()
     assert "<svg" in reference_svg.read_text()
+
+
+def test_render_comparison_footprint_name_is_independent_of_file_name(tmp_path):
+    # render_all_known_cases passes a unique-per-case `name` (for output
+    # file uniqueness across width variants, e.g. "DIP-16_r") separately
+    # from `footprint_name` (the redundancy-free identity baked into the
+    # generated footprint itself, e.g. "DIP-16") -- output file names
+    # must follow `name`, not `footprint_name`.
+    reference_path = f"{KICAD_FOOTPRINTS}/Package_DIP.pretty/DIP-16_W10.16mm.kicad_mod"
+
+    generated_svg, reference_svg = render_comparison(
+        "DIP-16 r", reference_path, str(tmp_path), name="DIP-16_r", footprint_name="DIP-16",
+    )
+
+    assert generated_svg.name == "DIP-16_r_generated.svg"
+    assert reference_svg.name == "DIP-16_r_reference.svg"
 
 
 def test_build_review_html_embeds_both_svgs_and_case_metadata(tmp_path):
@@ -182,8 +203,12 @@ def test_review_html_anchors_each_panel_to_its_own_pad1(tmp_path):
 
     frames = re.findall(r'<div class="frame" style="([^"]*)">', text)
     assert len(frames) == 2
-    gen_y = float(re.search(r"px ([\-\d.]+)px,", frames[0]).group(1))
-    ref_y = float(re.search(r"px ([\-\d.]+)px,", frames[1]).group(1))
+    gen_match = re.search(r"px ([\-\d.]+)px,", frames[0])
+    ref_match = re.search(r"px ([\-\d.]+)px,", frames[1])
+    assert gen_match is not None
+    assert ref_match is not None
+    gen_y = float(gen_match.group(1))
+    ref_y = float(ref_match.group(1))
     # 0.5mm y difference between the two svgs' own pad1 -> 10px at 20px/mm.
     assert abs((gen_y - ref_y) - 10.0) < 1e-6
 
@@ -242,10 +267,12 @@ def test_size_comparison_html_sums_unique_real_files(tmp_path):
 
 
 def test_default_case_name_preserves_hyphens():
-    # Descriptor hyphens (DIP-14) must survive into the case name, since
-    # it becomes the generated footprint's identity/Value text too
-    # (kicad_fpdb.naming) -- stripping them produced "DIP_14_W7.62mm"
-    # instead of the real-KiCad-matching "DIP-14_W7.62mm".
+    # Descriptor hyphens (DIP-14) must survive into the case name: when a
+    # caller passes `name` (but no separate `footprint_name`) to
+    # render_comparison, this becomes the generated footprint's own
+    # identity/Value text too (kicad_fpdb.naming) -- stripping them
+    # produced "DIP_14_W7.62mm" instead of the real-KiCad-matching
+    # "DIP-14_W7.62mm".
     assert _default_case_name("DIP-14") == "DIP-14"
 
 
@@ -253,7 +280,25 @@ def test_default_case_name_replaces_spaces():
     assert _default_case_name("DIP-16 r") == "DIP-16_r"
 
 
-def test_preview_cases_omits_five_biggest_lqfp():
+def test_descriptor_head_drops_width_modifier():
+    # "r"/"w"/"x"/"u" tokens are redundant once passed as
+    # generate_footprint's `name`: descriptive_suffix already encodes
+    # the width via the resolved row_spacing.
+    assert _descriptor_head("DIP-16 r") == "DIP-16"
+
+
+def test_descriptor_head_drops_non_width_modifier_too():
+    # "socket" gets its own suffix from descriptive_suffix instead
+    # (applied after the dimension, not baked into the base name).
+    assert _descriptor_head("DIP-14 socket") == "DIP-14"
+
+
+def test_descriptor_head_is_unchanged_without_modifiers():
+    assert _descriptor_head("DIP-14") == "DIP-14"
+
+
+def test_preview_cases_omits_five_biggest_lqfp(monkeypatch):
+    monkeypatch.setattr("kicad_fpdb.visual_compare.PREVIEW_ONLY_DESCRIPTORS", set())
     cases = [
         ("LQFP-32", "a"), ("LQFP-48", "b"), ("LQFP-64", "c"), ("LQFP-80", "d"),
         ("LQFP-100", "e"), ("LQFP-144", "f"), ("LQFP-176", "g"), ("LQFP-208", "h"),
@@ -262,10 +307,20 @@ def test_preview_cases_omits_five_biggest_lqfp():
     assert kept == ["LQFP-32", "LQFP-48", "LQFP-64"]
 
 
-def test_preview_cases_keeps_non_lqfp_cases_untouched():
+def test_preview_cases_keeps_non_lqfp_cases_untouched(monkeypatch):
+    monkeypatch.setattr("kicad_fpdb.visual_compare.PREVIEW_ONLY_DESCRIPTORS", set())
     cases = [("DIP-16", "a"), ("LQFP-208", "b"), ("R-0603", "c")]
     kept = [descriptor for descriptor, _ in _preview_cases(cases)]
     assert kept == ["DIP-16", "R-0603"]
+
+
+def test_preview_cases_only_list_overrides_exclusion(monkeypatch):
+    monkeypatch.setattr(
+        "kicad_fpdb.visual_compare.PREVIEW_ONLY_DESCRIPTORS", {"DIP-8"}
+    )
+    cases = [("DIP-8", "a"), ("DIP-16", "b"), ("LQFP-208", "c")]
+    kept = [descriptor for descriptor, _ in _preview_cases(cases)]
+    assert kept == ["DIP-8"]
 
 
 def test_footprint_count_html_shows_defined_vs_total():

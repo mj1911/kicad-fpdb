@@ -40,3 +40,32 @@ def test_axial_resistor_value_text_includes_lead_and_pitch_suffix():
 def test_sot_value_text_has_no_suffix():
     text = generate_footprint("SOT-23-5", "data/kicad-fpdb.yaml", name="SOT-23-5")
     assert '(property "Value" "SOT-23-5"' in text
+
+
+def test_dip_socket_value_text_puts_modifier_after_dimension():
+    # Real KiCad names this "DIP-14_W7.62mm_Socket" -- caller passes just
+    # the descriptor's head ("DIP-14"), and the "socket" modifier's
+    # suffix is derived from the resolved descriptor, not baked into the
+    # caller-supplied name.
+    text = generate_footprint("DIP-14 socket", "data/kicad-fpdb.yaml", name="DIP-14")
+    assert '(property "Value" "DIP-14_W7.62mm_Socket"' in text
+
+
+def test_cerdip_value_text_includes_side_brazed_suffix():
+    text = generate_footprint("CERDIP-16", "data/kicad-fpdb.yaml", name="CERDIP-16")
+    assert '(property "Value" "CERDIP-16_W7.62mm_SideBrazed"' in text
+
+
+def test_cerdip_socket_value_text_puts_modifier_last():
+    text = generate_footprint("CERDIP-16 socket", "data/kicad-fpdb.yaml", name="CERDIP-16")
+    assert '(property "Value" "CERDIP-16_W7.62mm_SideBrazed_Socket"' in text
+
+
+def test_dip_width_modifier_carries_no_suffix_of_its_own():
+    # "r"/"w"/"x"/"u" pick a width class but add nothing to the name
+    # themselves -- the dimension suffix alone (derived from the
+    # resolved row_spacing) already encodes the width, so a caller
+    # passing just the descriptor's head avoids the old redundant
+    # "DIP-16_r_W10.16mm".
+    text = generate_footprint("DIP-16 r", "data/kicad-fpdb.yaml", name="DIP-16")
+    assert '(property "Value" "DIP-16_W10.16mm"' in text

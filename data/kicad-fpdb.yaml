@@ -5,18 +5,18 @@
 DIP:
   generator: dual_row_grid
   variant_param: pin_count
-  variants: {n: narrow, r: regular, w: wide}
+  variants: {n: narrow, r: regular, w: wide, x: extra_wide, u: ultra_wide}
   default_width: narrow
   params:
     pitch: 2.54
-    row_spacing: {narrow: 7.62, regular: 10.16, wide: 15.24}
-    body_width: {narrow: 5.3, regular: 6.47, wide: 12.92}
+    row_spacing: {narrow: 7.62, regular: 10.16, wide: 15.24, extra_wide: 22.86, ultra_wide: 25.4}
+    body_width: {narrow: 5.3, regular: 6.47, wide: 12.92, extra_wide: 20.54, ultra_wide: 23.08}
     body_margin: 1.33
     courtyard_margin_x: 0.25
     courtyard_margin_y: 0.72
     notch_radius: 1.0
     pin1_marker: false
-    fab_body_width: {narrow: 6.35, regular: 6.35, wide: 14.73}
+    fab_body_width: {narrow: 6.35, regular: 6.35, wide: 14.73, extra_wide: 22.35, ultra_wide: 24.89}
     fab_body_margin: 1.27
     fab_chamfer: 1.0
     fab_reference_rotation: 90
@@ -25,29 +25,258 @@ DIP:
     pad_type: thru_hole
     drill: 0.8
     centered: false
+  # "socket" modifier (e.g. "DIP-14 socket"): real KiCad's own _Socket
+  # variant adds one extra plain F.SilkS rectangle around the pads,
+  # drawn in addition to the notched body -- measured from each pin's
+  # own *center* (socket_margin_x/_y: 1.33/1.39mm), not the pad bbox
+  # edge, since the physical socket's footprint doesn't depend on pad
+  # style -- confirmed across DIP-8/14/16_Socket. See
+  # kicad_fpdb.pipeline._add_outline's socket_margin_x/_y handling.
+  # Also overrides the plain DIP courtyard to be center-based too
+  # (courtyard_from_pad_center: true, courtyard_margin_x/_y: 1.52/1.58)
+  # instead of the default edge-based pad-bbox margin -- confirmed
+  # byte-identical between DIP-14_Socket and DIP-14_Socket_LongPads
+  # (the courtyard doesn't move at all when LongPads widens the pad).
+  # The "_with: longpads" override corrects socket_margin_x specifically
+  # for the Socket+LongPads combo: real KiCad's own combo silk margin is
+  # 1.44mm from pin center, not 1.33mm -- a small, hand-verified
+  # difference (exact across DIP-14/DIP-24_Socket_LongPads), unlike the
+  # courtyard, which stays flat at 1.52mm either way.
+  # "longpads" modifier (e.g. "DIP-14 longpads"): real KiCad's own
+  # _LongPads variant elongates every pad from a square 1.6x1.6 to
+  # 2.4x1.6 (pin 1 stays roundrect via the elongated size directly --
+  # clamped_roundrect_rratio already gives the exact real 0.15625 for
+  # this aspect ratio; every other pad switches from circle to oval, a
+  # generic dual_row_grid rule for any non-square pad_size) and shrinks
+  # the oversized F.SilkS body by a flat 0.8mm in width -- verified
+  # across every pin count and width class (narrow/wide/extra_wide/
+  # ultra_wide always shrink; F.Fab, courtyard-margin, and the body's Y
+  # extent are all unaffected, and courtyard already follows the wider
+  # pads automatically via pad_bounding_box). "regular" is the one
+  # exception: real KiCad's own regular-width body does NOT shrink for
+  # pin counts 4-16 (stays flat at 6.47mm), so it's deliberately
+  # omitted here -- DIP-22/DIP-24 (whose regular body is *already*
+  # overridden to 7.84mm below) get their own "longpads" override with
+  # the same -0.8mm shrink applied to *that* value instead (7.04mm).
+  modifiers:
+    socket:
+      socket_margin_x: 1.33
+      socket_margin_y: 1.39
+      courtyard_margin_x: 1.52
+      courtyard_margin_y: 1.58
+      courtyard_from_pad_center: true
+      _with:
+        longpads: {socket_margin_x: 1.44}
+    longpads:
+      pad_size: [2.4, 1.6]
+      body_width: {narrow: 4.5, wide: 12.12, extra_wide: 19.74, ultra_wide: 22.28}
+  # Real KiCad's "regular" (10.16mm) body_width/fab_body_width jump to a
+  # larger real body at pin counts 22 and 24 (silk 7.84mm/fab 9.14mm,
+  # vs. 6.47mm/6.35mm for every regular-width pin count 4-16 checked) --
+  # confirmed by byte-level bounding-box comparison against DIP-22/
+  # DIP-24_W10.16mm.kicad_mod. Not a formula (no in-between real files
+  # exist to find a threshold), so hand-overridden per variant, same
+  # convention as CERDIP-8/14's body_margin override. _merge_params
+  # deep-merges dict-valued params, so this overrides only the
+  # "regular" key -- DIP-22/DIP-24's narrow and (24's) wide widths keep
+  # inheriting the root's own values unchanged.
+  children:
+    DIP-22:
+      params: {pin_count: 22, body_width: {regular: 7.84}, fab_body_width: {regular: 9.14}}
+      # Own "longpads" entry fully replaces the root's (see
+      # _merge_modifiers) rather than merging with it, so it must
+      # redeclare every width key the root's does -- only "regular"
+      # differs (7.84 - 0.8 = 7.04, same shrink amount as everywhere
+      # else, applied to this variant's own already-larger body).
+      modifiers:
+        longpads:
+          pad_size: [2.4, 1.6]
+          body_width: {narrow: 4.5, regular: 7.04, wide: 12.12, extra_wide: 19.74, ultra_wide: 22.28}
+    DIP-24:
+      params: {pin_count: 24, body_width: {regular: 7.84}, fab_body_width: {regular: 9.14}}
+      modifiers:
+        longpads:
+          pad_size: [2.4, 1.6]
+          body_width: {narrow: 4.5, regular: 7.04, wide: 12.12, extra_wide: 19.74, ultra_wide: 22.28}
 
-# SOIC is expected to also have narrow and wide variants.
-# There are even a few odd ones, with 7 or 12 pins - different generator.
-SOIC:
+# CERDIP (ceramic side-brazed DIP, JEDEC MS-015) shares DIP's exact pad
+# grid/generator and, for pin counts 16 and up, its exact body_margin/
+# fab_body_margin/courtyard_margin_y too -- byte-diffed CERDIP-14 against
+# DIP-14 and found only the F.Fab true-body width differs (a wider real
+# ceramic body: 7.49mm vs DIP narrow's 6.35mm), everything else identical
+# down to the same notch_radius/fab_chamfer. Only one width exists in the
+# real library (7.62mm row spacing), so no variants/width dict is needed.
+# CERDIP-8 and CERDIP-14 are the two exceptions: real KiCad gives both a
+# longer true body than pin_count*pitch would imply (a JEDEC-mandated
+# minimum ceramic body length for small lead counts), so they override
+# body_margin/fab_body_margin/courtyard_margin_y with their own
+# hand-verified values instead of inheriting CERDIP's flat defaults.
+CERDIP:
   generator: dual_row_grid
   variant_param: pin_count
   params:
-    pitch: 1.27
-    row_spacing: 4.95
-    body_width: 4.12
-    body_margin: 0.64
-    silk_two_lines: true
+    pitch: 2.54
+    row_spacing: 7.62
+    body_width: 5.3
+    body_margin: 1.33
     courtyard_margin_x: 0.25
-    courtyard_margin_y: 0.25
-    courtyard_body_width: 3.9
-    courtyard_body_margin: 0.545
-    fab_outline: true
-    fab_chamfer: 0.975
+    courtyard_margin_y: 0.72
+    notch_radius: 1.0
+    pin1_marker: false
+    fab_body_width: 7.49
+    fab_body_margin: 1.27
+    fab_chamfer: 1.0
     fab_reference_rotation: 90
-    pad_size: [1.95, 0.6]
+    pad_size: [1.6, 1.6]
+    pad_shape: dip_pin1_marker
+    pad_type: thru_hole
+    drill: 0.8
+    centered: false
+  modifiers:
+    socket:
+      socket_margin_x: 1.33
+      socket_margin_y: 1.39
+      courtyard_margin_x: 1.52
+      courtyard_margin_y: 1.58
+      courtyard_from_pad_center: true
+      _with:
+        longpads: {socket_margin_x: 1.44}
+    # Unlike DIP's own "regular" width, CERDIP's single width class
+    # shrinks by the same flat 0.8mm uniformly across all 8 pin counts
+    # checked (including CERDIP-8/14's already-larger body) -- no
+    # per-child override needed here, unlike "socket" above.
+    longpads: {pad_size: [2.4, 1.6], body_width: 4.5}
+  children:
+    CERDIP-8:
+      params: {pin_count: 8, body_margin: 2.855, fab_body_margin: 2.795, courtyard_margin_y: 2.25}
+      # CERDIP-8's own oversized body (see above) scales its Socket
+      # silk/courtyard Y-margins too -- not the flat 1.39/1.58 every
+      # other pin count uses. This node's own "socket" entry fully
+      # replaces (not merges with) the root's, since _merge_modifiers
+      # applies later chain entries via a plain per-token overwrite --
+      # so it must redeclare courtyard_from_pad_center and _with too.
+      modifiers:
+        socket:
+          socket_margin_x: 1.33
+          socket_margin_y: 2.915
+          courtyard_margin_x: 1.52
+          courtyard_margin_y: 3.11
+          courtyard_from_pad_center: true
+          _with:
+            longpads: {socket_margin_x: 1.44}
+    CERDIP-14:
+      params: {pin_count: 14, body_margin: 1.965, fab_body_margin: 1.905, courtyard_margin_y: 1.36}
+      modifiers:
+        socket:
+          socket_margin_x: 1.33
+          socket_margin_y: 2.025
+          courtyard_margin_x: 1.52
+          courtyard_margin_y: 2.22
+          courtyard_from_pad_center: true
+          _with:
+            longpads: {socket_margin_x: 1.44}
+
+# SMDIP (surface-mounted DIP carrier) reuses DIP's exact generator, notch,
+# F.Fab chamfer, and most of its numeric constants (body_margin: 1.33,
+# fab_body_margin: 1.27, fab_chamfer: 1.0, notch_radius: 1.0,
+# courtyard_margin_x: 0.25, fab_reference_rotation: 90 -- all byte-
+# identical, confirmed via _pad_center_extent-based margins across
+# SMDIP-4/8/14/24). Differences: pads are smd (pad_type), centered on
+# the pad-row centerline (centered: true, like SOIC) rather than DIP's
+# own non-centered layout, uniformly roundrect (pad_shape: roundrect,
+# no dip_pin1_marker circle/roundrect split -- pin 1 is identified by
+# the notch+chamfer alone, matching pin1_marker: false), and each width
+# label has its own body_width/fab_body_width pair rather than DIP's
+# own narrow/regular/wide values -- confirmed these don't track DIP's
+# own width classes (e.g. SMDIP's medium/broad tiers, 9.53mm/11.48mm,
+# share one body_width/fab_body_width pair despite different row
+# spacing) and courtyard_margin_y (0.63) is its own distinct value, not
+# DIP's 0.72.
+SMDIP:
+  generator: dual_row_grid
+  variant_param: pin_count
+  variants: {n: narrow, m: medium, b: broad, w: wide}
+  default_width: narrow
+  params:
+    pitch: 2.54
+    row_spacing: {narrow: 7.62, medium: 9.53, broad: 11.48, wide: 15.24}
+    body_width: {narrow: 4.9, medium: 6.47, broad: 6.47, wide: 12.52}
+    body_margin: 1.33
+    courtyard_margin_x: 0.25
+    courtyard_margin_y: 0.63
+    notch_radius: 1.0
+    pin1_marker: false
+    fab_body_width: {narrow: 6.35, medium: 6.35, broad: 6.35, wide: 14.73}
+    fab_body_margin: 1.27
+    fab_chamfer: 1.0
+    fab_reference_rotation: 90
+    pad_size: [2, 1.78]
     pad_shape: roundrect
     pad_type: smd
     centered: true
+
+# SOIC has narrow (default, 3.9mm real body) and wide (7.5mm real body,
+# the "W" suffix in real KiCad names, e.g. SOIC-16W_7.5x10.3mm) variants
+# -- same shape as DIP's width classes, selected the same way ("SOIC-16
+# w"). Byte-verified against SOIC-14W/16W/18W/20W/24W/28W: row_spacing,
+# body_width, and pad_size all change with width class same as DIP;
+# body_margin/courtyard_body_margin are each a single flat value shared
+# across every pin count within a width class (~0.02mm spread accepted
+# as real-file rounding noise, same convention as narrow's own values).
+# There are also a few odd ones, with 7 or 12 pins - different generator.
+SOIC:
+  generator: dual_row_grid
+  variant_param: pin_count
+  variants: {n: narrow, w: wide}
+  default_width: narrow
+  params:
+    pitch: 1.27
+    row_spacing: {narrow: 4.95, wide: 9.3}
+    body_width: {narrow: 4.12, wide: 7.72}
+    body_margin: {narrow: 0.64, wide: 0.81}
+    silk_two_lines: true
+    courtyard_margin_x: 0.25
+    courtyard_margin_y: 0.25
+    courtyard_body_width: {narrow: 3.9, wide: 7.5}
+    courtyard_body_margin: {narrow: 0.545, wide: 0.70}
+    fab_outline: true
+    fab_chamfer: 0.975
+    fab_reference_rotation: 90
+    pad_size: {narrow: [1.95, 0.6], wide: [2.05, 0.6]}
+    pad_shape: roundrect
+    pad_type: smd
+    centered: true
+  # SOIC-8-1EP: an exposed thermal pad at the footprint center, one
+  # real vendor variant per EP copper size (e.g. "SOIC-8 ep2_41x3_3").
+  # Byte-verified against all 8 real SOIC-8-1EP files: the F.SilkS/
+  # F.CrtYd outline is *always* identical to plain narrow SOIC-8
+  # (a fixed physical body, independent of the EP/pad layout below it)
+  # -- only row_spacing/pad_size change per variant, to keep the outer
+  # 8 pads clear of the larger EP sizes. Two of the eight (EP2.95x4.9's
+  # Mask* pair) additionally declare ep_mask_size: a separate, smaller
+  # solder-mask opening over the same copper EP -- real KiCad computes
+  # the paste-stencil split from *that* size, not the copper EP, and
+  # drops F.Mask from the copper pad itself in favor of a dedicated
+  # mask-only pad (see kicad_fpdb.pipeline._add_exposed_pad). The other
+  # three (ep2_29x3/ep2_41x3_3/ep2_41x3_81) sit on the plain narrow
+  # SOIC-8 pad grid unchanged, so they override only ep_size.
+  modifiers:
+    ep2_29x3: {ep_size: [2.29, 3.0]}
+    ep2_41x3_3: {ep_size: [2.41, 3.3]}
+    ep2_41x3_81: {ep_size: [2.41, 3.81]}
+    ep2_514x3_2: {ep_size: [2.514, 3.2], row_spacing: 5.275, pad_size: [1.625, 0.6]}
+    ep2_62x3_51: {ep_size: [2.62, 3.51], row_spacing: 4.96, pad_size: [1.94, 0.6]}
+    ep2_71x3_7: {ep_size: [2.71, 3.7], row_spacing: 5.005, pad_size: [1.895, 0.6]}
+    ep2_95x4_9_mask2_34x2_34:
+      ep_size: [2.95, 4.9]
+      ep_mask_size: [2.34, 2.34]
+      row_spacing: 5.125
+      pad_size: [1.775, 0.6]
+    ep2_95x4_9_mask2_71x3_4:
+      ep_size: [2.95, 4.9]
+      ep_mask_size: [2.71, 3.4]
+      row_spacing: 5.125
+      pad_size: [1.775, 0.6]
 
 # two_pad_chip turned out to cover THT axial resistors too (R-AXIAL*
 # below), not just SMT -- extended with pad_type/drill/centered rather

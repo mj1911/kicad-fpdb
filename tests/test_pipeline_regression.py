@@ -28,6 +28,8 @@ def _parse_pads(text: str) -> dict[str, dict]:
         at_match = AT_PATTERN.search(block)
         size_match = SIZE_PATTERN.search(block)
         rratio_match = RRATIO_PATTERN.search(block)
+        assert at_match is not None, number
+        assert size_match is not None, number
         pads[number] = {
             "pad_type": pad_type,
             "shape": shape,

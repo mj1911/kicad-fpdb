@@ -5,6 +5,11 @@ from kicad_fpdb.pipeline import generate_footprint
 AT_3 = re.compile(r"\(at ([-\d.]+) ([-\d.]+) 0\)")
 
 
+def _require_match(match: re.Match[str] | None) -> re.Match[str]:
+    assert match is not None
+    return match
+
+
 def test_generated_footprint_includes_reference_and_value():
     text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
 
@@ -20,8 +25,8 @@ def test_reference_is_above_pads_and_value_is_below():
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
     value_block = text[text.index('(property "Value"'):]
 
-    ref_y = float(AT_3.search(ref_block).group(2))
-    value_y = float(AT_3.search(value_block).group(2))
+    ref_y = float(_require_match(AT_3.search(ref_block)).group(2))
+    value_y = float(_require_match(AT_3.search(value_block)).group(2))
 
     # Pads for R-0603 sit at y=0 with half-height 0.475mm (size 0.8x0.95).
     assert ref_y < -0.475
@@ -43,7 +48,7 @@ def test_reference_and_value_are_horizontally_centered_on_pads():
     text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
 
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
-    ref_x = float(AT_3.search(ref_block).group(1))
+    ref_x = float(_require_match(AT_3.search(ref_block)).group(1))
 
     # R-0603 pads are symmetric about x=0.
     assert abs(ref_x - 0.0) < 1e-6
@@ -56,8 +61,8 @@ def test_reference_and_value_sit_outside_courtyard_not_just_pads():
 
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
     value_block = text[text.index('(property "Value"'):]
-    ref_y = float(AT_3.search(ref_block).group(2))
-    value_y = float(AT_3.search(value_block).group(2))
+    ref_y = float(_require_match(AT_3.search(ref_block)).group(2))
+    value_y = float(_require_match(AT_3.search(value_block)).group(2))
 
     # R-0603 courtyard is (-1.475, -0.725) to (1.475, 0.725).
     assert ref_y < -0.725
@@ -69,8 +74,8 @@ def test_reference_and_value_are_snapped_to_005in_grid():
 
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
     value_block = text[text.index('(property "Value"'):]
-    ref_x, ref_y = (float(v) for v in AT_3.search(ref_block).groups())
-    value_x, value_y = (float(v) for v in AT_3.search(value_block).groups())
+    ref_x, ref_y = (float(v) for v in _require_match(AT_3.search(ref_block)).groups())
+    value_x, value_y = (float(v) for v in _require_match(AT_3.search(value_block)).groups())
 
     grid = 1.27  # 0.05in
     for coord in (ref_x, ref_y, value_x, value_y):
@@ -85,8 +90,8 @@ def test_reference_and_value_use_real_dip16_positions():
 
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
     value_block = text[text.index('(property "Value"'):]
-    ref_x, ref_y = (float(v) for v in AT_3.search(ref_block).groups())
-    value_x, value_y = (float(v) for v in AT_3.search(value_block).groups())
+    ref_x, ref_y = (float(v) for v in _require_match(AT_3.search(ref_block)).groups())
+    value_x, value_y = (float(v) for v in _require_match(AT_3.search(value_block)).groups())
 
     assert (ref_x, ref_y) == (3.81, -2.54)
     assert (value_x, value_y) == (3.81, 20.32)
@@ -142,7 +147,10 @@ def test_fab_reference_text_is_centered_on_the_footprint():
     text = generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
     fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
     at_x, at_y, _rotation = (
-        float(v) for v in re.search(r"\(at ([-\d.]+) ([-\d.]+) ([-\d.]+)\)", fab_ref_block).groups()
+        float(v)
+        for v in _require_match(
+            re.search(r"\(at ([-\d.]+) ([-\d.]+) ([-\d.]+)\)", fab_ref_block)
+        ).groups()
     )
     assert (at_x, at_y) == (3.81, 8.89)
 
@@ -155,15 +163,15 @@ def test_reference_and_value_never_land_closer_than_the_intended_gap():
     # chip-passive size must keep at least the intended clearance.
     for descriptor in ("R-0201", "R-0402", "R-0603", "R-0805", "R-1206", "C-0402", "C-0603", "C-0805"):
         text = generate_footprint(descriptor, "data/kicad-fpdb.yaml", name="T")
-        courtyard_match = re.search(
+        courtyard_match = _require_match(re.search(
             r"\(fp_rect\n\s*\(start [\-\d.]+ ([\-\d.]+)\)\n\s*\(end [\-\d.]+ ([\-\d.]+)\)", text,
-        )
+        ))
         courtyard_min_y, courtyard_max_y = (float(v) for v in courtyard_match.groups())
 
         ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
         value_block = text[text.index('(property "Value"'):]
-        ref_y = float(AT_3.search(ref_block).group(2))
-        value_y = float(AT_3.search(value_block).group(2))
+        ref_y = float(_require_match(AT_3.search(ref_block)).group(2))
+        value_y = float(_require_match(AT_3.search(value_block)).group(2))
 
         assert courtyard_min_y - ref_y >= 0.7 - 1e-6, descriptor
         assert value_y - courtyard_max_y >= 0.7 - 1e-6, descriptor

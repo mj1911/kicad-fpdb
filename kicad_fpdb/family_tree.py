@@ -11,6 +11,12 @@ class FamilyNode:
     variants: dict = field(default_factory=dict)
     default_width: str | None = None
     variant_param: str = "pin_count"
+    # Modifier tokens (e.g. "socket") that aren't a width class -- each
+    # maps to a flat dict of param overrides merged in when the token
+    # appears in the descriptor, e.g. "DIP-14 socket". Distinct from
+    # `variants` (which pick a width class rather than override params)
+    # so a family can offer both kinds of token without collision.
+    modifiers: dict = field(default_factory=dict)
     children: dict = field(default_factory=dict)
 
 
@@ -22,6 +28,7 @@ def _build_node(name: str, data: dict) -> FamilyNode:
         variants=data.get("variants", {}),
         default_width=data.get("default_width"),
         variant_param=data.get("variant_param", "pin_count"),
+        modifiers=data.get("modifiers", {}),
     )
     for child_name, child_data in data.get("children", {}).items():
         node.children[child_name] = _build_node(child_name, child_data)
@@ -67,6 +74,12 @@ def load_family_tree(path: str) -> dict:
 class ResolvedFootprint:
     generator: str
     params: dict
+    # Non-width modifier tokens actually applied (e.g. ["socket"]) --
+    # exposed so naming.descriptive_suffix can append a matching
+    # real-KiCad-style suffix (e.g. "_Socket") after the dimension part,
+    # distinct from width tokens (r/w/x/u/...), which are dropped
+    # entirely since the dimension suffix already encodes them.
+    applied_modifiers: list = field(default_factory=list)
 
 
 def _find_chain(roots: dict, target_name: str):
@@ -87,14 +100,25 @@ def _find_chain(roots: dict, target_name: str):
     return None
 
 
+def _deep_merge_into(merged: dict, overrides: dict) -> None:
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+
+
 def _merge_params(chain: list) -> dict:
     merged: dict = {}
     for node in chain:
-        for key, value in node.params.items():
-            if isinstance(value, dict) and isinstance(merged.get(key), dict):
-                merged[key] = {**merged[key], **value}
-            else:
-                merged[key] = value
+        _deep_merge_into(merged, node.params)
+    return merged
+
+
+def _merge_modifiers(chain: list) -> dict:
+    merged: dict = {}
+    for node in chain:
+        merged.update(node.modifiers)
     return merged
 
 
@@ -118,6 +142,7 @@ def resolve_descriptor(roots: dict, parsed) -> ResolvedFootprint:
 
     params = _merge_params(chain)
     variants = _resolve_meta(chain, "variants", {})
+    modifiers = _merge_modifiers(chain)
     default_width = _resolve_meta(chain, "default_width", None)
     variant_param = _resolve_meta(chain, "variant_param", "pin_count")
     generator = _resolve_meta(chain, "generator", None)
@@ -125,9 +150,33 @@ def resolve_descriptor(roots: dict, parsed) -> ResolvedFootprint:
         raise ValueError(f"no generator defined for family {parsed.family!r}")
 
     width_name = default_width
+    applied_modifiers = []
+    active_tokens = set(parsed.modifier_tokens)
     for token in parsed.modifier_tokens:
         if token in variants:
             width_name = variants[token]
+        elif token in modifiers:
+            # Deep-merge (not a flat overwrite): a modifier like
+            # "longpads" only overrides some width-class keys of a
+            # dict-valued param (e.g. body_width), so the width classes
+            # it doesn't mention must survive untouched -- same
+            # semantics as _merge_params' own chain merging.
+            modifier_def = dict(modifiers[token])
+            # A reserved "_with" key holds combo-specific overrides,
+            # keyed by another modifier token: applied in addition
+            # (order-independent -- checked against the full active-
+            # token set, not sequential application) when that other
+            # token is also present. E.g. real KiCad's Socket+LongPads
+            # combo needs a distinct socket_margin_x (1.44mm) from
+            # Socket alone (1.33mm), since a real socket's silk margin
+            # is measured from the pin center but happens to differ
+            # slightly once LongPads' wider pad is chosen.
+            combo_overrides = modifier_def.pop("_with", {})
+            _deep_merge_into(params, modifier_def)
+            for other_token, extra in combo_overrides.items():
+                if other_token in active_tokens:
+                    _deep_merge_into(params, extra)
+            applied_modifiers.append(token)
         else:
             try:
                 params["pitch"] = float(token)
@@ -147,4 +196,4 @@ def resolve_descriptor(roots: dict, parsed) -> ResolvedFootprint:
         variant_token = parsed.variant
         resolved_params[variant_param] = int(variant_token) if variant_token.isdigit() else variant_token
 
-    return ResolvedFootprint(generator=generator, params=resolved_params)
+    return ResolvedFootprint(generator=generator, params=resolved_params, applied_modifiers=applied_modifiers)

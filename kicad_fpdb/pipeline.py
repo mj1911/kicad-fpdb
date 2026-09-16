@@ -6,7 +6,7 @@ from kicad_fpdb.generators.asymmetric_dual_row import asymmetric_dual_row
 from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.geometry import Arc, Circle, Line, Poly, Rect, Text, pad_bounding_box
+from kicad_fpdb.geometry import Arc, Circle, Line, Pad, Poly, Rect, Text, clamped_roundrect_rratio, pad_bounding_box
 from kicad_fpdb.naming import descriptive_suffix
 from kicad_fpdb.rect_union import union_outline
 from kicad_fpdb.writer import write_kicad_mod
@@ -103,7 +103,9 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
                   fab_body_size: float | tuple[float, float] | None = None,
                   fab_outline: bool = False, fab_chamfer: float | None = None,
                   silk_leads: bool = False, fab_leads: bool = False,
-                  courtyard_includes_body: bool = False) -> None:
+                  courtyard_includes_body: bool = False,
+                  socket_margin_x: float | None = None, socket_margin_y: float | None = None,
+                  courtyard_from_pad_center: bool = False) -> None:
     min_x, min_y, max_x, max_y = pad_bounding_box(geometry.pads)
 
     mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
@@ -208,7 +210,17 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         # margin around that. Verified this is a plain rectangle (not
         # stepped) because the pad bbox dominates in X while the body
         # dominates in Y, so their combined bbox has no notches to trace.
-        cy0x, cy0y, cy1x, cy1y = min_x, min_y, max_x, max_y
+        if courtyard_from_pad_center:
+            # Real KiCad's Socket-flavored courtyard is measured from
+            # each pin's own *center*, not the pad bbox edge -- it
+            # doesn't move at all when LongPads widens the pad
+            # (confirmed byte-identical between DIP-14_Socket and
+            # DIP-14_Socket_LongPads), unlike the plain DIP courtyard
+            # below, which genuinely does scale with pad size.
+            cy0x, cy1x = _pad_center_extent(geometry.pads, 0)
+            cy0y, cy1y = _pad_center_extent(geometry.pads, 1)
+        else:
+            cy0x, cy0y, cy1x, cy1y = min_x, min_y, max_x, max_y
         if courtyard_includes_body and fab_body_rect is not None:
             bx0, by0, bx1, by1 = fab_body_rect
             cy0x, cy0y = min(cy0x, bx0), min(cy0y, by0)
@@ -325,6 +337,28 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             start, end = corners[i], corners[(i + 1) % 4]
             geometry.lines.append(Line(start=start, end=end, layer="F.SilkS"))
 
+    if socket_margin_x is not None and socket_margin_y is not None:
+        # Real KiCad's "_Socket" DIP/CERDIP variants add one extra plain
+        # F.SilkS rectangle around the pads, drawn in addition to
+        # whichever body outline was drawn above (e.g. the notched DIP
+        # body) -- a separate socket silhouette, not a replacement.
+        # Margin is measured from each pin's own *center* (like
+        # body_margin, via _pad_center_extent), not the pad bbox edge --
+        # the physical socket's footprint doesn't depend on which pad
+        # style (plain vs. LongPads' wider oval) was chosen. This only
+        # coincided with a pad-edge-based margin (0.53/0.59) as long as
+        # every pad was the same 1.6mm size; LongPads' 2.4mm-wide pad
+        # exposed the real center-based margin as its own distinct value
+        # (1.44mm, vs. 1.33mm for plain pads) -- confirmed exactly
+        # against DIP-14_W7.62mm_Socket_LongPads.
+        min_cx, max_cx = _pad_center_extent(geometry.pads, 0)
+        min_cy, max_cy = _pad_center_extent(geometry.pads, 1)
+        geometry.rects.append(Rect(
+            start=(min_cx - socket_margin_x, min_cy - socket_margin_y),
+            end=(max_cx + socket_margin_x, max_cy + socket_margin_y),
+            layer="F.SilkS", width=0.12, fill="no",
+        ))
+
     # Real KiCad also draws the true (non-oversized) physical body on
     # F.Fab, chamfered at pin 1's corner for polarized families -- an
     # assembly-drawing outline, independent of the F.SilkS/F.CrtYd
@@ -439,6 +473,62 @@ def _add_reference_and_value_text(geometry, name: str, fab_reference_font_size: 
     )
 
 
+# Paste-stencil segmentation formula for an exposed-pad's paste block,
+# reverse-engineered from 8 real SOIC-8-1EP reference footprints (all
+# split into a 2x2 grid over the EP size range they cover -- larger
+# EPs needing more divisions aren't supported yet). Per axis, using
+# H = effective_size/2 (half the EP, or its separate solder-mask
+# opening override when one exists -- real KiCad computes the paste
+# split from *that*, not the copper EP, whenever a Mask override is
+# present): each paste sub-pad's size is `_PASTE_SPLIT_SLOPE * H +
+# _PASTE_SPLIT_INTERCEPT`, centered at `effective_size / 4`. Fit by
+# least squares across all 8 samples; max residual 0.006mm, well
+# inside this project's usual real-file rounding tolerance.
+_PASTE_SPLIT_SLOPE = 0.8094
+_PASTE_SPLIT_INTERCEPT = -0.0057
+
+
+def _add_exposed_pad(geometry, pin_count: int, ep_size: tuple[float, float],
+                      ep_mask_size: tuple[float, float] | None = None) -> None:
+    ew, eh = ep_size
+    # Real KiCad drops F.Mask from the copper heatsink pad itself once a
+    # separate mask-opening pad is declared (verified on both
+    # EP2.95x4.9mm_Mask* samples) -- the mask pad below covers it instead.
+    heatsink_layers = ("F.Cu",) if ep_mask_size is not None else ("F.Cu", "F.Mask")
+    heatsink_pad = Pad(
+        number=str(pin_count + 1), pad_type="smd", shape="rect",
+        at=(0.0, 0.0), size=(ew, eh),
+        layers=heatsink_layers, pad_prop="pad_prop_heatsink", zone_connect=2,
+    )
+    unnumbered_pads = []
+    if ep_mask_size is not None:
+        mw, mh = ep_mask_size
+        unnumbered_pads.append(Pad(
+            number="", pad_type="smd", shape="rect",
+            at=(0.0, 0.0), size=(mw, mh), layers=("F.Mask",),
+        ))
+    eff_w, eff_h = ep_mask_size if ep_mask_size is not None else ep_size
+    pos_x, pos_y = eff_w / 4, eff_h / 4
+    paste_w = _PASTE_SPLIT_SLOPE * (eff_w / 2) + _PASTE_SPLIT_INTERCEPT
+    paste_h = _PASTE_SPLIT_SLOPE * (eff_h / 2) + _PASTE_SPLIT_INTERCEPT
+    for sign_x in (-1, 1):
+        for sign_y in (-1, 1):
+            unnumbered_pads.append(Pad(
+                number="", pad_type="smd", shape="roundrect",
+                at=(sign_x * pos_x, sign_y * pos_y), size=(paste_w, paste_h),
+                layers=("F.Paste",),
+                roundrect_rratio=clamped_roundrect_rratio((paste_w, paste_h)),
+            ))
+    # Real KiCad orders these as: unnumbered paste/mask pads, then the
+    # numbered pads, then the heatsink pad last -- matched here (rather
+    # than just appending everything at the end) because the regression
+    # suite's pad parser scans from each numbered pad's own "(pad "N""
+    # to the *next* one it finds, so an unnumbered pad sitting between
+    # pad 9 and EOF would get folded into pad 9's own parsed block.
+    geometry.pads[:0] = unnumbered_pads
+    geometry.pads.append(heatsink_pad)
+
+
 def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -> str:
     tree = load_family_tree(family_tree_path)
     parsed = parse_descriptor(descriptor_text)
@@ -473,6 +563,11 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     fab_reference_rotation = params.pop("fab_reference_rotation", None)
     solder_mask_margin = params.pop("solder_mask_margin", None)
     solder_paste_margin = params.pop("solder_paste_margin", None)
+    socket_margin_x = params.pop("socket_margin_x", None)
+    socket_margin_y = params.pop("socket_margin_y", None)
+    courtyard_from_pad_center = params.pop("courtyard_from_pad_center", False)
+    ep_size = params.pop("ep_size", None)
+    ep_mask_size = params.pop("ep_mask_size", None)
 
     generator_fn = GENERATORS[resolved.generator]
     generator_kwargs = dict(params)
@@ -499,13 +594,29 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
                  notch_radius=notch_radius,
                  fab_body_width=fab_body_width, fab_body_margin=fab_body_margin, fab_body_size=fab_body_size,
                  fab_outline=fab_outline, fab_chamfer=fab_chamfer,
-                 silk_leads=silk_leads, fab_leads=fab_leads, courtyard_includes_body=courtyard_includes_body)
+                 silk_leads=silk_leads, fab_leads=fab_leads, courtyard_includes_body=courtyard_includes_body,
+                 socket_margin_x=socket_margin_x, socket_margin_y=socket_margin_y,
+                 courtyard_from_pad_center=courtyard_from_pad_center)
+    if ep_size is not None:
+        # Added after _add_outline, not before: the heatsink/paste pads
+        # are all well inside the existing pad-row bounding box, but
+        # keeping them out of every silk/courtyard/fab computation
+        # entirely avoids any risk of them shifting one, rather than
+        # relying on that always staying true.
+        _add_exposed_pad(geometry, params["pin_count"], tuple(ep_size),
+                          tuple(ep_mask_size) if ep_mask_size is not None else None)
+        # Naming needs these too (built below) -- put back after popping
+        # them for the generator call above.
+        params["ep_size"] = ep_size
+        if ep_mask_size is not None:
+            params["ep_mask_size"] = ep_mask_size
     # Real KiCad's own footprint identity *is* its descriptive name (e.g.
     # "DIP-16_W7.62mm") -- matching that convention here (rather than a
     # separate display-only label) lets a user sanity-check a generated
     # footprint's real dimensions at a glance, directly from its Value
     # text. See kicad_fpdb.naming for the per-family formats.
-    name = name + descriptive_suffix(parsed.family, parsed.variant, params, geometry)
+    name = name + descriptive_suffix(parsed.family, parsed.variant, params, geometry,
+                                      applied_modifiers=resolved.applied_modifiers)
     geometry.name = name
     _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
                                    fab_reference_thickness=fab_reference_thickness,

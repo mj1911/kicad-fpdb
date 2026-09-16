@@ -114,12 +114,25 @@ def _export_svg(library_dir: Path, footprint_name: str, output_dir: Path) -> Pat
 def _default_case_name(descriptor: str) -> str:
     """The case/file name derived from a descriptor when the caller
     doesn't supply one -- only spaces need replacing (e.g. a width
-    modifier like "DIP-16 r"). Hyphens must be preserved: this name is
-    also passed as generate_footprint's `name`, which becomes the
-    generated footprint's identity/Value text (kicad_fpdb.naming) --
-    stripping them there produced "DIP_14_W7.62mm" instead of the
-    real-KiCad-matching "DIP-14_W7.62mm"."""
+    modifier like "DIP-16 r"). Hyphens must be preserved: stripping them
+    produced "DIP_14_W7.62mm" instead of the real-KiCad-matching
+    "DIP-14_W7.62mm". Used only for this tool's own output file names
+    (unique per case, e.g. distinguishing "DIP-16" from "DIP-16 r" on
+    disk) -- see _descriptor_head for the name actually baked into the
+    generated footprint's own identity/Value text."""
     return descriptor.replace(" ", "_")
+
+
+def _descriptor_head(descriptor: str) -> str:
+    """The descriptor's FAMILY-VARIANT head (e.g. "DIP-16" out of
+    "DIP-16 r"), with every modifier token dropped. Passed as
+    generate_footprint's `name` so the Value text isn't redundantly
+    prefixed with a width letter that descriptive_suffix already encodes
+    as a dimension (e.g. "_W10.16mm") -- and, for a non-width modifier
+    like "socket", descriptive_suffix appends its own real-KiCad-style
+    suffix (e.g. "_Socket") after that dimension, not before it. See
+    kicad_fpdb.naming.descriptive_suffix."""
+    return descriptor.split()[0]
 
 
 def render_comparison(
@@ -127,28 +140,35 @@ def render_comparison(
     reference_path: str,
     output_dir: str,
     name: str | None = None,
+    footprint_name: str | None = None,
     family_tree_path: str = FAMILY_TREE_PATH,
 ) -> tuple[Path, Path]:
     """Renders the generated footprint for `descriptor` and the real footprint
     at `reference_path` to SVG. Writes <name>_generated.svg and
-    <name>_reference.svg into output_dir and returns their paths."""
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    <name>_reference.svg into output_dir and returns their paths.
+    `footprint_name` (default: same as `name`) is passed as
+    generate_footprint's `name` -- callers that want library-accurate
+    Value text but still need a unique file name per case (e.g. across
+    width variants of the same pin count) can pass the two separately;
+    see render_all_known_cases."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     case_name = name or _default_case_name(descriptor)
+    identity_name = footprint_name if footprint_name is not None else case_name
 
     with tempfile.TemporaryDirectory() as tmp:
         lib_dir = Path(tmp) / "lib"
         lib_dir.mkdir()
-        text = generate_footprint(descriptor, family_tree_path, name=case_name)
+        text = generate_footprint(descriptor, family_tree_path, name=identity_name)
         (lib_dir / f"{case_name}.kicad_mod").write_text(text)
         generated_svg = _export_svg(lib_dir, case_name, Path(tmp) / "out")
-        generated_dest = output_dir / f"{case_name}_generated.svg"
+        generated_dest = output_path / f"{case_name}_generated.svg"
         generated_dest.write_text(generated_svg.read_text())
 
     ref_path = Path(reference_path)
     with tempfile.TemporaryDirectory() as tmp:
         reference_svg = _export_svg(ref_path.parent, ref_path.stem, Path(tmp) / "out")
-        reference_dest = output_dir / f"{case_name}_reference.svg"
+        reference_dest = output_path / f"{case_name}_reference.svg"
         reference_dest.write_text(reference_svg.read_text())
 
     return generated_dest, reference_dest
@@ -161,8 +181,23 @@ def render_comparison(
 # CASES, so the pipeline regression suite still verifies them exactly.
 PREVIEW_EXCLUDED_DESCRIPTORS = {"LQFP-80", "LQFP-100", "LQFP-144", "LQFP-176", "LQFP-208"}
 
+# When non-empty, the preview shows only these descriptors instead of
+# applying PREVIEW_EXCLUDED_DESCRIPTORS -- e.g. to review just a batch of
+# newly-added cases without scrolling past the rest. CASES/the pipeline
+# regression suite are unaffected either way; this only narrows the HTML
+# preview. Clear (set to an empty set) to go back to the exclusion list --
+# left non-empty between sessions is intentional-for-now, not a leftover bug.
+PREVIEW_ONLY_DESCRIPTORS = {
+    "SOIC-8 ep2_29x3", "SOIC-8 ep2_41x3_3", "SOIC-8 ep2_41x3_81",
+    "SOIC-8 ep2_514x3_2", "SOIC-8 ep2_62x3_51", "SOIC-8 ep2_71x3_7",
+    "SOIC-8 ep2_95x4_9_mask2_34x2_34", "SOIC-8 ep2_95x4_9_mask2_71x3_4",
+}
+
 
 def _preview_cases(cases: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    if PREVIEW_ONLY_DESCRIPTORS:
+        return [(descriptor, relpath) for descriptor, relpath in cases
+                if descriptor in PREVIEW_ONLY_DESCRIPTORS]
     return [(descriptor, relpath) for descriptor, relpath in cases
             if descriptor not in PREVIEW_EXCLUDED_DESCRIPTORS]
 
@@ -178,6 +213,7 @@ def render_all_known_cases(
         reference_path = f"{kicad_footprints}/{relpath}"
         generated_svg, reference_svg = render_comparison(
             descriptor, reference_path, output_dir, name=name,
+            footprint_name=_descriptor_head(descriptor),
             family_tree_path=family_tree_path,
         )
         cases.append({
@@ -271,6 +307,8 @@ def _pad1_frame_position_px(svg_markup: str) -> tuple[float, float] | None:
     if center_mm is None:
         return None
     size_match = _SVG_PX_SIZE.search(svg_markup)
+    if size_match is None:
+        return None
     svg_w_px, svg_h_px = float(size_match.group(1)), float(size_match.group(2))
     offset_x = 0.0 if svg_w_px > FRAME_PX else (FRAME_PX - svg_w_px) / 2
     offset_y = 0.0 if svg_h_px > FRAME_PX else (FRAME_PX - svg_h_px) / 2
@@ -387,7 +425,7 @@ def _size_comparison_html(cases: list[dict]) -> str:
     return _size_stats_html(yaml_path.stat().st_size, sum(real_sizes), len(real_sizes))
 
 
-def build_review_html(cases: list[dict], output_path: str) -> Path:
+def build_review_html(cases: list[dict], output_path: str | Path) -> Path:
     """Builds a self-contained HTML review page for the given cases (each a
     dict with name/descriptor/reference_relpath/generated_svg/reference_svg,
     as produced by render_comparison/render_all_known_cases)."""
@@ -422,7 +460,12 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   </div>
 </div>""")
 
-    size_stats_html = _size_comparison_html(cases)
+    # Always reflects every known case, not just the (possibly
+    # preview-filtered) cases actually rendered on this page -- otherwise
+    # narrowing the preview (PREVIEW_ONLY_DESCRIPTORS/_EXCLUDED_DESCRIPTORS)
+    # would understate the project's real size/coverage numbers.
+    all_cases = [{"reference_relpath": relpath} for _, relpath in CASES]
+    size_stats_html = _size_comparison_html(all_cases)
     footprint_count_html = _footprint_count_html(len(CASES), _count_library_footprints())
     page = f"""<!doctype html>
 <html>
@@ -577,8 +620,10 @@ def main(argv=None):
 
     if args.descriptor:
         name = args.name or _default_case_name(args.descriptor)
+        footprint_name = args.name or _descriptor_head(args.descriptor)
         generated_svg, reference_svg = render_comparison(
             args.descriptor, args.reference, args.output_dir, name=name,
+            footprint_name=footprint_name,
         )
         cases = [{
             "name": name,

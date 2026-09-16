@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 
@@ -6,21 +7,30 @@ class Pad:
     number: str
     pad_type: str  # "thru_hole" | "smd"
     shape: str  # "circle" | "roundrect"
-    at: tuple[float, float]
-    size: tuple[float, float]
+    # Accepts any 2-element float sequence -- generators pass `at`/`size`
+    # through from YAML-derived lists in some code paths (dual_row.py,
+    # two_pad.py) and rebuild tuples in others (quad_perimeter.py).
+    # __post_init__ normalizes either input to tuple[float, float], the
+    # type every reader (writer.py, pipeline.py, etc.) can rely on.
+    at: Sequence[float]
+    size: Sequence[float]
     drill: float | None = None
     roundrect_rratio: float | None = None
     solder_mask_margin: float | None = None
     solder_paste_margin: float | None = None
+    # Overrides for the small set of pads that don't fit the plain
+    # pad_type-derived layer set (an exposed-pad heatsink pad, its
+    # optional separate mask-opening pad, and its paste-stencil
+    # sub-pads) -- see kicad_fpdb.pipeline._add_exposed_pad.
+    layers: tuple[str, ...] | None = None
+    pad_prop: str | None = None
+    zone_connect: int | None = None
 
     def __post_init__(self):
-        # Generators pass `at`/`size` through from YAML-derived lists in
-        # some code paths (dual_row.py, two_pad.py) and rebuild tuples in
-        # others (quad_perimeter.py), leaving Pad.size (and potentially
-        # .at) inconsistent with its own `tuple[float, float]` annotation.
-        # Normalize once here rather than at every generator call site.
-        self.at = tuple(self.at)
-        self.size = tuple(self.size)
+        at_x, at_y = self.at
+        self.at = (at_x, at_y)
+        size_x, size_y = self.size
+        self.size = (size_x, size_y)
 
 
 @dataclass

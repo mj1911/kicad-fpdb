@@ -88,3 +88,38 @@ def test_sot_family_gets_no_suffix():
 def test_unknown_family_gets_no_suffix():
     geom = FootprintGeometry(name="TEST")
     assert descriptive_suffix("FOO", "1", {"pitch": 1.0}, geom) == ""
+
+
+def test_cerdip_suffix_uses_row_spacing_and_side_brazed():
+    # Real KiCad's own CERDIP names always carry "_SideBrazed" right
+    # after the dimension part, unlike plain DIP.
+    geom = FootprintGeometry(name="TEST")
+    suffix = descriptive_suffix("CERDIP", "14", {"row_spacing": 7.62}, geom)
+    assert suffix == "_W7.62mm_SideBrazed"
+
+
+def test_dip_suffix_with_socket_modifier_appends_after_dimension():
+    # Real KiCad names the _Socket variant "DIP-14_W7.62mm_Socket" --
+    # the modifier suffix comes after the dimension, not before it.
+    geom = FootprintGeometry(name="TEST")
+    suffix = descriptive_suffix("DIP", "14", {"row_spacing": 7.62}, geom, applied_modifiers=["socket"])
+    assert suffix == "_W7.62mm_Socket"
+
+
+def test_cerdip_suffix_with_socket_modifier_appends_last():
+    geom = FootprintGeometry(name="TEST")
+    suffix = descriptive_suffix("CERDIP", "16", {"row_spacing": 7.62}, geom, applied_modifiers=["socket"])
+    assert suffix == "_W7.62mm_SideBrazed_Socket"
+
+
+def test_dip_suffix_with_longpads_modifier_uses_internal_capital():
+    # Plain str.capitalize() would give "Longpads" -- real KiCad's own
+    # name has an internal capital ("LongPads").
+    geom = FootprintGeometry(name="TEST")
+    suffix = descriptive_suffix("DIP", "14", {"row_spacing": 7.62}, geom, applied_modifiers=["longpads"])
+    assert suffix == "_W7.62mm_LongPads"
+
+
+def test_unknown_family_with_modifier_still_gets_modifier_suffix():
+    geom = FootprintGeometry(name="TEST")
+    assert descriptive_suffix("FOO", "1", {}, geom, applied_modifiers=["socket"]) == "_Socket"
