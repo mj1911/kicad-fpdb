@@ -7,6 +7,7 @@ from kicad_fpdb.generators.dual_row import dual_row_grid
 from kicad_fpdb.generators.quad_perimeter import quad_perimeter
 from kicad_fpdb.generators.two_pad import two_pad_chip
 from kicad_fpdb.geometry import Arc, Circle, Line, Poly, Rect, Text, pad_bounding_box
+from kicad_fpdb.naming import descriptive_suffix
 from kicad_fpdb.rect_union import union_outline
 from kicad_fpdb.writer import write_kicad_mod
 
@@ -499,6 +500,13 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
                  fab_body_width=fab_body_width, fab_body_margin=fab_body_margin, fab_body_size=fab_body_size,
                  fab_outline=fab_outline, fab_chamfer=fab_chamfer,
                  silk_leads=silk_leads, fab_leads=fab_leads, courtyard_includes_body=courtyard_includes_body)
+    # Real KiCad's own footprint identity *is* its descriptive name (e.g.
+    # "DIP-16_W7.62mm") -- matching that convention here (rather than a
+    # separate display-only label) lets a user sanity-check a generated
+    # footprint's real dimensions at a glance, directly from its Value
+    # text. See kicad_fpdb.naming for the per-family formats.
+    name = name + descriptive_suffix(parsed.family, parsed.variant, params, geometry)
+    geometry.name = name
     _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
                                    fab_reference_thickness=fab_reference_thickness,
                                    fab_reference_rotation=fab_reference_rotation)

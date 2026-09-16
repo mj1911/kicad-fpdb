@@ -386,6 +386,34 @@ and become available for everyone to automatically update to.
   expansion via the pad's `layers` list), so `data/kicad-fpdb.yaml` is
   untouched; covered by synthetic writer and pipeline tests instead of
   a reference-footprint regression case.
+* Generated footprints get a descriptive dimension suffix appended to
+  their identity/Value text, matching each family's own real KiCad
+  naming convention exactly (verified against real reference
+  footprints) — e.g. `DIP-16` → `DIP-16_W7.62mm`, `SOIC-8` →
+  `SOIC-8_3.9x4.9mm_P1.27mm`, `QFP-32` → `QFP-32_7x7mm_P0.8mm`,
+  `R-0603` → `R-0603_1608Metric`, `R-AXIAL0204` →
+  `R-AXIAL0204_L3.6mm_D1.6mm_P7.62mm` — so a user assigning a
+  generated footprint can sanity-check its real dimensions at a
+  glance, the way real KiCad's own descriptive filenames already let
+  them (real KiCad's `Value` text and footprint identity are the
+  filename itself, no separate display name — matched here rather
+  than inventing a new convention). New `kicad_fpdb/naming.py`
+  (`descriptive_suffix`, `fab_outline_bounding_box`) dispatches per
+  family: DIP uses its `row_spacing` param directly (real DIP names
+  encode lead-to-lead spacing, not body size); SOIC/QFP use the
+  generated F.Fab true-body outline's own bounding box (generic across
+  any generator that draws one, rather than a per-family formula) plus
+  the `pitch` param; R/C chip passives use a small fixed
+  imperial→metric code lookup table (`IMPERIAL_TO_METRIC` — real
+  KiCad's numbers there are a standard pairing, not derivable from our
+  params); R-AXIAL uses the F.Fab outline bbox (lead length/diameter)
+  plus `pad_pitch`. SOT/TSOT get no suffix, matching real KiCad exactly
+  — those families have no single `pitch`/`pad_pitch` param (asymmetric
+  per-pin offsets instead). One subtlety: the descriptor grammar splits
+  on the first hyphen only, so `R-AXIAL0204` parses to family `"R"`,
+  variant `"AXIAL0204"` — `descriptive_suffix` checks
+  `variant.startswith("AXIAL")` before the plain chip-lookup branch, or
+  axial descriptors would (mis)match as an unknown metric code.
 
 ## TODO
 

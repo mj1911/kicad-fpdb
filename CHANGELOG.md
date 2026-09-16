@@ -1,5 +1,17 @@
 # Changes
 
+2026-09-15 v0.0.12:
+
+* Generated footprints now get a descriptive dimension suffix on their
+  identity/Value text, matching each family's real KiCad naming
+  convention exactly (`DIP-16` → `DIP-16_W7.62mm`, `SOIC-8` →
+  `SOIC-8_3.9x4.9mm_P1.27mm`, `QFP-32` → `QFP-32_7x7mm_P0.8mm`,
+  `R-0603` → `R-0603_1608Metric`, `R-AXIAL0204` →
+  `R-AXIAL0204_L3.6mm_D1.6mm_P7.62mm`) — lets a user sanity-check a
+  generated footprint's real dimensions at a glance when assigning it.
+  New `kicad_fpdb/naming.py`; SOT/TSOT get no suffix, matching real
+  KiCad. See `CLAUDE.md` for the per-family formula rationale.
+
 2026-09-15 v0.0.11:
 
 * Hoisted QFP's repeated `generator: quad_perimeter` (declared on all 8

@@ -9,7 +9,9 @@ def test_generated_footprint_includes_reference_and_value():
     text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
 
     assert '(property "Reference" "REF**"' in text
-    assert '(property "Value" "R_TEST"' in text
+    # Value gets a descriptive suffix matching real KiCad's own naming
+    # convention -- see tests/test_pipeline_naming.py and kicad_fpdb.naming.
+    assert '(property "Value" "R_TEST_1608Metric"' in text
 
 
 def test_reference_is_above_pads_and_value_is_below():
