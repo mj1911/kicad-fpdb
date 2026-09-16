@@ -111,6 +111,17 @@ def _export_svg(library_dir: Path, footprint_name: str, output_dir: Path) -> Pat
     return output_dir / f"{footprint_name}.svg"
 
 
+def _default_case_name(descriptor: str) -> str:
+    """The case/file name derived from a descriptor when the caller
+    doesn't supply one -- only spaces need replacing (e.g. a width
+    modifier like "DIP-16 r"). Hyphens must be preserved: this name is
+    also passed as generate_footprint's `name`, which becomes the
+    generated footprint's identity/Value text (kicad_fpdb.naming) --
+    stripping them there produced "DIP_14_W7.62mm" instead of the
+    real-KiCad-matching "DIP-14_W7.62mm"."""
+    return descriptor.replace(" ", "_")
+
+
 def render_comparison(
     descriptor: str,
     reference_path: str,
@@ -123,7 +134,7 @@ def render_comparison(
     <name>_reference.svg into output_dir and returns their paths."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    case_name = name or descriptor.replace(" ", "_")
+    case_name = name or _default_case_name(descriptor)
 
     with tempfile.TemporaryDirectory() as tmp:
         lib_dir = Path(tmp) / "lib"
@@ -143,14 +154,27 @@ def render_comparison(
     return generated_dest, reference_dest
 
 
+# The 5 largest LQFP variants (80/100/144/176/208-pin) add little review
+# value -- their geometry is validated exactly the same stepped-courtyard
+# way regardless of size -- but each one's large pad count roughly
+# doubles review.html's size. Omitted from the preview only; still in
+# CASES, so the pipeline regression suite still verifies them exactly.
+PREVIEW_EXCLUDED_DESCRIPTORS = {"LQFP-80", "LQFP-100", "LQFP-144", "LQFP-176", "LQFP-208"}
+
+
+def _preview_cases(cases: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    return [(descriptor, relpath) for descriptor, relpath in cases
+            if descriptor not in PREVIEW_EXCLUDED_DESCRIPTORS]
+
+
 def render_all_known_cases(
     output_dir: str,
     family_tree_path: str = FAMILY_TREE_PATH,
     kicad_footprints: str = KICAD_FOOTPRINTS,
 ) -> list[dict]:
     cases = []
-    for descriptor, relpath in CASES:
-        name = descriptor.replace(" ", "_").replace("-", "_")
+    for descriptor, relpath in _preview_cases(CASES):
+        name = _default_case_name(descriptor)
         reference_path = f"{kicad_footprints}/{relpath}"
         generated_svg, reference_svg = render_comparison(
             descriptor, reference_path, output_dir, name=name,
@@ -552,7 +576,7 @@ def main(argv=None):
         parser.error("--descriptor and --reference must be given together")
 
     if args.descriptor:
-        name = args.name or args.descriptor.replace(" ", "_")
+        name = args.name or _default_case_name(args.descriptor)
         generated_svg, reference_svg = render_comparison(
             args.descriptor, args.reference, args.output_dir, name=name,
         )

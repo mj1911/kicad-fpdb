@@ -1,5 +1,25 @@
 # Changes
 
+2026-09-15 v0.0.14:
+
+* Fixed a bug where the review viewer's default case-name derivation
+  (`render_all_known_cases`) stripped hyphens out of the descriptor
+  (`DIP-14` → `DIP_14`) as well as spaces — harmless before the
+  descriptive-naming feature, but now leaked into the generated
+  footprint's own Value text (`DIP_14_W7.62mm` instead of the
+  real-KiCad-matching `DIP-14_W7.62mm`). Extracted the case-name logic
+  into one shared `_default_case_name` used everywhere instead of two
+  separately-drifted copies.
+* Omitted the 5 largest LQFP variants (80/100/144/176/208-pin) from the
+  review viewer's preview (`_preview_cases`/`PREVIEW_EXCLUDED_DESCRIPTORS`
+  in `kicad_fpdb/visual_compare.py`) — each one's large pad count roughly
+  doubles `review.html`'s size for no extra review value, since their
+  geometry validates the same stepped-courtyard way regardless of size.
+  Still fully covered by the pipeline regression suite (`CASES` is
+  unchanged); only the visual preview skips them. Review page now
+  renders 30 cases instead of 35; the footprint-count footer still
+  correctly reports all 35.
+
 2026-09-15 v0.0.13:
 
 * Renamed the `QFP` family to `LQFP` throughout (`data/kicad-fpdb.yaml`,

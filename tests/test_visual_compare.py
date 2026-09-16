@@ -10,9 +10,11 @@ from kicad_fpdb.visual_compare import (
     build_review_html,
     render_comparison,
     _count_library_footprints,
+    _default_case_name,
     _footprint_count_html,
     _frame_overflow_style,
     _pad1_frame_position_px,
+    _preview_cases,
     _raise_pad_numbers_on_top,
     _size_comparison_html,
     _size_stats_html,
@@ -237,6 +239,33 @@ def test_size_comparison_html_sums_unique_real_files(tmp_path):
     # Counted once, not twice, even though two cases reference it.
     assert str(real_size) in html_block.replace(",", "")
     assert str(real_size * 2) not in html_block.replace(",", "")
+
+
+def test_default_case_name_preserves_hyphens():
+    # Descriptor hyphens (DIP-14) must survive into the case name, since
+    # it becomes the generated footprint's identity/Value text too
+    # (kicad_fpdb.naming) -- stripping them produced "DIP_14_W7.62mm"
+    # instead of the real-KiCad-matching "DIP-14_W7.62mm".
+    assert _default_case_name("DIP-14") == "DIP-14"
+
+
+def test_default_case_name_replaces_spaces():
+    assert _default_case_name("DIP-16 r") == "DIP-16_r"
+
+
+def test_preview_cases_omits_five_biggest_lqfp():
+    cases = [
+        ("LQFP-32", "a"), ("LQFP-48", "b"), ("LQFP-64", "c"), ("LQFP-80", "d"),
+        ("LQFP-100", "e"), ("LQFP-144", "f"), ("LQFP-176", "g"), ("LQFP-208", "h"),
+    ]
+    kept = [descriptor for descriptor, _ in _preview_cases(cases)]
+    assert kept == ["LQFP-32", "LQFP-48", "LQFP-64"]
+
+
+def test_preview_cases_keeps_non_lqfp_cases_untouched():
+    cases = [("DIP-16", "a"), ("LQFP-208", "b"), ("R-0603", "c")]
+    kept = [descriptor for descriptor, _ in _preview_cases(cases)]
+    assert kept == ["DIP-16", "R-0603"]
 
 
 def test_footprint_count_html_shows_defined_vs_total():

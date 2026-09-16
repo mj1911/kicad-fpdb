@@ -426,6 +426,24 @@ and become available for everyone to automatically update to.
   they document current behavior. A future `PQFP`/`TQFP` family, if
   one turns out to need genuinely different geometry, would get its
   own root rather than folding into `LQFP`.
+* Fixed a bug the LQFP rename surfaced: the review viewer's default
+  case-name derivation (`render_all_known_cases`) stripped hyphens as
+  well as spaces out of the descriptor (`DIP-14` → `DIP_14`), harmless
+  before the descriptive-naming feature but now leaking into the
+  generated footprint's own Value text (`DIP_14_W7.62mm` instead of
+  the correct `DIP-14_W7.62mm`) — `render_comparison`'s own default
+  didn't have this extra `.replace("-", "_")`, so the two copies had
+  quietly drifted. Deduped into one `_default_case_name` helper used
+  by both, plus the CLI entry point, so this can't drift again.
+* The review viewer's preview now omits the 5 largest LQFP variants
+  (80/100/144/176/208-pin) via `_preview_cases`/
+  `PREVIEW_EXCLUDED_DESCRIPTORS` in `visual_compare.py` — each one's
+  pad count roughly doubles `review.html`'s size for no extra review
+  value (same stepped-courtyard validation regardless of size). `CASES`
+  itself is untouched, so `test_pipeline_regression.py` still verifies
+  all 35; only the HTML preview and its rendered SVG count (30) shrink.
+  The footprint-count footer reads `CASES` directly, so it still
+  correctly reports 35.
 
 ## TODO
 
