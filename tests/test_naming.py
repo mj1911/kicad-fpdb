@@ -71,7 +71,7 @@ def test_chip_suffix_empty_for_unknown_variant():
 def test_axial_suffix_uses_fab_bbox_and_pad_pitch():
     geom = _rect_geometry((2.01, -0.8), (5.61, 0.8))
     suffix = descriptive_suffix("R", "AXIAL0204", {"pad_pitch": 7.62}, geom)
-    assert suffix == "_L3.6mm_D1.6mm_P7.62mm"
+    assert suffix == "_L3.6_D1.6_P7.62mm"
 
 
 def test_axial_suffix_takes_precedence_over_chip_lookup():

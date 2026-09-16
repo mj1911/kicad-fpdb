@@ -34,7 +34,7 @@ def test_chip_capacitor_value_text_includes_metric_suffix():
 
 def test_axial_resistor_value_text_includes_lead_and_pitch_suffix():
     text = generate_footprint("R-AXIAL0204", "data/kicad-fpdb.yaml", name="R-AXIAL0204")
-    assert '(property "Value" "R-AXIAL0204_L3.6mm_D1.6mm_P7.62mm"' in text
+    assert '(property "Value" "R-AXIAL0204_L3.6_D1.6_P7.62mm"' in text
 
 
 def test_sot_value_text_has_no_suffix():

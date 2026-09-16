@@ -392,7 +392,7 @@ and become available for everyone to automatically update to.
   footprints) — e.g. `DIP-16` → `DIP-16_W7.62mm`, `SOIC-8` →
   `SOIC-8_3.9x4.9mm_P1.27mm`, `LQFP-32` → `LQFP-32_7x7mm_P0.8mm`,
   `R-0603` → `R-0603_1608Metric`, `R-AXIAL0204` →
-  `R-AXIAL0204_L3.6mm_D1.6mm_P7.62mm` — so a user assigning a
+  `R-AXIAL0204_L3.6_D1.6_P7.62mm` — so a user assigning a
   generated footprint can sanity-check its real dimensions at a
   glance, the way real KiCad's own descriptive filenames already let
   them (real KiCad's `Value` text and footprint identity are the
@@ -407,7 +407,12 @@ and become available for everyone to automatically update to.
   imperial→metric code lookup table (`IMPERIAL_TO_METRIC` — real
   KiCad's numbers there are a standard pairing, not derivable from our
   params); R-AXIAL uses the F.Fab outline bbox (lead length/diameter)
-  plus `pad_pitch`. SOT/TSOT get no suffix, matching real KiCad exactly
+  plus `pad_pitch` — only the trailing `P{pitch}` carries an explicit
+  `mm` unit (`_L3.6_D1.6_P7.62mm`), since real KiCad's own axial names
+  do the same (`R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_...`, redundantly
+  units-suffixing all three, but this project's shorter form still
+  reads unambiguously as mm throughout). SOT/TSOT get no suffix,
+  matching real KiCad exactly
   — those families have no single `pitch`/`pad_pitch` param (asymmetric
   per-pin offsets instead). One subtlety: the descriptor grammar splits
   on the first hyphen only, so `R-AXIAL0204` parses to family `"R"`,

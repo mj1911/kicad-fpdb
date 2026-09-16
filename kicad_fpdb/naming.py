@@ -57,7 +57,7 @@ def descriptive_suffix(family: str, variant: str, params: dict, geometry) -> str
         if pad_pitch is None or bbox is None:
             return ""
         min_x, min_y, max_x, max_y = bbox
-        return f"_L{_fmt(max_x - min_x)}mm_D{_fmt(max_y - min_y)}mm_P{_fmt(pad_pitch)}mm"
+        return f"_L{_fmt(max_x - min_x)}_D{_fmt(max_y - min_y)}_P{_fmt(pad_pitch)}mm"
 
     if family == "DIP":
         row_spacing = params.get("row_spacing")

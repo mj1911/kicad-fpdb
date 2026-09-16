@@ -19,30 +19,21 @@
   unchanged); only the visual preview skips them. Review page now
   renders 30 cases instead of 35; the footprint-count footer still
   correctly reports all 35.
-
-2026-09-15 v0.0.13:
-
 * Renamed the `QFP` family to `LQFP` throughout (`data/kicad-fpdb.yaml`,
   `reference_cases.py`, `naming.py`, tests) to match real KiCad's own
   naming exactly — real KiCad tracks distinct QFP lead-frame profiles
   (LQFP, PQFP, TQFP, ...) by name, and this project only implements
   the low-profile one. Pure rename, no behavior change; all 252 tests
   still pass.
-
-2026-09-15 v0.0.12:
-
 * Generated footprints now get a descriptive dimension suffix on their
   identity/Value text, matching each family's real KiCad naming
   convention exactly (`DIP-16` → `DIP-16_W7.62mm`, `SOIC-8` →
-  `SOIC-8_3.9x4.9mm_P1.27mm`, `QFP-32` → `QFP-32_7x7mm_P0.8mm`,
+  `SOIC-8_3.9x4.9mm_P1.27mm`, `LQFP-32` → `LQFP-32_7x7mm_P0.8mm`,
   `R-0603` → `R-0603_1608Metric`, `R-AXIAL0204` →
-  `R-AXIAL0204_L3.6mm_D1.6mm_P7.62mm`) — lets a user sanity-check a
+  `R-AXIAL0204_L3.6_D1.6_P7.62mm`) — lets a user sanity-check a
   generated footprint's real dimensions at a glance when assigning it.
   New `kicad_fpdb/naming.py`; SOT/TSOT get no suffix, matching real
   KiCad. See `CLAUDE.md` for the per-family formula rationale.
-
-2026-09-15 v0.0.11:
-
 * Hoisted QFP's repeated `generator: quad_perimeter` (declared on all 8
   variants) up to the `QFP` root, matching the earlier R/C
   `two_pad_chip` hoist. Pure dedup — verified byte-identical generated
@@ -56,9 +47,6 @@
   NOT covered — the former is a genuinely different hand-authored
   footprint, the latter needs new silk/fab primitives (see CLAUDE.md
   TODO).
-
-2026-09-15 v0.0.10:
-
 * Added a defined-vs-total footprint tally to the review viewer's
   footer, below the existing size-comparison line: the count of
   hand-verified reference cases (`CASES` in `reference_cases.py`, 32
