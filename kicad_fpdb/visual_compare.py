@@ -307,6 +307,31 @@ def _size_stats_html(yaml_size: int, real_total_size: int, real_count: int) -> s
     )
 
 
+def _footprint_count_html(defined_count: int, total_count: int) -> str:
+    """HTML for the defined-vs-total footprint tally footer: how many of
+    the real KiCad library's footprints this project can already
+    generate. Empty string when the total is unknown (e.g. no real
+    library present on this machine)."""
+    if total_count == 0:
+        return ""
+    pct = 100 * defined_count / total_count
+    return (
+        '<div id="footprint-count">'
+        f"<strong>{defined_count:,}</strong> of {total_count:,} real footprints defined"
+        f" ({pct:.1f}%)"
+        "</div>"
+    )
+
+
+def _count_library_footprints(kicad_footprints: str = KICAD_FOOTPRINTS) -> int:
+    """Total .kicad_mod files under the real KiCad footprint library, or 0
+    if it isn't present on this machine."""
+    root = Path(kicad_footprints)
+    if not root.is_dir():
+        return 0
+    return sum(1 for _ in root.rglob("*.kicad_mod"))
+
+
 def _resolve_reference_path(relpath: str) -> Path | None:
     """A case's reference_relpath is relative to KICAD_FOOTPRINTS for
     every known-cases run, but the ad-hoc --reference CLI path can be
@@ -374,6 +399,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
 </div>""")
 
     size_stats_html = _size_comparison_html(cases)
+    footprint_count_html = _footprint_count_html(len(CASES), _count_library_footprints())
     page = f"""<!doctype html>
 <html>
 <head>
@@ -426,6 +452,8 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
   #summary {{ white-space: pre-wrap; background:#2a2a2a; color:#ddd; border:1px solid #444; border-radius:8px; padding:12px; margin-top:16px; font-family: monospace; }}
   #size-stats {{ color:#888; margin-top:12px; font-size:0.85rem; }}
   #size-stats strong {{ color:#4c4; }}
+  #footprint-count {{ color:#888; margin-top:4px; font-size:0.85rem; }}
+  #footprint-count strong {{ color:#4c4; }}
 </style>
 </head>
 <body>
@@ -441,6 +469,7 @@ def build_review_html(cases: list[dict], output_path: str) -> Path:
 </div>
 <div id="summary"></div>
 {size_stats_html}
+{footprint_count_html}
 <script>
 const results = {{}};
 let idx = 0;

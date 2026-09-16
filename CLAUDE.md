@@ -137,7 +137,13 @@ and become available for everyone to automatically update to.
   own byte size vs. the combined size of the unique real `.kicad_mod`
   reference files behind every known case, plus the ratio between them
   (`_size_comparison_html`/`_size_stats_html`) — the project's core
-  value proposition, made concrete on every run.
+  value proposition, made concrete on every run. Below that, a second
+  footer line tallies hand-verified reference cases (`CASES`, 32
+  today) against the total `.kicad_mod` file count across the whole
+  real KiCad library (`_footprint_count_html`/
+  `_count_library_footprints`, a recursive glob under
+  `KICAD_FOOTPRINTS`) — how much of the real library this project can
+  already replace, made visible alongside the size ratio.
 * Pin-1 marker: a small filled silkscreen circle sitting directly
   above pad 1 (same X as the pad, offset past its own top edge by a
   fixed clearance), independent of the F.SilkS outline entirely — a

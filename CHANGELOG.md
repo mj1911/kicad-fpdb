@@ -2,6 +2,17 @@
 
 2026-09-15 v0.0.10:
 
+* Added a defined-vs-total footprint tally to the review viewer's
+  footer, below the existing size-comparison line: the count of
+  hand-verified reference cases (`CASES` in `reference_cases.py`, 32
+  today) against the total `.kicad_mod` file count across the real
+  KiCad library (`_count_library_footprints`, recursive glob under
+  `KICAD_FOOTPRINTS`), as a percentage (`_footprint_count_html` in
+  `kicad_fpdb/visual_compare.py`) — makes the scale of the remaining
+  library-conversion work visible on every run, alongside the
+  size-ratio value proposition. Empty when the real library isn't
+  present on the machine, matching the size-comparison footer's
+  graceful skip.
 * Added per-descriptor solder mask/paste margin overrides: new
   `Pad.solder_mask_margin`/`solder_paste_margin` fields (`kicad_fpdb/
   geometry.py`), emitted by the writer only when set

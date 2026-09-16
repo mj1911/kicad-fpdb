@@ -9,6 +9,8 @@ from kicad_fpdb.visual_compare import (
     PX_PER_MM,
     build_review_html,
     render_comparison,
+    _count_library_footprints,
+    _footprint_count_html,
     _frame_overflow_style,
     _pad1_frame_position_px,
     _raise_pad_numbers_on_top,
@@ -235,6 +237,49 @@ def test_size_comparison_html_sums_unique_real_files(tmp_path):
     # Counted once, not twice, even though two cases reference it.
     assert str(real_size) in html_block.replace(",", "")
     assert str(real_size * 2) not in html_block.replace(",", "")
+
+
+def test_footprint_count_html_shows_defined_vs_total():
+    html_block = _footprint_count_html(defined_count=32, total_count=15450)
+    assert "32" in html_block
+    assert "15,450" in html_block
+
+
+def test_footprint_count_html_empty_when_total_unknown():
+    assert _footprint_count_html(defined_count=32, total_count=0) == ""
+
+
+def test_count_library_footprints_counts_kicad_mod_files_recursively(tmp_path):
+    (tmp_path / "Package_DIP.pretty").mkdir()
+    (tmp_path / "Package_DIP.pretty" / "a.kicad_mod").write_text("")
+    (tmp_path / "Package_DIP.pretty" / "b.kicad_mod").write_text("")
+    (tmp_path / "Package_SO.pretty").mkdir()
+    (tmp_path / "Package_SO.pretty" / "c.kicad_mod").write_text("")
+    (tmp_path / "Package_SO.pretty" / "notes.txt").write_text("")
+
+    assert _count_library_footprints(str(tmp_path)) == 3
+
+
+def test_count_library_footprints_zero_when_missing(tmp_path):
+    assert _count_library_footprints(str(tmp_path / "does-not-exist")) == 0
+
+
+def test_build_review_html_includes_footprint_count(tmp_path):
+    reference_path = f"{KICAD_FOOTPRINTS}/Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod"
+    generated_svg, reference_svg = render_comparison(
+        "DIP-16", reference_path, str(tmp_path), name="dip16_test",
+    )
+    cases = [{
+        "name": "dip16_test",
+        "descriptor": "DIP-16",
+        "reference_relpath": "Package_DIP.pretty/DIP-16_W7.62mm.kicad_mod",
+        "generated_svg": generated_svg,
+        "reference_svg": reference_svg,
+    }]
+
+    review_path = build_review_html(cases, tmp_path / "review.html")
+
+    assert 'id="footprint-count"' in review_path.read_text()
 
 
 def test_build_review_html_includes_size_comparison(tmp_path):
