@@ -44,7 +44,7 @@ def test_soic_suffix_uses_fab_bbox_and_pitch():
 
 def test_qfp_suffix_uses_fab_bbox_and_pitch():
     geom = _poly_geometry([(-3.5, -2.5), (3.5, -3.5), (3.5, 3.5), (-3.5, 3.5)])
-    suffix = descriptive_suffix("QFP", "32", {"pitch": 0.8}, geom)
+    suffix = descriptive_suffix("LQFP", "32", {"pitch": 0.8}, geom)
     assert suffix == "_7x7mm_P0.8mm"
 
 

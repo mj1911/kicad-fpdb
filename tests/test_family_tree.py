@@ -126,7 +126,7 @@ def test_resolve_unknown_family_raises(tmp_path):
 
     import pytest
     with pytest.raises(KeyError):
-        resolve_descriptor(tree, parse_descriptor("QFP-32"))
+        resolve_descriptor(tree, parse_descriptor("LQFP-32"))
 
 
 NO_DEFAULT_WIDTH_YAML = """

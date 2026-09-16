@@ -32,7 +32,7 @@ def _dip16_geometry():
 
 def _qfp32_geometry():
     tree = load_family_tree(FAMILY_TREE_PATH)
-    resolved = resolve_descriptor(tree, parse_descriptor("QFP-32"))
+    resolved = resolve_descriptor(tree, parse_descriptor("LQFP-32"))
     params = dict(resolved.params)
     params.pop("body_size", None)
     params.pop("courtyard_margin_x", None)
@@ -40,7 +40,7 @@ def _qfp32_geometry():
     params.pop("fab_outline", None)
     params.pop("fab_chamfer", None)
     geometry = GENERATORS[resolved.generator](**params)
-    geometry.name = "QFP32_TEST"
+    geometry.name = "LQFP32_TEST"
     return geometry
 
 
@@ -253,7 +253,7 @@ def test_add_outline_with_body_size_draws_corner_marks():
     assert len(silk_lines) == 8
 
     # Real LQFP-32_7x7mm_P0.8mm.kicad_mod corner marks are at (±3.61, ±3.61)
-    # with 0.3mm legs — this project uses a fixed 0.3mm leg for all QFP.
+    # with 0.3mm legs — this project uses a fixed 0.3mm leg for all LQFP.
     endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in silk_lines for pt in (line.start, line.end)}
     assert (-3.61, -3.61) in endpoints
     assert (-3.31, -3.61) in endpoints
@@ -390,15 +390,15 @@ def test_generate_footprint_does_not_leak_body_params_to_generator():
 
 
 def test_generate_footprint_qfp32_silk_matches_real_corner_marks():
-    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     assert "(start -3.61 -3.61)" in text
     assert "(end -3.31 -3.61)" in text
     assert "(end -3.61 -3.31)" in text
 
 
 def test_generate_footprint_qfp48_silk_matches_real_corner_position():
-    text = generate_footprint("QFP-48", FAMILY_TREE_PATH, name="QFP48_TEST")
-    # Same 7x7mm body as QFP-32 (per the spec, both real footprints share
+    text = generate_footprint("LQFP-48", FAMILY_TREE_PATH, name="LQFP48_TEST")
+    # Same 7x7mm body as LQFP-32 (per the spec, both real footprints share
     # this corner position); leg length is this project's fixed 0.3mm,
     # not real KiCad's 0.45mm for this specific package.
     assert "(start -3.61 -3.61)" in text
@@ -409,30 +409,30 @@ def test_generate_footprint_qfp100_silk_matches_real_corner_position():
     # Real LQFP-100_14x14mm_P0.5mm.kicad_mod corner marks are at
     # (+-7.11, +-7.11) -- proves body_size derivation
     # (courtyard_body_size + 0.22) generalizes beyond the 7x7mm bodies
-    # QFP-32/QFP-48 share, to a 14x14mm body.
-    text = generate_footprint("QFP-100", FAMILY_TREE_PATH, name="QFP100_TEST")
+    # LQFP-32/LQFP-48 share, to a 14x14mm body.
+    text = generate_footprint("LQFP-100", FAMILY_TREE_PATH, name="LQFP100_TEST")
     assert "(start -7.11 -7.11)" in text
     assert "(end -6.81 -7.11)" in text
 
 
 def test_generate_footprint_qfp32_pad_offset_derived_from_courtyard_body_size():
-    # QFP-32's yaml no longer declares pad_offset directly -- this proves
+    # LQFP-32's yaml no longer declares pad_offset directly -- this proves
     # generate_footprint() forwards courtyard_body_size through to
     # quad_perimeter so it can derive pad_offset itself.
-    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     assert "(at -4.175 -2.8)" in text
 
 
 def test_generate_footprint_qfp48_pad_offset_uses_override_extension():
-    # QFP-48 overrides pad_lead_extension to 0.6625 at the yaml level.
-    text = generate_footprint("QFP-48", FAMILY_TREE_PATH, name="QFP48_TEST")
+    # LQFP-48 overrides pad_lead_extension to 0.6625 at the yaml level.
+    text = generate_footprint("LQFP-48", FAMILY_TREE_PATH, name="LQFP48_TEST")
     assert "(at -4.1625" in text
 
 
 def test_generate_footprint_does_not_leak_body_size_to_generator():
     # If pipeline.py forgot to pop body_size before calling the generator,
     # this raises TypeError("unexpected keyword argument").
-    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     assert text  # got here without raising
 
 
@@ -663,7 +663,7 @@ def test_add_outline_with_fab_leads_draws_leads_from_pad_center():
 def test_add_outline_with_courtyard_includes_body_combines_bboxes():
     # New flat-rectangle courtyard mode: combined bbox of (pad bbox, true
     # F.Fab body), then one flat margin -- not the stepped union model
-    # SOIC/QFP/SOT use. Matches real R_Axial_DIN0204 exactly.
+    # SOIC/LQFP/SOT use. Matches real R_Axial_DIN0204 exactly.
     geometry = _r_axial0204_geometry()
     _add_outline(geometry, fab_body_size=(3.6, 1.6), courtyard_includes_body=True,
                   courtyard_margin_x=0.25, courtyard_margin_y=0.25, pin1_marker=False)
@@ -785,7 +785,7 @@ def test_generate_footprint_soic14_courtyard_matches_stepped_shape():
 
 
 def test_generate_footprint_qfp32_courtyard_matches_stepped_shape():
-    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     assert text.count("(fp_rect") == 0
     assert "(start -3.75 -3.75)" in text
     assert "(start -5.175 -3.3)" in text
@@ -793,7 +793,7 @@ def test_generate_footprint_qfp32_courtyard_matches_stepped_shape():
 
 
 def test_generate_footprint_qfp48_courtyard_matches_stepped_shape():
-    text = generate_footprint("QFP-48", FAMILY_TREE_PATH, name="QFP48_TEST")
+    text = generate_footprint("LQFP-48", FAMILY_TREE_PATH, name="LQFP48_TEST")
     assert text.count("(fp_rect") == 0
     assert "(start -3.75 -3.75)" in text
     assert "(start -5.15 -3.15)" in text
@@ -806,7 +806,7 @@ def test_generate_footprint_does_not_leak_courtyard_body_params_to_generator():
     # TypeError("unexpected keyword argument").
     text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
     assert text
-    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     assert text
 
 
@@ -987,7 +987,7 @@ def test_generate_footprint_soic8_fab_body_reuses_courtyard_true_body():
 
 
 def test_generate_footprint_qfp32_fab_body_reuses_courtyard_true_body():
-    text = generate_footprint("QFP-32", FAMILY_TREE_PATH, name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     fab_poly = text[text.index("(fp_poly"):text.index('(layer "F.Fab")', text.index("(fp_poly"))]
     assert "(xy -2.5 -3.5)" in fab_poly
     assert "(xy 3.5 3.5)" in fab_poly
@@ -1013,7 +1013,7 @@ def test_generate_footprint_does_not_leak_fab_body_params_to_generator():
     # If pipeline.py forgot to pop any fab_body_*/fab_outline/fab_chamfer
     # param before calling the generator, this raises
     # TypeError("unexpected keyword argument").
-    for descriptor in ("DIP-16", "SOIC-8", "QFP-32", "R-0603", "SOT-23"):
+    for descriptor in ("DIP-16", "SOIC-8", "LQFP-32", "R-0603", "SOT-23"):
         text = generate_footprint(descriptor, FAMILY_TREE_PATH, name="X")
         assert text
 

@@ -1,7 +1,7 @@
 """Derives a descriptive dimension suffix for a generated footprint's
 identity/Value text, mirroring each family's own real KiCad naming
 convention -- verified against real reference footprints -- so a user
-assigning a footprint can sanity-check it at a glance (e.g. "QFP-32
+assigning a footprint can sanity-check it at a glance (e.g. "LQFP-32
 must be wrong, I know the pitch is 0.85mm"). Families with no natural
 single dimension to show (SOT/TSOT: asymmetric per-pin offsets, no
 shared pitch) get no suffix, matching real KiCad, which doesn't add
@@ -65,7 +65,7 @@ def descriptive_suffix(family: str, variant: str, params: dict, geometry) -> str
             return ""
         return f"_W{_fmt(row_spacing)}mm"
 
-    if family in ("SOIC", "QFP"):
+    if family in ("SOIC", "LQFP"):
         pitch = params.get("pitch")
         bbox = fab_outline_bounding_box(geometry)
         if pitch is None or bbox is None:

@@ -18,8 +18,8 @@ def test_soic_value_text_includes_body_and_pitch_suffix():
 
 
 def test_qfp_value_text_includes_body_and_pitch_suffix():
-    text = generate_footprint("QFP-32", "data/kicad-fpdb.yaml", name="QFP-32")
-    assert '(property "Value" "QFP-32_7x7mm_P0.8mm"' in text
+    text = generate_footprint("LQFP-32", "data/kicad-fpdb.yaml", name="LQFP-32")
+    assert '(property "Value" "LQFP-32_7x7mm_P0.8mm"' in text
 
 
 def test_chip_resistor_value_text_includes_metric_suffix():

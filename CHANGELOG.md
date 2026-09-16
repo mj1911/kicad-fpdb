@@ -1,5 +1,14 @@
 # Changes
 
+2026-09-15 v0.0.13:
+
+* Renamed the `QFP` family to `LQFP` throughout (`data/kicad-fpdb.yaml`,
+  `reference_cases.py`, `naming.py`, tests) to match real KiCad's own
+  naming exactly — real KiCad tracks distinct QFP lead-frame profiles
+  (LQFP, PQFP, TQFP, ...) by name, and this project only implements
+  the low-profile one. Pure rename, no behavior change; all 252 tests
+  still pass.
+
 2026-09-15 v0.0.12:
 
 * Generated footprints now get a descriptive dimension suffix on their

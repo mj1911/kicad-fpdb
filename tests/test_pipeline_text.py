@@ -129,7 +129,7 @@ def test_fab_reference_text_is_rotated_90_for_soic():
 
 
 def test_fab_reference_text_is_not_rotated_for_qfp():
-    text = generate_footprint("QFP-32", "data/kicad-fpdb.yaml", name="QFP32_TEST")
+    text = generate_footprint("LQFP-32", "data/kicad-fpdb.yaml", name="LQFP32_TEST")
     fab_ref_block = text[text.index('(fp_text user "${REFERENCE}"'):]
     assert " 0)" in fab_ref_block.splitlines()[1]
 

@@ -390,7 +390,7 @@ and become available for everyone to automatically update to.
   their identity/Value text, matching each family's own real KiCad
   naming convention exactly (verified against real reference
   footprints) — e.g. `DIP-16` → `DIP-16_W7.62mm`, `SOIC-8` →
-  `SOIC-8_3.9x4.9mm_P1.27mm`, `QFP-32` → `QFP-32_7x7mm_P0.8mm`,
+  `SOIC-8_3.9x4.9mm_P1.27mm`, `LQFP-32` → `LQFP-32_7x7mm_P0.8mm`,
   `R-0603` → `R-0603_1608Metric`, `R-AXIAL0204` →
   `R-AXIAL0204_L3.6mm_D1.6mm_P7.62mm` — so a user assigning a
   generated footprint can sanity-check its real dimensions at a
@@ -400,7 +400,7 @@ and become available for everyone to automatically update to.
   than inventing a new convention). New `kicad_fpdb/naming.py`
   (`descriptive_suffix`, `fab_outline_bounding_box`) dispatches per
   family: DIP uses its `row_spacing` param directly (real DIP names
-  encode lead-to-lead spacing, not body size); SOIC/QFP use the
+  encode lead-to-lead spacing, not body size); SOIC/LQFP use the
   generated F.Fab true-body outline's own bounding box (generic across
   any generator that draws one, rather than a per-family formula) plus
   the `pitch` param; R/C chip passives use a small fixed
@@ -414,6 +414,18 @@ and become available for everyone to automatically update to.
   variant `"AXIAL0204"` — `descriptive_suffix` checks
   `variant.startswith("AXIAL")` before the plain chip-lookup branch, or
   axial descriptors would (mis)match as an unknown metric code.
+* Renamed the `QFP` family to `LQFP` (`data/kicad-fpdb.yaml`'s root and
+  all 8 variant descriptors, `LQFP-32` etc.) to match real KiCad's own
+  naming exactly — its library tracks distinct QFP lead-frame profiles
+  by name (LQFP, PQFP, TQFP, ...), and this project only implements
+  the low-profile one (`quad_perimeter`), so the family name now says
+  so explicitly instead of implying it covers every QFP variant. Pure
+  rename, no behavior change — earlier narrative entries above still
+  say "QFP" since they describe the family as it was named at the
+  time; only the naming-suffix examples just above were updated since
+  they document current behavior. A future `PQFP`/`TQFP` family, if
+  one turns out to need genuinely different geometry, would get its
+  own root rather than folding into `LQFP`.
 
 ## TODO
 
