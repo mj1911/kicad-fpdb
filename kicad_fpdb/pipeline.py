@@ -470,6 +470,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     fab_reference_font_size = params.pop("fab_reference_font_size", None)
     fab_reference_thickness = params.pop("fab_reference_thickness", None)
     fab_reference_rotation = params.pop("fab_reference_rotation", None)
+    solder_mask_margin = params.pop("solder_mask_margin", None)
+    solder_paste_margin = params.pop("solder_paste_margin", None)
 
     generator_fn = GENERATORS[resolved.generator]
     generator_kwargs = dict(params)
@@ -481,6 +483,12 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
         generator_kwargs["courtyard_body_size"] = courtyard_body_size
     geometry = generator_fn(**generator_kwargs)
     geometry.name = name
+    if solder_mask_margin is not None or solder_paste_margin is not None:
+        for pad in geometry.pads:
+            if solder_mask_margin is not None:
+                pad.solder_mask_margin = solder_mask_margin
+            if solder_paste_margin is not None:
+                pad.solder_paste_margin = solder_paste_margin
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
                  pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
                  silk_two_lines=silk_two_lines, silk_segments=silk_segments, no_silk=no_silk,

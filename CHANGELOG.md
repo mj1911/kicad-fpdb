@@ -1,5 +1,18 @@
 # Changes
 
+2026-09-15 v0.0.10:
+
+* Added per-descriptor solder mask/paste margin overrides: new
+  `Pad.solder_mask_margin`/`solder_paste_margin` fields (`kicad_fpdb/
+  geometry.py`), emitted by the writer only when set
+  (`kicad_fpdb/writer.py`), and a new `solder_mask_margin`/
+  `solder_paste_margin` pair of YAML params popped in
+  `generate_footprint` and applied uniformly to every pad after
+  generation (`kicad_fpdb/pipeline.py`) — no generator changes needed.
+  No real reference footprint declares this yet (all 18 just opt into
+  the board's default mask/paste expansion), so `data/kicad-fpdb.yaml`
+  is untouched; covered by synthetic writer and pipeline tests instead.
+
 2026-09-15 v0.0.9:
 
 * Made QFP formula-driven like DIP/SOIC: `quad_perimeter` derives

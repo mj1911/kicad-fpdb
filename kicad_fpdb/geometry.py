@@ -10,6 +10,8 @@ class Pad:
     size: tuple[float, float]
     drill: float | None = None
     roundrect_rratio: float | None = None
+    solder_mask_margin: float | None = None
+    solder_paste_margin: float | None = None
 
     def __post_init__(self):
         # Generators pass `at`/`size` through from YAML-derived lists in

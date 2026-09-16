@@ -165,6 +165,10 @@ def _write_pad(pad: Pad) -> str:
         lines.append('    (layers "F.Cu" "F.Mask" "F.Paste")')
     if pad.roundrect_rratio is not None:
         lines.append(f"    (roundrect_rratio {_fmt(pad.roundrect_rratio)})")
+    if pad.solder_mask_margin is not None:
+        lines.append(f"    (solder_mask_margin {_fmt(pad.solder_mask_margin)})")
+    if pad.solder_paste_margin is not None:
+        lines.append(f"    (solder_paste_margin {_fmt(pad.solder_paste_margin)})")
     lines.append("  )")
     return "\n".join(lines)
 

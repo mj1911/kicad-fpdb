@@ -31,6 +31,25 @@ def test_write_pad_smd_no_drill():
     assert '(layers "F.Cu" "F.Mask" "F.Paste")' in text
 
 
+def test_write_pad_with_solder_mask_and_paste_margin():
+    pad = Pad(number="1", pad_type="smd", shape="roundrect",
+               at=(0.0, 0.0), size=(0.4, 0.7), roundrect_rratio=0.125,
+               solder_mask_margin=0.05, solder_paste_margin=-0.05)
+    geom = FootprintGeometry(name="TEST_MARGIN", pads=[pad])
+    text = write_kicad_mod("TEST_MARGIN", geom)
+    assert "(solder_mask_margin 0.05)" in text
+    assert "(solder_paste_margin -0.05)" in text
+
+
+def test_write_pad_without_solder_mask_and_paste_margin():
+    pad = Pad(number="1", pad_type="smd", shape="roundrect",
+               at=(0.0, 0.0), size=(0.4, 0.7), roundrect_rratio=0.125)
+    geom = FootprintGeometry(name="TEST_NO_MARGIN", pads=[pad])
+    text = write_kicad_mod("TEST_NO_MARGIN", geom)
+    assert "solder_mask_margin" not in text
+    assert "solder_paste_margin" not in text
+
+
 def test_write_reference_and_value_text():
     geom = FootprintGeometry(name="TEST_MIN", texts=[
         Text(kind="reference", text="REF**", at=(3.81, -2.33), layer="F.Fab"),

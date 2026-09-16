@@ -356,19 +356,24 @@ and become available for everyone to automatically update to.
   narrow/regular; SOIC-16 is a third verified pin count; R-0201, R-1206,
   C-0402, and C-0805 add four new chip-passive sizes. 18 reference cases
   total, up from 12.
+* Pads support an optional per-descriptor solder mask/paste margin
+  override (`Pad.solder_mask_margin`/`solder_paste_margin` in
+  `kicad_fpdb/geometry.py`, emitted by the writer only when set). New
+  `solder_mask_margin`/`solder_paste_margin` YAML params are popped in
+  `generate_footprint` and applied uniformly to every pad in the
+  generated geometry after the generator runs — no generator-specific
+  plumbing needed, since it's a flat post-generation override rather
+  than something any generator computes. No real reference footprint
+  declares it yet (all 18 just opt into the board's default mask/paste
+  expansion via the pad's `layers` list), so `data/kicad-fpdb.yaml` is
+  untouched; covered by synthetic writer and pipeline tests instead of
+  a reference-footprint regression case.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Per-pad solder mask/paste margin modifier: none of the 12 reference
-  footprints checked so far declare an explicit `solder_mask_margin`/
-  `solder_paste_margin` override (all just opt into the board's default
-  expansion via the pad's `layers` list, and the generated pads match
-  that exactly), but a user may want to override this per footprint when
-  selecting one. Would need a new `Pad` field threaded through the
-  writer once a real reference case actually needs it.
 * Generalize the pin-1 marker's "above pad 1" direction: every current
   generator places pin 1 at the top, so the marker just offsets in -Y.
   Real packages sometimes put pin 1 mid-side rather than at a corner
