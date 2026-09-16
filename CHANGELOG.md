@@ -2,6 +2,10 @@
 
 2026-09-15 v0.0.11:
 
+* Hoisted QFP's repeated `generator: quad_perimeter` (declared on all 8
+  variants) up to the `QFP` root, matching the earlier R/C
+  `two_pad_chip` hoist. Pure dedup — verified byte-identical generated
+  output.
 * Added `TSOT-23-5`/`-6`/`-8` under a new `TSOT` root
   (`data/kicad-fpdb.yaml`): byte-diffed against their real `SOT-23-*`
   sibling footprints and confirmed 100% identical geometry, so they're
