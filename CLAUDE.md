@@ -233,6 +233,18 @@ and become available for everyone to automatically update to.
   chain-merge grouping point) for the `row_spacing`/
   `courtyard_body_size`/`fab_chamfer` those three additionally share.
   QFP's own root got the same treatment for QFP-32/48's shared params.
+* `TSOT-23-5`/`-6`/`-8` added under a new `TSOT` root: byte-diffed each
+  against its `SOT-23-*` sibling (e.g. `SOT-23-5.kicad_mod` vs.
+  `TSOT-23-5.kicad_mod`) and confirmed the geometry is 100% identical —
+  only name/`descr`/`tags`/3D-model path differ. Declared entirely via
+  YAML anchors/aliases onto `SOT`'s own param mappings
+  (`&sot_common_params`, `&sot_5_6_8_shared`, `&sot23_5_params`, etc.)
+  rather than repeating any values, so `TSOT` has zero geometry data of
+  its own. The base 3-pin `TSOT-23` (no `SOT-23` equivalent in this
+  project) is a different, hand-authored footprint from a different
+  vendor spec with its own geometry — deliberately not covered; see
+  TODO for `SOT-23W`, the other still-open follow-up from the original
+  SOT-23 work.
 * First through-hole family: `R-AXIAL0204`/`0207`/`0309`/`0414` (axial
   DIN/JEDEC body sizes), grouped under a new `R-AXIAL` intermediate
   node (shared thru-hole/lead/courtyard params) so it doesn't affect
@@ -391,9 +403,16 @@ each session, in roughly chronological order:
   widths, more chip passive sizes, additional package families (QFN,
   BGA, etc.) — each needs its own hand-verified real-footprint
   regression case per the existing pattern in
-  `tests/test_pipeline_regression.py`. SOT-23/-5/-6/-8 are done; TSOT-23
-  variants (identical pad geometry to SOT-23-5/6/8, per investigation)
-  and SOT-23W are a natural follow-up under the existing `SOT` root.
+  `tests/test_pipeline_regression.py`. SOT-23/-5/-6/-8 and
+  TSOT-23-5/-6/-8 are done.
+* SOT-23W: a natural follow-up under the existing `SOT` root, but NOT a
+  mechanical addition like TSOT-23-5/6/8 was — its real reference
+  footprint uses a filled-triangle silk polygon for the pin-1 marker
+  and a chamfered-pentagon F.Fab outline, neither of which the current
+  outline generator supports (today's shapes are: notch, two-lines,
+  corner-marks, or plain rect for silk; plain-rect or single-corner-
+  chamfer for fab). Needs a small design pass for the new primitives
+  before it fits the existing pattern.
 * Descriptor grammar will need to grow to express more variation (see the
   spec's "Expected evolution" note) — grow it deliberately, not organically.
 * Convert the entire existing KiCad footprint library into descriptor form

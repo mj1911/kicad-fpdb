@@ -1,5 +1,17 @@
 # Changes
 
+2026-09-15 v0.0.11:
+
+* Added `TSOT-23-5`/`-6`/`-8` under a new `TSOT` root
+  (`data/kicad-fpdb.yaml`): byte-diffed against their real `SOT-23-*`
+  sibling footprints and confirmed 100% identical geometry, so they're
+  declared purely via YAML anchors/aliases onto `SOT`'s existing param
+  mappings — no new geometry code, no duplicated data. 35 reference
+  cases total, up from 32. The base 3-pin `TSOT-23` and `SOT-23W` are
+  NOT covered — the former is a genuinely different hand-authored
+  footprint, the latter needs new silk/fab primitives (see CLAUDE.md
+  TODO).
+
 2026-09-15 v0.0.10:
 
 * Added a defined-vs-total footprint tally to the review viewer's

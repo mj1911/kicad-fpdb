@@ -160,7 +160,7 @@ QFP:
 # shared formula, same convention as chip-passive silk_y/silk_half_length.
 SOT:
   generator: asymmetric_dual_row
-  params:
+  params: &sot_common_params
     pad_shape: roundrect
     pad_type: smd
     courtyard_margin_x: 0.25
@@ -191,14 +191,14 @@ SOT:
     # (row_spacing), true body, and fab chamfer -- grouped under this
     # intermediate node (never itself a valid descriptor) so those
     # three values aren't repeated per variant.
-    SOT-23-5-6-8:
-      params:
+    SOT-23-5-6-8: &sot_23_5_6_8
+      params: &sot_5_6_8_shared
         row_spacing: 2.275
         courtyard_body_size: [1.6, 2.9]
         fab_chamfer: 0.4
       children:
         SOT-23-5:
-          params:
+          params: &sot23_5_params
             left_offsets: [-0.95, 0, 0.95]
             right_offsets: [0.95, -0.95]
             pad_size: [1.325, 0.6]
@@ -212,7 +212,7 @@ SOT:
               - [[0.91, 1.51], [0.91, 1.56]]
               - [[0.91, 1.56], [-0.91, 1.56]]
         SOT-23-6:
-          params:
+          params: &sot23_6_params
             left_offsets: [-0.95, 0, 0.95]
             right_offsets: [0.95, 0, -0.95]
             pad_size: [1.325, 0.6]
@@ -224,7 +224,7 @@ SOT:
               - [[0.91, 1.51], [0.91, 1.56]]
               - [[0.91, 1.56], [-0.91, 1.56]]
         SOT-23-8:
-          params:
+          params: &sot23_8_params
             left_offsets: [-0.975, -0.325, 0.325, 0.975]
             right_offsets: [0.975, 0.325, -0.325, -0.975]
             pad_size: [1.325, 0.5]
@@ -235,3 +235,22 @@ SOT:
               - [[0.91, -1.56], [0.91, -1.485]]
               - [[0.91, 1.485], [0.91, 1.56]]
               - [[0.91, 1.56], [-0.91, 1.56]]
+# TSOT-23-5/6/8 are byte-identical geometry to SOT-23-5/6/8 (verified by
+# diffing the real reference footprints: only name/descr/tags/3D-model
+# path differ), so they're declared here by YAML-aliasing the exact
+# same param mappings rather than repeating them. TSOT-23 (the base
+# 3-pin variant) is a *different*, hand-authored footprint with its own
+# geometry -- not covered here; see CLAUDE.md TODO.
+TSOT:
+  generator: asymmetric_dual_row
+  params: *sot_common_params
+  children:
+    TSOT-23-5-6-8:
+      params: *sot_5_6_8_shared
+      children:
+        TSOT-23-5:
+          params: *sot23_5_params
+        TSOT-23-6:
+          params: *sot23_6_params
+        TSOT-23-8:
+          params: *sot23_8_params
