@@ -449,6 +449,10 @@ and become available for everyone to automatically update to.
   all 35; only the HTML preview and its rendered SVG count (30) shrink.
   The footprint-count footer reads `CASES` directly, so it still
   correctly reports 35.
+* Real KiCad's own library has 281 DIP footprints (`Package_DIP.pretty`)
+  against our 5 verified DIP variants (DIP-14, DIP-16 narrow/regular,
+  DIP-18, DIP-24 wide) — a concrete sense of scale for the "convert the
+  entire library" TODO item below.
 
 ## TODO
 
