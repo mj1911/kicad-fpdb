@@ -751,6 +751,47 @@ and become available for everyone to automatically update to.
   variants (wider pads) and `C-2010`/`C-2512` (no real file exists for
   either) are out of scope. See docs/superpowers/specs/2026-09-17-chip-
   passive-larger-sizes-design.md.
+* Added the `TSSOP` and `MSOP` families (25 descriptors: 4 MSOP + 21
+  TSSOP spanning 10 pin counts, each with a narrow/wide/xwide body
+  class where a real variant exists) — pure data addition to
+  `data/kicad-fpdb.yaml`, zero pipeline changes, reusing `dual_row_grid`
+  and every existing `_add_outline` mechanic (stepped courtyard,
+  `silk_two_lines`/`silk_segments`, `pin1_marker_style: triangle`,
+  `fab_outline`). Architecturally distinct from every prior width-class
+  family (DIP/SOIC/QFN): SOIC's `variants:`/`default_width:` root-level
+  dict can't express TSSOP's real data, because silk shape
+  (`silk_two_lines` vs `silk_segments` — different param *sets*, not
+  different values of one param) and pin-1 triangle axis (`x` vs `y`)
+  vary jointly by pin count *and* width class, with no formula relating
+  them — confirmed empirically against the real library, not derivable
+  from pin count/pitch/width alone. Fixed by making each pin count its
+  own independent child (flat params, no root-level width dict at all),
+  and adding a wider real variant as a child-level `modifiers:` block
+  (e.g. `TSSOP-24.modifiers.w`) carrying a fully self-contained,
+  independent parameter set rather than a partial override —
+  `family_tree.py`'s existing `_merge_modifiers`/`_deep_merge_into`
+  already support this with no code changes, since child-level
+  modifiers merge additively and a flat value does a plain overwrite.
+  `descriptive_suffix`'s `family in ("SOIC", "LQFP", "QFN")` branch
+  generalized to include `"TSSOP"`/`"MSOP"`, same mechanism as QFN's
+  own addition. Confirmed "largest available pitch per width class" as
+  the real per-combo pitch-selection rule (not an arbitrary choice) by
+  scanning the *entire* real `Package_SO.pretty` TSSOP file listing,
+  not just a sample: pitch only shrinks once the coarser option is
+  physically absent for that specific (pin_count, width) combo — more
+  pins mechanically require finer pitch to fit a JEDEC-standard body
+  length once the coarser pitch no longer does. Every one of the 25
+  values was independently re-verified against real courtyard/silk/pad
+  geometry (using a strict, non-DOTALL-crossing regex) before being
+  added rather than trusting the design spec's own transcribed numbers
+  — this caught 3 real transcription errors in the MSOP batch
+  (`courtyard_body_margin` off by ~0.02-0.03mm on MSOP-8/-12/-16); all
+  4 subsequent TSSOP batches matched on the first `verify_library` run
+  with no corrections needed. Per an explicit "split into two" scoping
+  decision, `-1EP` exposed-pad variants for both families are a
+  separate, not-yet-started follow-up (see TODO). See
+  docs/superpowers/specs/2026-09-17-tssop-msop-family-design.md and
+  docs/superpowers/plans/2026-09-17-tssop-msop-family.md.
 
 ## TODO
 
@@ -765,11 +806,20 @@ each session, in roughly chronological order:
   different edge entirely (not top) would need the offset direction
   derived rather than assumed.
 * Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
-  widths, additional package families (BGA, TSSOP, MSOP, SOD diodes,
-  etc.) — each needs its own hand-verified real-footprint regression
-  case per the existing pattern in `tests/test_pipeline_regression.py`.
-  SOT-23/-5/-6/-8, TSOT-23-5/-6/-8, QFN (20 generic single-EP
-  variants), and chip passives through 1210/1812/2010/2512 are done.
+  widths, additional package families (BGA, SOD diodes, etc.) — each
+  needs its own hand-verified real-footprint regression case per the
+  existing pattern in `tests/test_pipeline_regression.py`. SOT-23/-5/
+  -6/-8, TSOT-23-5/-6/-8, QFN (20 generic single-EP variants), chip
+  passives through 1210/1812/2010/2512, and TSSOP/MSOP (25 base,
+  non-EP variants) are done.
+* TSSOP/MSOP `-1EP` exposed-pad variants (8 real TSSOP + 10 real MSOP
+  files): deliberately deferred, per an explicit "split into two"
+  scoping decision on the base-family work above — a natural follow-up
+  reusing the SOIC-8-1EP paste-split mechanism (`ep_size`,
+  `ep_paste_pads`), needs its own spec+plan. Not yet started.
+* TSSOP's 3mm-body 8-pin oddball, `TSSOP-4`, and HTSSOP/ETSSOP vendor
+  families: out of scope for the base TSSOP/MSOP work, noted but not
+  investigated.
 * QFN follow-ups deliberately excluded from the initial batch:
   vendor-specific QFN variants (`HVQFN`, `VQFN`, `DHVQFN`, ...);
   multi-EP QFN variants (`-2EP`/`-3EP`/`-4EP`/`-5EP` — not supported

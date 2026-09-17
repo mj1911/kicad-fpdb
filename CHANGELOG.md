@@ -53,6 +53,25 @@
 * Added R-1210/1812/2010/2512 and C-1210/1812 chip passive sizes (pure
   data addition, no new code). See docs/superpowers/specs/2026-09-17-
   chip-passive-larger-sizes-design.md.
+* Added the `TSSOP` (10 pin counts, each with narrow/wide/xwide body
+  classes where a real variant exists — 21 descriptors total) and
+  `MSOP` (4 descriptors) families. Pure data addition, no pipeline
+  changes: SOIC's `variants:`/`default_width:` width-class mechanism
+  doesn't fit TSSOP's real data (silk shape and pin-1 triangle axis
+  vary jointly by pin count *and* width class, not by width class
+  alone), so each pin count is its own independent child, with wider
+  real variants added via a child-level `modifiers:` block carrying a
+  fully self-contained parameter set instead. Every value independently
+  re-verified against real courtyard/silk/pad geometry before adding
+  (all 25 cases matched exactly on the first `verify_library` run for
+  each batch). Confirmed "largest available pitch per width class" as
+  the real selection rule by scanning the full real TSSOP file listing:
+  finer pitch is a physical necessity once more pins must fit a
+  JEDEC-standard body length, not an arbitrary choice. See
+  docs/superpowers/specs/2026-09-17-tssop-msop-family-design.md.
+* Extended `descriptive_suffix`'s `family in ("SOIC", "LQFP", "QFN")`
+  branch to also accept `"TSSOP"`/`"MSOP"` — same WxH+pitch suffix
+  mechanism, no new code.
 
 2026-09-16 v0.0.16:
 
