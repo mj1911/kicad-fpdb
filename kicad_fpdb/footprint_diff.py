@@ -56,11 +56,17 @@ RRATIO_TOLERANCE = 1e-2
 # Families whose real reference footprints carry a pin-1 triangle
 # marker on F.SilkS (matched via pin1_marker_style="triangle") --
 # checked against the descriptor's own family head (e.g. "QFN-12" ->
-# "QFN"). SOT-23/TSOT-23 also have real triangle markers but are
-# deliberately not included yet -- their geometry doesn't fit either
-# formula this project implements; see docs/superpowers/specs/
-# 2026-09-17-soic-lqfp-pin1-triangle-marker-design.md's Non-goals.
-TRIANGLE_MARKER_FAMILIES = {"QFN", "SOIC", "LQFP"}
+# "QFN", "TSOT-23-6" -> "TSOT"). SOT-23-6/-8 and TSOT-23-6/-8 reuse
+# SOIC's narrow-class formula and constants exactly -- see
+# docs/superpowers/specs/2026-09-17-sot23-pin1-triangle-marker-
+# design.md. SOT-23/SOT-23-5/TSOT-23-5's real files ALSO carry a
+# triangle (verified), but this project deliberately draws no marker
+# of any kind there (pin1_marker: false, a placement-safety choice
+# independent of what real KiCad does) -- diff_footprint additionally
+# checks whether the *generated* output has any marker at all before
+# applying this family set, so those three are correctly skipped
+# without needing to name them individually.
+TRIANGLE_MARKER_FAMILIES = {"QFN", "SOIC", "LQFP", "SOT", "TSOT"}
 # Max allowed distance, in mm, between a real triangle point and its
 # closest generated counterpart. Needs to be looser than a simple
 # rounded-value comparison: LQFP's real files have an unavoidable
@@ -236,9 +242,18 @@ def diff_footprint(descriptor: str, generated: str, real_text: str) -> list[str]
                 diffs.extend(_diff_rratio(gen["roundrect_rratio"], real["roundrect_rratio"], label))
 
     family = descriptor.split()[0].split("-")[0]
-    if family in TRIANGLE_MARKER_FAMILIES and descriptor not in KNOWN_TRIANGLE_ANOMALIES:
+    generated_triangle = parse_silk_triangle(generated)
+    # SOT-23/SOT-23-5/TSOT-23-5's real reference files DO carry a
+    # triangle marker (verified), but this project deliberately draws
+    # no marker of any kind there (pin1_marker: false -- their
+    # asymmetric layouts are only placeable one physical way, so a
+    # pin-1 indicator is functionally unneeded, independent of what
+    # real KiCad does). Checking generated_triangle/"fp_circle"
+    # presence, not just family membership, correctly skips those
+    # descriptors without needing to special-case them by name.
+    generated_has_any_marker = generated_triangle is not None or "fp_circle" in generated
+    if family in TRIANGLE_MARKER_FAMILIES and generated_has_any_marker and descriptor not in KNOWN_TRIANGLE_ANOMALIES:
         real_triangle = parse_silk_triangle(real_text)
-        generated_triangle = parse_silk_triangle(generated)
         if real_triangle is None:
             diffs.append(f"real file has no pin-1 triangle marker (unexpected for {family})")
         elif generated_triangle is None:

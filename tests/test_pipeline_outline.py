@@ -555,15 +555,13 @@ def test_generate_footprint_includes_outline_geometry():
     assert "(fp_line" in text
     assert '(layer "F.SilkS")' in text
 
-    # Pin-1 marker circle geometry is exercised via a family that still
-    # has one (DIP itself doesn't -- see test_generate_footprint_dip16_has_no_pin1_marker;
-    # SOIC switched to the triangle marker -- see
-    # test_generate_footprint_soic8_has_triangle_pin1_marker -- so this
-    # uses SOT-23-6 instead, whose symmetric layout still keeps the
-    # plain circle marker, unlike SOT-23/-5's pin1_marker: false).
-    sot_text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
-    assert "(fp_circle" in sot_text
-    assert "(fill yes)" in sot_text
+    # Pin-1 marker circle geometry itself (the pin1_marker_style default)
+    # is covered directly at the _add_outline level by
+    # test_add_outline_produces_pin1_marker_circle -- no real family's
+    # yaml still resolves to a circle at the generate_footprint level
+    # (DIP opted out via pin1_marker: false; SOIC/LQFP/QFN/SOT-23-6/-8
+    # all opted into the triangle style), so there's no real descriptor
+    # left to exercise this end-to-end through generate_footprint.
 
 
 def test_generate_footprint_dip16_narrow_silk_matches_real_body():
@@ -672,15 +670,6 @@ def test_generate_footprint_dip16_has_no_pin1_marker():
     assert "fp_circle" not in text
 
 
-def test_generate_footprint_sot236_still_has_circle_pin1_marker():
-    # Regression guard: DIP opted out (pin1_marker: false) and SOIC/LQFP/
-    # QFN opted into the triangle style -- SOT-23-6's symmetric layout
-    # still gets the plain circle marker (pin1_marker_style defaults to
-    # "circle"), unaffected by any of that.
-    text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
-    assert "fp_circle" in text
-
-
 def test_generate_footprint_does_not_leak_pin1_marker_to_generator():
     # If pipeline.py forgot to pop pin1_marker before calling the
     # generator, this raises TypeError("unexpected keyword argument").
@@ -744,6 +733,13 @@ def test_generate_footprint_does_not_leak_pin1_triangle_params_to_generator():
     # unexpected kwarg -- this just has to not raise.
     generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="TEST")
     generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="TEST")
+
+
+def test_generate_footprint_does_not_leak_pin1_triangle_params_to_sot_generator():
+    # asymmetric_dual_row doesn't accept pin1_triangle_axis/_size/
+    # _anchor_mm either -- same guard as the QFN/SOIC/LQFP version,
+    # for the generator SOT-23 uses.
+    generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="TEST")
 
 
 def test_add_outline_with_silk_line_params_draws_two_lines():
@@ -1220,16 +1216,35 @@ def test_generate_footprint_sot23_5_has_no_pin1_marker():
     assert "fp_circle" not in text
 
 
-def test_generate_footprint_sot23_6_still_has_pin1_marker():
+def test_generate_footprint_sot23_6_has_triangle_pin1_marker():
     # SOT-23-6 (3+3) and SOT-23-8 (4+4) are symmetric -- rotating the
-    # part 180 degrees still fits, so they keep the marker.
+    # part 180 degrees still fits, so they keep a marker; it's now a
+    # triangle (matching real KiCad), not the old circle.
     text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
-    assert "fp_circle" in text
+    assert "fp_circle" not in text
+    silk_triangles = re.findall(
+        r'\(fp_poly\s*\(pts((?:\s*\(xy [-\d.]+ [-\d.]+\))+)\s*\)'
+        r'\s*\(stroke\s*\(width [-\d.]+\)\s*\(type \w+\)\s*\)'
+        r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)',
+        text, re.S,
+    )
+    assert len(silk_triangles) == 1
+    points = re.findall(r"\(xy ([-\d.]+) ([-\d.]+)\)", silk_triangles[0])
+    assert len(points) == 3
 
 
-def test_generate_footprint_sot23_8_still_has_pin1_marker():
+def test_generate_footprint_sot23_8_has_triangle_pin1_marker():
     text = generate_footprint("SOT-23-8", FAMILY_TREE_PATH, name="SOT238_TEST")
-    assert "fp_circle" in text
+    assert "fp_circle" not in text
+    silk_triangles = re.findall(
+        r'\(fp_poly\s*\(pts((?:\s*\(xy [-\d.]+ [-\d.]+\))+)\s*\)'
+        r'\s*\(stroke\s*\(width [-\d.]+\)\s*\(type \w+\)\s*\)'
+        r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)',
+        text, re.S,
+    )
+    assert len(silk_triangles) == 1
+    points = re.findall(r"\(xy ([-\d.]+) ([-\d.]+)\)", silk_triangles[0])
+    assert len(points) == 3
 
 
 def test_generate_footprint_sot23_fab_reference_is_rotated_and_small():

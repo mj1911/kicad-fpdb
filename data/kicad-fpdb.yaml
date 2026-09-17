@@ -612,6 +612,10 @@ SOT:
         row_spacing: 2.275
         courtyard_body_size: [1.6, 2.9]
         fab_chamfer: 0.4
+        pin1_marker_style: triangle
+        pin1_triangle_axis: y
+        pin1_triangle_size: small
+        pin1_triangle_anchor_mm: 0.65
       children:
         SOT-23-5:
           params: &sot23_5_params
