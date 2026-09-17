@@ -188,9 +188,10 @@ PREVIEW_EXCLUDED_DESCRIPTORS = {"LQFP-80", "LQFP-100", "LQFP-144", "LQFP-176", "
 # preview. Clear (set to an empty set) to go back to the exclusion list --
 # left non-empty between sessions is intentional-for-now, not a leftover bug.
 PREVIEW_ONLY_DESCRIPTORS = {
-    "SOIC-8 ep2_29x3", "SOIC-8 ep2_41x3_3", "SOIC-8 ep2_41x3_81",
-    "SOIC-8 ep2_514x3_2", "SOIC-8 ep2_62x3_51", "SOIC-8 ep2_71x3_7",
-    "SOIC-8 ep2_95x4_9_mask2_34x2_34", "SOIC-8 ep2_95x4_9_mask2_71x3_4",
+    "QFN-12", "QFN-16", "QFN-16 p65", "QFN-20", "QFN-24", "QFN-28",
+    "QFN-32", "QFN-32 p65", "QFN-36", "QFN-40", "QFN-44", "QFN-48",
+    "QFN-48 p4", "QFN-56", "QFN-60", "QFN-64", "QFN-68", "QFN-72",
+    "QFN-76", "QFN-80",
 }
 
 
