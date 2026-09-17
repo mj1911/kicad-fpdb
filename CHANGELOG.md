@@ -13,6 +13,17 @@
   rectangular body) and have no same-pin-count generic alternative —
   replaced with second body/pitch classes at QFN-16, QFN-32, and
   QFN-48 instead, via the existing width-class mechanism.
+* Final-review fixes: `_add_exposed_pad` now takes an optional
+  `ep_paste_pads` override (list of real `(x, y, w, h)` sub-pads) for
+  the 16 of 20 QFN variants whose real paste-stencil split isn't the
+  existing 2x2 formula (1x2/3x3/4x4 seen instead); fixed
+  `fab_reference_font_size`/`_thickness` which were wrongly applied to
+  the whole QFN family instead of just QFN-12/QFN-16; and extended the
+  regression suite's pad parser to also check unnumbered (paste/mask)
+  pads, which it previously skipped entirely. Also: QFN-44's reference
+  file was swapped during planning from the spec's original
+  `EP5.2x5.2mm` pick to `EP5.15x5.15mm` (both real files exist; the
+  spec's own escape hatch permits this in-bucket swap).
 * Full suite passing (504 tests).
 
 2026-09-16 v0.0.15:

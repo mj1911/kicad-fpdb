@@ -489,7 +489,8 @@ _PASTE_SPLIT_INTERCEPT = -0.0057
 
 
 def _add_exposed_pad(geometry, pin_count: int, ep_size: tuple[float, float],
-                      ep_mask_size: tuple[float, float] | None = None) -> None:
+                      ep_mask_size: tuple[float, float] | None = None,
+                      ep_paste_pads: list[tuple[float, float, float, float]] | None = None) -> None:
     ew, eh = ep_size
     # Real KiCad drops F.Mask from the copper heatsink pad itself once a
     # separate mask-opening pad is declared (verified on both
@@ -507,18 +508,31 @@ def _add_exposed_pad(geometry, pin_count: int, ep_size: tuple[float, float],
             number="", pad_type="smd", shape="rect",
             at=(0.0, 0.0), size=(mw, mh), layers=("F.Mask",),
         ))
-    eff_w, eff_h = ep_mask_size if ep_mask_size is not None else ep_size
-    pos_x, pos_y = eff_w / 4, eff_h / 4
-    paste_w = _PASTE_SPLIT_SLOPE * (eff_w / 2) + _PASTE_SPLIT_INTERCEPT
-    paste_h = _PASTE_SPLIT_SLOPE * (eff_h / 2) + _PASTE_SPLIT_INTERCEPT
-    for sign_x in (-1, 1):
-        for sign_y in (-1, 1):
+    if ep_paste_pads is not None:
+        # Real KiCad splits the paste aperture into more than a 2x2 grid
+        # once the EP is large enough (1x2, 3x3, or 4x4 seen so far) --
+        # no formula covers all of those, so the caller supplies the
+        # exact real sub-pad list instead of it being derived here.
+        for x, y, w, h in ep_paste_pads:
             unnumbered_pads.append(Pad(
                 number="", pad_type="smd", shape="roundrect",
-                at=(sign_x * pos_x, sign_y * pos_y), size=(paste_w, paste_h),
+                at=(x, y), size=(w, h),
                 layers=("F.Paste",),
-                roundrect_rratio=clamped_roundrect_rratio((paste_w, paste_h)),
+                roundrect_rratio=clamped_roundrect_rratio((w, h)),
             ))
+    else:
+        eff_w, eff_h = ep_mask_size if ep_mask_size is not None else ep_size
+        pos_x, pos_y = eff_w / 4, eff_h / 4
+        paste_w = _PASTE_SPLIT_SLOPE * (eff_w / 2) + _PASTE_SPLIT_INTERCEPT
+        paste_h = _PASTE_SPLIT_SLOPE * (eff_h / 2) + _PASTE_SPLIT_INTERCEPT
+        for sign_x in (-1, 1):
+            for sign_y in (-1, 1):
+                unnumbered_pads.append(Pad(
+                    number="", pad_type="smd", shape="roundrect",
+                    at=(sign_x * pos_x, sign_y * pos_y), size=(paste_w, paste_h),
+                    layers=("F.Paste",),
+                    roundrect_rratio=clamped_roundrect_rratio((paste_w, paste_h)),
+                ))
     # Real KiCad orders these as: unnumbered paste/mask pads, then the
     # numbered pads, then the heatsink pad last -- matched here (rather
     # than just appending everything at the end) because the regression
@@ -568,6 +582,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     courtyard_from_pad_center = params.pop("courtyard_from_pad_center", False)
     ep_size = params.pop("ep_size", None)
     ep_mask_size = params.pop("ep_mask_size", None)
+    ep_paste_pads = params.pop("ep_paste_pads", None)
 
     generator_fn = GENERATORS[resolved.generator]
     generator_kwargs = dict(params)
@@ -604,12 +619,15 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
         # entirely avoids any risk of them shifting one, rather than
         # relying on that always staying true.
         _add_exposed_pad(geometry, params["pin_count"], tuple(ep_size),
-                          tuple(ep_mask_size) if ep_mask_size is not None else None)
+                          tuple(ep_mask_size) if ep_mask_size is not None else None,
+                          [tuple(p) for p in ep_paste_pads] if ep_paste_pads is not None else None)
         # Naming needs these too (built below) -- put back after popping
         # them for the generator call above.
         params["ep_size"] = ep_size
         if ep_mask_size is not None:
             params["ep_mask_size"] = ep_mask_size
+        if ep_paste_pads is not None:
+            params["ep_paste_pads"] = ep_paste_pads
     # Real KiCad's own footprint identity *is* its descriptive name (e.g.
     # "DIP-16_W7.62mm") -- matching that convention here (rather than a
     # separate display-only label) lets a user sanity-check a generated

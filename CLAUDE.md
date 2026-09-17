@@ -565,6 +565,33 @@ and become available for everyone to automatically update to.
   spread. All match their real reference `.kicad_mod` files within the
   existing regression tolerances. See
   `docs/superpowers/specs/2026-09-16-qfn-family-design.md`.
+* Final-review fixes to the QFN family: the paste-stencil split over
+  the exposed pad isn't always the 2x2 grid `_add_exposed_pad`'s
+  formula produces (real KiCad also uses 1x2, 3x3, and 4x4 splits
+  depending on EP size) — 16 of the 20 QFN variants now carry an
+  explicit `ep_paste_pads` list of real `(x, y, w, h)` sub-pads
+  (copied verbatim from the real reference files) via a new optional
+  `ep_paste_pads` param on `_add_exposed_pad`/`generate_footprint`;
+  the other 4 (QFN-16 default/p65, QFN-20, QFN-24) already matched the
+  2x2 formula and are untouched. `fab_reference_font_size`/
+  `fab_reference_thickness` were also wrong at the QFN root (0.75/0.11
+  applied to the whole family) — only QFN-12 and QFN-16 actually use
+  those real values; every other variant (including QFN-16 p65) uses
+  the pipeline's own 1.0/0.15 default, so the root-level override was
+  dropped and moved onto QFN-12 directly and QFN-16 as a width-class
+  dict. The regression suite's pad parser also only matched numbered
+  `(pad "N" ...)` blocks, so unnumbered paste/mask pads were invisible
+  to it — this is why the paste-split bug passed the full suite;
+  `tests/test_pipeline_regression.py` now also collects and compares
+  unnumbered pads (sorted by position) against the real files. Also,
+  QFN-44's reference file was swapped during planning from the design
+  spec's original pick (`EP5.2x5.2mm`) to `EP5.15x5.15mm` — both real
+  files exist in the library and the spec's own escape hatch permits
+  this kind of in-bucket swap, noted here since it wasn't otherwise
+  recorded. And: QFN's silk corner-mark legs use the same fixed
+  `CORNER_MARK_MM = 0.3` approximation as LQFP (see the LQFP corner-
+  mark entry above) even though real QFN bracket legs actually run
+  0.475-0.725mm — an accepted approximation, not a QFN-specific bug.
 
 ## TODO
 
