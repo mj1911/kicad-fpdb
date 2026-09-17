@@ -592,12 +592,46 @@ and become available for everyone to automatically update to.
   `CORNER_MARK_MM = 0.3` approximation as LQFP (see the LQFP corner-
   mark entry above) even though real QFN bracket legs actually run
   0.475-0.725mm — an accepted approximation, not a QFN-specific bug.
+* QFN's pin-1 marker was replaced with a filled triangle matching real
+  KiCad's own convention, instead of inheriting the DIP/SOIC/SOT/LQFP
+  circle marker it wasn't designed around — real QFN reference files
+  (`Package_DFN_QFN.pretty`) draw a triangle pointing outward from pad
+  1 along whichever side pad 1 sits on (always the left side today),
+  not a circle above it. New `pin1_marker_style` param on `_add_outline`
+  (default `"circle"`, every other family unchanged) with a `"triangle"`
+  branch: apex sits `courtyard_margin + 0.01mm` past pad 1's own
+  outward edge, depth `0.33mm`, base spread `±0.24mm` — all three fixed
+  constants verified exactly against 11 real QFN files spanning 12-80
+  pins and 0.4/0.5/0.65mm pitch, including a custom-shaped pad 1. Side
+  detection reuses `_quad_side_groups`' own width>height convention, so
+  it generalizes to any of the four sides, not just QFN's left-side
+  convention. The corner-mark bracket leg real KiCad shortens at that
+  same corner (~0.02mm) is deliberately not reproduced — visually
+  negligible, and QFN's corner marks already carry a larger documented
+  approximation. See docs/superpowers/specs/2026-09-17-qfn-pin1-
+  triangle-marker-design.md.
+* Discovered while verifying the above (out of scope for this change,
+  tracked in TODO below): real KiCad's SOIC, SOT-23, and LQFP reference
+  footprints *also* carry their own filled-triangle pin-1 markers on
+  `F.SilkS`, at their own family-specific positions — this project's
+  circle marker isn't unique to matching KiCad's own convention, QFN
+  just happened to be the family where the mismatch was raised first.
+  The regression suite's new triangle check (`test_pipeline_regression.
+  py`) is deliberately scoped to QFN descriptors only, so it won't flag
+  these other families' still-circle markers as failures.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
+* Extend the `pin1_marker_style: triangle` convention (added for QFN)
+  to SOIC, SOT-23, and LQFP — their real reference footprints were
+  found to carry their own filled-triangle pin-1 markers too (at
+  family-specific positions, not yet measured), rather than this
+  project's current circle. Deliberately out of scope for the QFN
+  change that discovered it; needs its own investigation of each
+  family's real triangle geometry before implementing.
 * Generalize the pin-1 marker's "above pad 1" direction: every current
   generator places pin 1 at the top, so the marker just offsets in -Y.
   Real packages sometimes put pin 1 mid-side rather than at a corner

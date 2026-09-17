@@ -1,5 +1,16 @@
 # Changes
 
+2026-09-17 v0.0.17:
+
+* Replaced QFN's pin-1 circle marker with a filled triangle matching
+  real KiCad's own convention (verified against 11 real QFN reference
+  files, 12-80 pins). New `pin1_marker_style` param on `_add_outline`
+  (default unchanged for every other family); QFN's yaml root opts in.
+  Discovered along the way that SOIC/SOT-23/LQFP's real files carry
+  their own triangle markers too — tracked as a follow-up, out of
+  scope here. See docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-
+  marker-design.md.
+
 2026-09-16 v0.0.16:
 
 * Added the `QFN` family (20 generic single-exposed-pad variants,
