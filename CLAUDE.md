@@ -639,19 +639,68 @@ and become available for everyone to automatically update to.
   since `quad_perimeter` always populates all four sides, but keeps the
   function safe to call with partial data. See docs/superpowers/specs/
   2026-09-17-corner-mark-extends-to-courtyard-jog-design.md.
+* Extended the pin-1 triangle marker (`pin1_marker_style: triangle`,
+  originally QFN-only) to SOIC and LQFP. Real KiCad's per-family
+  scripts each choose the marker's extension axis independently — QFN
+  extends along the same axis pad 1's lead points on (X), but SOIC and
+  LQFP extend perpendicular to it (Y) despite pad 1 having the same
+  wide-in-X shape in both cases — so `pin1_triangle_axis` makes that
+  choice explicit (`None` keeps QFN's old shape-inferred behavior,
+  zero yaml change needed there). There are also two real marker
+  sizes, not one: the existing `depth=0.33mm`/`half-width=0.24mm`
+  (`pin1_triangle_size: small`, QFN and SOIC's narrow class) and a
+  second `depth=0.47mm`/`half-width=0.34mm` pair (`"large"`, SOIC's
+  wide class and every LQFP variant regardless of body size).
+  SOIC/LQFP's perpendicular-axis position turned out to be anchored to
+  the true body edge, not to pad 1 — `apex = -(true_body_half_width +
+  constant)` — verified **exact, zero error** against every real
+  sample once `pad_lead_extension`'s effect on pad 1's own position
+  (which had made it look approximately, not exactly, pad-relative)
+  was correctly excluded; constants are `0.75mm` (LQFP), `0.65mm`
+  (SOIC narrow), `0.90mm` (SOIC wide) — a new `pin1_triangle_anchor_mm`
+  param drives this, unused (`None`) for QFN. The extension-axis
+  formula itself is unchanged from QFN's (`pad-edge - margin - 0.01mm`)
+  and holds almost exactly — 4 of LQFP's 8 variants match to the last
+  digit, the rest are off by exactly `0.01mm` in a way that didn't
+  resolve to a cleaner alternate constant, accepted as generator
+  rounding noise (same category already accepted for LQFP's corner
+  marks and SOIC's body-width formula). One genuine isolated anomaly
+  found and tracked (`KNOWN_TRIANGLE_ANOMALIES`, not chased further):
+  `SOIC-8-1EP_..._EP2.514x3.2mm`'s real file uniquely shifts its own
+  marker by 0.04mm, unlike every other EP variant (even ones with a
+  larger pad-row shift), which keeps the marker at the exact standard
+  body-anchored position this project's formula computes. See
+  docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-triangle-marker-
+  design.md.
+* Fixed a real, previously-dead check while extending the above: the
+  regression suite's (`kicad_fpdb.footprint_diff.diff_footprint`)
+  pin-1-triangle comparison used `descriptor.split()[0] == "QFN"`,
+  which is always `False` for every actual descriptor (e.g.
+  `"QFN-12".split()[0]` is `"QFN-12"`, never `"QFN"`) — this check had
+  never actually executed since it was added. Fixed to
+  `descriptor.split()[0].split("-")[0]` (matching the family-head
+  extraction already used elsewhere, e.g. `render_png.py`) and
+  extended to cover SOIC/LQFP too (`TRIANGLE_MARKER_FAMILIES`). Also
+  replaced the old rounded-set-equality comparison with a numeric
+  per-point distance tolerance (`TRIANGLE_POINT_TOLERANCE_MM =
+  0.015mm`), needed to absorb LQFP's known ≤0.01mm residual without
+  loosening things enough to hide a real bug.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Extend the `pin1_marker_style: triangle` convention (added for QFN)
-  to SOIC, SOT-23, and LQFP — their real reference footprints were
-  found to carry their own filled-triangle pin-1 markers too (at
-  family-specific positions, not yet measured), rather than this
-  project's current circle. Deliberately out of scope for the QFN
-  change that discovered it; needs its own investigation of each
-  family's real triangle geometry before implementing.
+* Extend the `pin1_marker_style: triangle` convention to SOT-23 (and
+  TSOT-23) — SOIC and LQFP are done (see above). SOT-23's real
+  triangle geometry doesn't fit either the QFN (`axis="x"`) or
+  SOIC/LQFP (`axis="y"`, body-anchored) formula and needs its own
+  investigation. Also raises a separate question: real SOT-23/SOT-23-5
+  reference files have a triangle marker even though this project
+  currently sets `pin1_marker: false` for both (reasoned as
+  "asymmetric layout, only placeable one way" — a functional argument
+  unrelated to whether real KiCad draws a marker there) — needs its
+  own decision before implementing.
 * Generalize the pin-1 marker's "above pad 1" direction: every current
   generator places pin 1 at the top, so the marker just offsets in -Y.
   Real packages sometimes put pin 1 mid-side rather than at a corner

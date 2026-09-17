@@ -18,6 +18,16 @@
   instead of approximating every variant with the same constant. See
   docs/superpowers/specs/2026-09-17-corner-mark-extends-to-courtyard-
   jog-design.md.
+* Extended the pin-1 triangle marker to SOIC and LQFP (previously
+  QFN-only), with a body-anchored position formula verified exact
+  against every real sample. Fixed a pre-existing dead check in the
+  regression suite's triangle comparison along the way (family-head
+  string comparison never matched any real descriptor). See
+  docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-triangle-marker-
+  design.md.
+* Added `verify_library.py`: full-report diff check (not just
+  pass/fail) against the real KiCad library for every known case, via
+  a new shared `kicad_fpdb/footprint_diff.py` module.
 
 2026-09-16 v0.0.16:
 
