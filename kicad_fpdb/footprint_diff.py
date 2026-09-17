@@ -16,6 +16,10 @@ Tolerances mirror the regression suite's own documented reasoning:
   generated point within TRIANGLE_POINT_TOLERANCE_MM (0.015mm) -- looser
   than a simple rounded-value comparison, since LQFP's real files carry
   an unavoidable ~0.01mm generator-rounding residual on some variants.
+- Reference/Value text position: 0.01mm -- absorbs the DIP-family text
+  margin's own 2-decimal file-rounding residual (see
+  docs/superpowers/specs/2026-09-17-exact-reference-value-text-
+  position-design.md).
 """
 
 import math
@@ -32,6 +36,8 @@ SILK_TRIANGLE_POLY = re.compile(
     r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)'
 )
 XY_PATTERN = re.compile(r"\(xy ([-\d.]+) ([-\d.]+)\)")
+REFERENCE_PATTERN = re.compile(r'\(property "Reference" "REF\*\*"\s*\(at ([-\d.]+) ([-\d.]+) 0\)')
+VALUE_PATTERN = re.compile(r'\(property "Value" "[^"]*"\s*\(at ([-\d.]+) ([-\d.]+) 0\)')
 
 # Known, pre-existing, unrelated gaps -- not something a caller's diff
 # should report, since they're already tracked separately (see each
@@ -48,6 +54,17 @@ KNOWN_UNNUMBERED_PAD_GAPS = {"R-0201"}
 # further, per docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-
 # triangle-marker-design.md.
 KNOWN_TRIANGLE_ANOMALIES = {"SOIC-8 ep2_514x3_2"}
+# SOIC's own courtyard_body_margin is a single flat value averaged
+# across every pin count in a width class (already documented as
+# "~0.02mm spread accepted as real-file rounding noise" in CLAUDE.md,
+# derived from SOIC-8/SOIC-14W specifically) -- these 4 descriptors'
+# real courtyards deviate from that flat approximation by up to
+# ~0.04mm, which the text-position check (whose reference point is
+# that same courtyard's own edge) inherits and amplifies slightly.
+# Pre-existing, already-accepted geometry approximation, not a new
+# text-placement bug -- see docs/superpowers/specs/2026-09-17-exact-
+# reference-value-text-position-design.md.
+KNOWN_TEXT_POSITION_ANOMALIES = {"SOIC-14", "SOIC-16", "SOIC-20 w", "SOIC-24 w"}
 
 NUMBERED_TOLERANCE_MM = 1e-4
 UNNUMBERED_TOLERANCE_MM = 1e-2
@@ -75,6 +92,15 @@ TRIANGLE_MARKER_FAMILIES = {"QFN", "SOIC", "LQFP", "SOT", "TSOT"}
 # far tighter than any plausible real geometry bug (marker dimensions
 # are 0.24-0.47mm at this scale).
 TRIANGLE_POINT_TOLERANCE_MM = 0.015
+TEXT_POSITION_TOLERANCE_MM = 0.01
+
+
+def parse_reference_value_positions(text: str) -> tuple[tuple[float, float] | None, tuple[float, float] | None]:
+    ref_match = REFERENCE_PATTERN.search(text)
+    value_match = VALUE_PATTERN.search(text)
+    ref = (float(ref_match.group(1)), float(ref_match.group(2))) if ref_match else None
+    value = (float(value_match.group(1)), float(value_match.group(2))) if value_match else None
+    return ref, value
 
 
 def parse_silk_triangle(text: str) -> list[tuple[float, float]] | None:
@@ -260,5 +286,16 @@ def diff_footprint(descriptor: str, generated: str, real_text: str) -> list[str]
             diffs.append("missing pin-1 triangle marker")
         elif not _triangle_points_match(real_triangle, generated_triangle):
             diffs.append(f"pin-1 triangle points: generated={generated_triangle} real={real_triangle}")
+
+    if descriptor not in KNOWN_TEXT_POSITION_ANOMALIES:
+        real_ref, real_value = parse_reference_value_positions(real_text)
+        gen_ref, gen_value = parse_reference_value_positions(generated)
+        for label, real_pos, gen_pos in (("Reference", real_ref, gen_ref), ("Value", real_value, gen_value)):
+            if real_pos is None or gen_pos is None:
+                continue
+            rx, ry = real_pos
+            gx, gy = gen_pos
+            if abs(gx - rx) >= TEXT_POSITION_TOLERANCE_MM or abs(gy - ry) >= TEXT_POSITION_TOLERANCE_MM:
+                diffs.append(f"{label} position: generated=({gx}, {gy}) real=({rx}, {ry})")
 
     return diffs

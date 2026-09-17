@@ -66,7 +66,7 @@ DIP:
       courtyard_margin_x: 1.52
       courtyard_margin_y: 1.58
       courtyard_from_pad_center: true
-      text_margin_mm: 0.94
+      text_margin_mm: 0.745
       _with:
         longpads: {socket_margin_x: 1.44}
     longpads:
@@ -142,7 +142,7 @@ CERDIP:
       courtyard_margin_x: 1.52
       courtyard_margin_y: 1.58
       courtyard_from_pad_center: true
-      text_margin_mm: 0.94
+      text_margin_mm: 0.745
       _with:
         longpads: {socket_margin_x: 1.44}
     # Unlike DIP's own "regular" width, CERDIP's single width class
@@ -166,7 +166,7 @@ CERDIP:
           courtyard_margin_x: 1.52
           courtyard_margin_y: 3.11
           courtyard_from_pad_center: true
-          text_margin_mm: 0.94
+          text_margin_mm: 0.745
           _with:
             longpads: {socket_margin_x: 1.44}
     CERDIP-14:
@@ -178,7 +178,7 @@ CERDIP:
           courtyard_margin_x: 1.52
           courtyard_margin_y: 2.22
           courtyard_from_pad_center: true
-          text_margin_mm: 0.94
+          text_margin_mm: 0.745
           _with:
             longpads: {socket_margin_x: 1.44}
 
@@ -325,7 +325,7 @@ R:
         courtyard_margin_x: 0.25
         courtyard_margin_y: 0.25
         courtyard_includes_body: true
-        text_margin_mm: 1.0
+        text_margin_mm: 0.87
       children:
         R-AXIAL0204:
           params: {pad_pitch: 7.62, pad_size: [1.4, 1.4], drill: 0.7, body_width: 3.84, body_margin: 0.92, fab_body_size: [3.6, 1.6], fab_reference_font_size: 0.72, fab_reference_thickness: 0.108}
