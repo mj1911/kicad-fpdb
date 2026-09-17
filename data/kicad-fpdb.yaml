@@ -391,6 +391,7 @@ QFN:
     fab_outline: true
     fab_chamfer: 1.0
     pad_lead_extension: -0.0625
+    pin1_marker_style: triangle
   children:
     QFN-12:
       params: {pin_count: 12, pitch: 0.5, pad_size: [0.825, 0.25], courtyard_body_size: 3.0, ep_size: [1.45, 1.45], fab_chamfer: 0.75,

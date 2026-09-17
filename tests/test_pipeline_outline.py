@@ -1,4 +1,5 @@
 import math
+import re
 
 import pytest
 
@@ -497,6 +498,30 @@ def test_generate_footprint_does_not_leak_pin1_marker_to_generator():
     # generator, this raises TypeError("unexpected keyword argument").
     text = generate_footprint("R-0603", FAMILY_TREE_PATH, name="R0603_TEST")
     assert text  # got here without raising
+
+
+def test_generate_footprint_qfn12_has_triangle_pin1_marker():
+    fp = generate_footprint("QFN-12", FAMILY_TREE_PATH, name="TEST")
+    # Exactly one fp_poly on F.SilkS with 3 points -- the pin-1
+    # triangle. (The F.Fab chamfer outline is also a Poly, but on
+    # F.Fab with 5 points, so this regex -- scoped to F.SilkS -- won't
+    # match it.)
+    silk_triangles = re.findall(
+        r'\(fp_poly\s*\(pts((?:\s*\(xy [-\d.]+ [-\d.]+\))+)\s*\)'
+        r'\s*\(stroke\s*\(width [-\d.]+\)\s*\(type \w+\)\s*\)'
+        r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)',
+        fp, re.S,
+    )
+    assert len(silk_triangles) == 1
+    points = re.findall(r"\(xy ([-\d.]+) ([-\d.]+)\)", silk_triangles[0])
+    assert len(points) == 3
+
+
+def test_generate_footprint_does_not_leak_pin1_marker_style_to_generator():
+    # If pipeline.py forgot to pop pin1_marker_style before calling the
+    # generator, quad_perimeter would raise TypeError for an unexpected
+    # kwarg -- this just has to not raise.
+    generate_footprint("QFN-12", FAMILY_TREE_PATH, name="TEST")
 
 
 def test_add_outline_with_silk_line_params_draws_two_lines():

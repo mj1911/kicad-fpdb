@@ -595,6 +595,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     body_margin = params.pop("body_margin", None)
     body_size = params.pop("body_size", None)
     pin1_marker = params.pop("pin1_marker", True)
+    pin1_marker_style = params.pop("pin1_marker_style", "circle")
     silk_y = params.pop("silk_y", None)
     silk_half_length = params.pop("silk_half_length", None)
     silk_two_lines = params.pop("silk_two_lines", False)
@@ -643,7 +644,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
             if solder_paste_margin is not None:
                 pad.solder_paste_margin = solder_paste_margin
     _add_outline(geometry, body_width=body_width, body_margin=body_margin, body_size=body_size,
-                 pin1_marker=pin1_marker, silk_y=silk_y, silk_half_length=silk_half_length,
+                 pin1_marker=pin1_marker, pin1_marker_style=pin1_marker_style,
+                 silk_y=silk_y, silk_half_length=silk_half_length,
                  silk_two_lines=silk_two_lines, silk_segments=silk_segments, no_silk=no_silk,
                  courtyard_margin_x=courtyard_margin_x, courtyard_margin_y=courtyard_margin_y,
                  courtyard_body_width=courtyard_body_width, courtyard_body_margin=courtyard_body_margin,
