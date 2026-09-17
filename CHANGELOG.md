@@ -50,6 +50,9 @@
   two wrong constants (`0.94mm`/`1.0mm`) before landing. See
   docs/superpowers/specs/2026-09-17-exact-reference-value-text-
   position-design.md.
+* Added R-1210/1812/2010/2512 and C-1210/1812 chip passive sizes (pure
+  data addition, no new code). See docs/superpowers/specs/2026-09-17-
+  chip-passive-larger-sizes-design.md.
 
 2026-09-16 v0.0.16:
 

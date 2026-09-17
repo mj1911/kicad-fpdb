@@ -745,6 +745,12 @@ and become available for everyone to automatically update to.
   approximation surfacing through a new check, not a new bug. See
   docs/superpowers/specs/2026-09-17-exact-reference-value-text-
   position-design.md.
+* Added R-1210/1812/2010/2512 and C-1210/1812 chip passive sizes —
+  pure data addition, zero new code, using the exact same `two_pad_chip`
+  param set every existing chip-passive size already uses. `_HandSolder`
+  variants (wider pads) and `C-2010`/`C-2512` (no real file exists for
+  either) are out of scope. See docs/superpowers/specs/2026-09-17-chip-
+  passive-larger-sizes-design.md.
 
 ## TODO
 
@@ -759,11 +765,11 @@ each session, in roughly chronological order:
   different edge entirely (not top) would need the offset direction
   derived rather than assumed.
 * Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
-  widths, more chip passive sizes, additional package families (BGA,
+  widths, additional package families (BGA, TSSOP, MSOP, SOD diodes,
   etc.) — each needs its own hand-verified real-footprint regression
   case per the existing pattern in `tests/test_pipeline_regression.py`.
-  SOT-23/-5/-6/-8, TSOT-23-5/-6/-8, and QFN (20 generic single-EP
-  variants) are done.
+  SOT-23/-5/-6/-8, TSOT-23-5/-6/-8, QFN (20 generic single-EP
+  variants), and chip passives through 1210/1812/2010/2512 are done.
 * QFN follow-ups deliberately excluded from the initial batch:
   vendor-specific QFN variants (`HVQFN`, `VQFN`, `DHVQFN`, ...);
   multi-EP QFN variants (`-2EP`/`-3EP`/`-4EP`/`-5EP` — not supported
