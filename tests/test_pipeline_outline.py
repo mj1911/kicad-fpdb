@@ -253,21 +253,25 @@ def test_add_outline_with_body_size_draws_corner_marks():
     # 4 corners x 2 legs each = 8 short lines, no full-perimeter rectangle.
     assert len(silk_lines) == 8
 
-    # Real LQFP-32_7x7mm_P0.8mm.kicad_mod corner marks are at (±3.61, ±3.61)
-    # with 0.3mm legs — this project uses a fixed 0.3mm leg for all LQFP.
+    # Real LQFP-32_7x7mm_P0.8mm.kicad_mod body corners are at (±3.61, ±3.61).
+    # Legs now extend inward exactly to the adjacent side's own courtyard
+    # jog (this test's fixture pads give a "top"/"left" arm edge at
+    # ±3.05, minus the 0.5mm default courtyard margin -- since this test
+    # doesn't pass courtyard_margin_x/_y -- landing at ±3.55) instead of
+    # the old fixed ±0.3mm offset (±3.31).
     endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in silk_lines for pt in (line.start, line.end)}
     assert (-3.61, -3.61) in endpoints
-    assert (-3.31, -3.61) in endpoints
-    assert (-3.61, -3.31) in endpoints
+    assert (-3.55, -3.61) in endpoints
+    assert (-3.61, -3.55) in endpoints
     assert (3.61, -3.61) in endpoints
-    assert (3.31, -3.61) in endpoints
-    assert (3.61, -3.31) in endpoints
+    assert (3.55, -3.61) in endpoints
+    assert (3.61, -3.55) in endpoints
     assert (3.61, 3.61) in endpoints
-    assert (3.31, 3.61) in endpoints
-    assert (3.61, 3.31) in endpoints
+    assert (3.55, 3.61) in endpoints
+    assert (3.61, 3.55) in endpoints
     assert (-3.61, 3.61) in endpoints
-    assert (-3.31, 3.61) in endpoints
-    assert (-3.61, 3.31) in endpoints
+    assert (-3.55, 3.61) in endpoints
+    assert (-3.61, 3.55) in endpoints
 
 
 def test_add_outline_with_body_size_keeps_pin1_marker():
@@ -503,17 +507,21 @@ def test_generate_footprint_does_not_leak_body_params_to_generator():
 def test_generate_footprint_qfp32_silk_matches_real_corner_marks():
     text = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="LQFP32_TEST")
     assert "(start -3.61 -3.61)" in text
-    assert "(end -3.31 -3.61)" in text
-    assert "(end -3.61 -3.31)" in text
+    # Leg now reaches the courtyard jog (-3.3) instead of the old fixed
+    # -3.31 -- a 0.01mm difference for this specific variant, since its
+    # jog happens to sit almost exactly where the old fixed length did.
+    assert "(end -3.3 -3.61)" in text
+    assert "(end -3.61 -3.3)" in text
 
 
 def test_generate_footprint_qfp48_silk_matches_real_corner_position():
     text = generate_footprint("LQFP-48", FAMILY_TREE_PATH, name="LQFP48_TEST")
-    # Same 7x7mm body as LQFP-32 (per the spec, both real footprints share
-    # this corner position); leg length is this project's fixed 0.3mm,
-    # not real KiCad's 0.45mm for this specific package.
+    # Same 7x7mm body as LQFP-32, but LQFP-48's own pad layout gives a
+    # different jog position -- -3.15, close to real KiCad's own 0.45mm
+    # leg for this package (real: -3.16), unlike the old fixed -3.31
+    # this project previously used for every LQFP variant alike.
     assert "(start -3.61 -3.61)" in text
-    assert "(end -3.31 -3.61)" in text
+    assert "(end -3.15 -3.61)" in text
 
 
 def test_generate_footprint_qfp100_silk_matches_real_corner_position():
@@ -523,7 +531,7 @@ def test_generate_footprint_qfp100_silk_matches_real_corner_position():
     # LQFP-32/LQFP-48 share, to a 14x14mm body.
     text = generate_footprint("LQFP-100", FAMILY_TREE_PATH, name="LQFP100_TEST")
     assert "(start -7.11 -7.11)" in text
-    assert "(end -6.81 -7.11)" in text
+    assert "(end -6.4 -7.11)" in text
 
 
 def test_generate_footprint_qfp32_pad_offset_derived_from_courtyard_body_size():

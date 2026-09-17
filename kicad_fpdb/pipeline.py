@@ -352,7 +352,8 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         half = body_size / 2
         sx0, sx1 = center_x - half, center_x + half
         sy0, sy1 = center_y - half, center_y + half
-        _add_corner_marks(geometry, sx0, sy0, sx1, sy1)
+        side_groups = _quad_side_groups(geometry.pads)
+        _add_corner_marks(geometry, sx0, sy0, sx1, sy1, side_groups=side_groups, mx=mx, my=my)
     elif silk_y is not None and silk_half_length is not None:
         # Real KiCad draws chip resistors/capacitors with two short
         # silk lines, not a box — the component body is always smaller
