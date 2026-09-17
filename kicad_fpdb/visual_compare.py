@@ -188,12 +188,25 @@ PREVIEW_EXCLUDED_DESCRIPTORS = {"LQFP-80", "LQFP-100", "LQFP-144", "LQFP-176", "
 # preview. Clear (set to an empty set) to go back to the exclusion list --
 # left non-empty between sessions is intentional-for-now, not a leftover bug.
 PREVIEW_ONLY_DESCRIPTORS = {
+    # Every descriptor whose generated footprint currently draws a
+    # pin-1 marker of any style (circle or triangle) -- i.e. every
+    # family/variant where pin1_marker isn't false. Computed by
+    # checking each CASES entry's generated output for "(fp_circle" or
+    # a 3-point F.SilkS fp_poly (kicad_fpdb.footprint_diff.
+    # parse_silk_triangle); regenerate this set the same way if the
+    # marker rollout changes again.
     "QFN-12", "QFN-16", "QFN-16 p65", "QFN-20", "QFN-24", "QFN-28",
     "QFN-32", "QFN-32 p65", "QFN-36", "QFN-40", "QFN-44", "QFN-48",
     "QFN-48 p4", "QFN-56", "QFN-60", "QFN-64", "QFN-68", "QFN-72",
     "QFN-76", "QFN-80",
     "LQFP-32", "LQFP-48", "LQFP-64", "LQFP-80", "LQFP-100",
     "LQFP-144", "LQFP-176", "LQFP-208",
+    "SOIC-8", "SOIC-14", "SOIC-16", "SOIC-14 w", "SOIC-16 w",
+    "SOIC-18 w", "SOIC-20 w", "SOIC-24 w", "SOIC-28 w",
+    "SOIC-8 ep2_29x3", "SOIC-8 ep2_41x3_3", "SOIC-8 ep2_41x3_81",
+    "SOIC-8 ep2_514x3_2", "SOIC-8 ep2_62x3_51", "SOIC-8 ep2_71x3_7",
+    "SOIC-8 ep2_95x4_9_mask2_34x2_34", "SOIC-8 ep2_95x4_9_mask2_71x3_4",
+    "SOT-23-6", "SOT-23-8", "TSOT-23-6", "TSOT-23-8",
 }
 
 
