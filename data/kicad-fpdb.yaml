@@ -289,6 +289,45 @@ SOIC:
       row_spacing: 5.125
       pad_size: [1.775, 0.6]
 
+# MSOP: no width-class mechanism -- each of the 4 real plain variants
+# declares its own row_spacing/courtyard_body_margin directly (they
+# don't share one flat value the way TSSOP's width classes do). See
+# docs/superpowers/specs/2026-09-17-tssop-msop-family-design.md.
+MSOP:
+  generator: dual_row_grid
+  params:
+    pad_shape: roundrect
+    pad_type: smd
+    centered: true
+    courtyard_margin_x: 0.25
+    courtyard_margin_y: 0.25
+    fab_outline: true
+    fab_chamfer: 0.75
+  children:
+    MSOP-8:
+      params: {pin_count: 8, pitch: 0.65, pad_size: [1.625, 0.4], row_spacing: 4.225, courtyard_body_width: 3.0, courtyard_body_margin: 0.525,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: small, pin1_triangle_anchor_mm: 0.66,
+               fab_reference_font_size: 0.75, fab_reference_thickness: 0.11,
+               silk_segments: [[[-1.61,-1.61],[1.61,-1.61]], [[-1.61,-1.435],[-1.61,-1.61]], [[-1.61,1.61],[-1.61,1.435]],
+                               [[1.61,-1.61],[1.61,-1.435]], [[1.61,1.435],[1.61,1.61]], [[1.61,1.61],[-1.61,1.61]]]}
+    MSOP-10:
+      params: {pin_count: 10, pitch: 0.5, pad_size: [1.5, 0.35], row_spacing: 4.2, courtyard_body_width: 3.0, courtyard_body_margin: 0.5,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: small, pin1_triangle_anchor_mm: 0.66,
+               fab_reference_font_size: 0.75, fab_reference_thickness: 0.11,
+               silk_segments: [[[-1.61,-1.61],[1.61,-1.61]], [[-1.61,-1.435],[-1.61,-1.61]], [[-1.61,1.61],[-1.61,1.435]],
+                               [[1.61,-1.61],[1.61,-1.435]], [[1.61,1.435],[1.61,1.61]], [[1.61,1.61],[-1.61,1.61]]]}
+    MSOP-12:
+      params: {pin_count: 12, pitch: 0.65, pad_size: [1.45, 0.4], row_spacing: 4.3, courtyard_body_width: 3.0, courtyard_body_margin: 0.395,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: small, pin1_triangle_anchor_mm: 0.665,
+               fab_reference_rotation: 90,
+               silk_segments: [[[-1.61,-2.1295],[1.61,-2.1295]], [[-1.61,-2.085],[-1.61,-2.1295]], [[-1.61,2.1295],[-1.61,2.085]],
+                               [[1.61,-2.1295],[1.61,-2.085]], [[1.61,2.085],[1.61,2.1295]], [[1.61,2.1295],[-1.61,2.1295]]]}
+    MSOP-16:
+      params: {pin_count: 16, pitch: 0.5, pad_size: [1.45, 0.3], row_spacing: 4.3, courtyard_body_width: 3.0, courtyard_body_margin: 0.27,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               fab_reference_rotation: 90,
+               silk_two_lines: true, body_width: 3.22, body_margin: 0.41}
+
 # two_pad_chip turned out to cover THT axial resistors too (R-AXIAL*
 # below), not just SMT -- extended with pad_type/drill/centered rather
 # than needing a separate generator.

@@ -100,7 +100,7 @@ def descriptive_suffix(family: str, variant: str, params: dict, geometry,
         family_suffix = "_SideBrazed" if family == "CERDIP" else ""
         return f"_W{_fmt(row_spacing)}mm" + family_suffix + modifier_suffix
 
-    if family in ("SOIC", "LQFP", "QFN"):
+    if family in ("SOIC", "LQFP", "QFN", "TSSOP", "MSOP"):
         pitch = params.get("pitch")
         bbox = fab_outline_bounding_box(geometry)
         if pitch is None or bbox is None:
