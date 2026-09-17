@@ -19,6 +19,24 @@ UNNUMBERED_PAD_START = re.compile(r'\(pad "" (\w+) (\w+)')
 AT_PATTERN = re.compile(r"\(at ([-\d.]+) ([-\d.]+)\)")
 SIZE_PATTERN = re.compile(r"\(size ([-\d.]+) ([-\d.]+)\)")
 RRATIO_PATTERN = re.compile(r"\(roundrect_rratio ([-\d.]+)\)")
+SILK_TRIANGLE_POLY = re.compile(
+    r'\(fp_poly\s*\(pts((?:\s*\(xy [-\d.]+ [-\d.]+\))+)\s*\)'
+    r'\s*\(stroke\s*\(width [-\d.]+\)\s*\(type \w+\)\s*\)'
+    r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)'
+)
+XY_PATTERN = re.compile(r"\(xy ([-\d.]+) ([-\d.]+)\)")
+
+
+def _parse_silk_triangle(text: str) -> list[tuple[float, float]] | None:
+    # Matches the pin-1 triangle's fp_poly specifically -- it's the only
+    # 3-point poly on F.SilkS either the real files or this project's
+    # generator ever emit (the F.Fab chamfer outline is a separate,
+    # 5-point poly on a different layer).
+    for m in SILK_TRIANGLE_POLY.finditer(text):
+        points = [(float(x), float(y)) for x, y in XY_PATTERN.findall(m.group(1))]
+        if len(points) == 3:
+            return points
+    return None
 
 
 def _parse_pads(text: str) -> dict[str, dict]:
@@ -158,3 +176,21 @@ def test_pipeline_matches_real_footprint(descriptor, reference_relpath):
             assert real_rratio == gen_rratio, f"{descriptor} unnumbered pad {i} roundrect_rratio presence"
         else:
             assert abs(gen_rratio - real_rratio) < 1e-2, f"{descriptor} unnumbered pad {i} roundrect_rratio"
+
+    if descriptor.split()[0] == "QFN":
+        # Real QFN files carry a 3-point pin-1 triangle poly on F.SilkS
+        # -- see docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-
+        # marker-design.md. Scoped to QFN only: several other families'
+        # real reference files (SOIC, SOT, LQFP) turn out to carry their
+        # own silk triangles too, but matching those is out of scope for
+        # this change (see the spec's Non-goals) -- this project still
+        # draws its existing circle marker for every other family.
+        # Points may come back in a different winding order than the
+        # real file, so compare as sets, not sequences.
+        real_triangle = _parse_silk_triangle(real_text)
+        generated_triangle = _parse_silk_triangle(generated)
+        assert real_triangle is not None, f"{descriptor}: real file has no pin-1 triangle marker"
+        assert generated_triangle is not None, f"{descriptor}: missing pin-1 triangle marker"
+        real_points = {(round(x, 2), round(y, 2)) for x, y in real_triangle}
+        gen_points = {(round(x, 2), round(y, 2)) for x, y in generated_triangle}
+        assert gen_points == real_points, f"{descriptor}: pin-1 triangle points"
