@@ -25,9 +25,6 @@
   `EP5.2x5.2mm` pick to `EP5.15x5.15mm` (both real files exist; the
   spec's own escape hatch permits this in-bucket swap).
 * Full suite passing (504 tests).
-
-2026-09-16 v0.0.15:
-
 * Added two more DIP width classes (`extra_wide`/`ultra_wide`, letters
   `x`/`u`) and a whole new `CERDIP` sibling family (ceramic side-brazed
   DIP), reusing DIP's `dual_row_grid` generator and constants almost
