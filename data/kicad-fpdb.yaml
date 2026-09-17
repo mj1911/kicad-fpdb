@@ -402,6 +402,120 @@ TSSOP:
           silk_two_lines: true
           body_width: 6.32
           body_margin: 0.41
+    TSSOP-28:
+      params: {pin_count: 28, pitch: 0.65, pad_size: [1.475, 0.4], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.625,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: large, pin1_triangle_anchor_mm: 0.75,
+               silk_segments: [[[-2.31,-4.96],[2.31,-4.96]], [[-2.31,-4.685],[-2.31,-4.96]], [[-2.31,4.96],[-2.31,4.685]],
+                               [[2.31,-4.96],[2.31,-4.685]], [[2.31,4.685],[2.31,4.96]], [[2.31,4.96],[-2.31,4.96]]]}
+      modifiers:
+        w:
+          row_spacing: 7.425
+          courtyard_body_width: 6.1
+          courtyard_body_margin: 0.625
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-3.16,-4.96],[3.16,-4.96]], [[-3.16,-4.685],[-3.16,-4.96]], [[-3.16,4.96],[-3.16,4.685]],
+                          [[3.16,-4.96],[3.16,-4.685]], [[3.16,4.685],[3.16,4.96]], [[3.16,4.96],[-3.16,4.96]]]
+        xw:
+          row_spacing: 9.325
+          courtyard_body_width: 8.0
+          courtyard_body_margin: 0.625
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-4.11,-4.96],[4.11,-4.96]], [[-4.11,-4.685],[-4.11,-4.96]], [[-4.11,4.96],[-4.11,4.685]],
+                          [[4.11,-4.96],[4.11,-4.685]], [[4.11,4.685],[4.11,4.96]], [[4.11,4.96],[-4.11,4.96]]]
+    TSSOP-32:
+      params: {pin_count: 32, pitch: 0.4, pad_size: [1.475, 0.25], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.25,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               silk_two_lines: true, body_width: 4.62, body_margin: 0.385}
+      modifiers:
+        w:
+          pitch: 0.65
+          pad_size: [1.475, 0.4]
+          row_spacing: 7.425
+          courtyard_body_width: 6.1
+          courtyard_body_margin: 0.625
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-3.16,-5.61],[3.16,-5.61]], [[-3.16,-5.335],[-3.16,-5.61]], [[-3.16,5.61],[-3.16,5.335]],
+                          [[3.16,-5.61],[3.16,-5.335]], [[3.16,5.335],[3.16,5.61]], [[3.16,5.61],[-3.16,5.61]]]
+        xw:
+          pitch: 0.65
+          pad_size: [1.475, 0.4]
+          row_spacing: 9.325
+          courtyard_body_width: 8.0
+          courtyard_body_margin: 0.625
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-4.11,-5.61],[4.11,-5.61]], [[-4.11,-5.335],[-4.11,-5.61]], [[-4.11,5.61],[-4.11,5.335]],
+                          [[4.11,-5.61],[4.11,-5.335]], [[4.11,5.335],[4.11,5.61]], [[4.11,5.61],[-4.11,5.61]]]
+    TSSOP-36:
+      params: {pin_count: 36, pitch: 0.5, pad_size: [1.475, 0.3], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.6,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: large, pin1_triangle_anchor_mm: 0.75,
+               silk_segments: [[[-2.31,-4.96],[2.31,-4.96]], [[-2.31,-4.66],[-2.31,-4.96]], [[-2.31,4.96],[-2.31,4.66]],
+                               [[2.31,-4.96],[2.31,-4.66]], [[2.31,4.66],[2.31,4.96]], [[2.31,4.96],[-2.31,4.96]]]}
+      modifiers:
+        w:
+          pitch: 0.65
+          pad_size: [1.475, 0.4]
+          row_spacing: 7.425
+          courtyard_body_width: 6.1
+          courtyard_body_margin: 0.725
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-3.16,-6.36],[3.16,-6.36]], [[-3.16,-5.985],[-3.16,-6.36]], [[-3.16,6.36],[-3.16,5.985]],
+                          [[3.16,-6.36],[3.16,-5.985]], [[3.16,5.985],[3.16,6.36]], [[3.16,6.36],[-3.16,6.36]]]
+        xw:
+          pitch: 0.65
+          pad_size: [1.475, 0.4]
+          row_spacing: 9.325
+          courtyard_body_width: 8.0
+          courtyard_body_margin: 0.725
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-4.11,-6.36],[4.11,-6.36]], [[-4.11,-5.985],[-4.11,-6.36]], [[-4.11,6.36],[-4.11,5.985]],
+                          [[4.11,-6.36],[4.11,-5.985]], [[4.11,5.985],[4.11,6.36]], [[4.11,6.36],[-4.11,6.36]]]
+    TSSOP-48:
+      params: {pin_count: 48, pitch: 0.4, pad_size: [1.475, 0.25], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.25,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               silk_two_lines: true, body_width: 4.62, body_margin: 0.385}
+      modifiers:
+        w:
+          pitch: 0.5
+          pad_size: [1.475, 0.3]
+          row_spacing: 7.425
+          courtyard_body_width: 6.1
+          courtyard_body_margin: 0.5
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-3.16,-6.36],[3.16,-6.36]], [[-3.16,-6.16],[-3.16,-6.36]], [[-3.16,6.36],[-3.16,6.16]],
+                          [[3.16,-6.36],[3.16,-6.16]], [[3.16,6.16],[3.16,6.36]], [[3.16,6.36],[-3.16,6.36]]]
+        xw:
+          pitch: 0.5
+          pad_size: [1.475, 0.3]
+          row_spacing: 9.325
+          courtyard_body_width: 8.0
+          courtyard_body_margin: 0.5
+          pin1_marker_style: triangle
+          pin1_triangle_axis: y
+          pin1_triangle_size: large
+          pin1_triangle_anchor_mm: 0.75
+          silk_segments: [[[-4.11,-6.36],[4.11,-6.36]], [[-4.11,-6.16],[-4.11,-6.36]], [[-4.11,6.36],[-4.11,6.16]],
+                          [[4.11,-6.36],[4.11,-6.16]], [[4.11,6.16],[4.11,6.36]], [[4.11,6.36],[-4.11,6.36]]]
 
 # two_pad_chip turned out to cover THT axial resistors too (R-AXIAL*
 # below), not just SMT -- extended with pad_type/drill/centered rather
