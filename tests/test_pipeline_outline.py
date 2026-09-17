@@ -388,6 +388,36 @@ def test_add_outline_triangle_axis_none_still_infers_from_pad_shape():
     assert apex in points
 
 
+def test_add_outline_with_y_axis_triangle_handles_tuple_courtyard_body_size():
+    from kicad_fpdb.geometry import FootprintGeometry, Pad
+    geometry = FootprintGeometry(name="TEST")
+    geometry.pads = [
+        Pad(number="1", pad_type="smd", shape="roundrect", at=(-1.0, -1.0), size=(1.0, 0.6)),
+        Pad(number="2", pad_type="smd", shape="roundrect", at=(1.0, -1.0), size=(1.0, 0.6)),
+    ]
+    _add_outline(
+        geometry, pin1_marker_style="triangle", pin1_triangle_axis="y",
+        pin1_triangle_anchor_mm=0.75, courtyard_margin_y=0.25,
+        courtyard_body_size=(3.0, 5.0),
+    )
+
+    assert len(geometry.polys) == 1
+    marker = geometry.polys[0]
+
+    # Extension axis (Y): apex = pad1's own top edge (-1.0 - 0.3 = -1.3)
+    # minus courtyard_margin_y (0.25) minus the fixed 0.01mm silk offset
+    # = -1.56; base = apex - 0.33 (the default "small" depth) = -1.89.
+    # Perpendicular axis (X): body-anchored using the tuple's WIDTH
+    # (index 0, 3.0), not the full tuple -- apex.x = -(3.0/2 + 0.75) =
+    # -2.25, independent of pad1.x. Base spread +/-0.24 (the default
+    # "small" half-width).
+    apex = (-2.25, -1.56)
+    base_a = (-2.49, -1.89)
+    base_b = (-2.01, -1.89)
+    points = {(round(x, 5), round(y, 5)) for x, y in marker.points}
+    assert points == {apex, base_a, base_b}
+
+
 def test_add_corner_marks_extends_legs_to_side_group_jog():
     from kicad_fpdb.geometry import FootprintGeometry
     geometry = FootprintGeometry(name="TEST")

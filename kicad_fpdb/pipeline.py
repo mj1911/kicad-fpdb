@@ -481,9 +481,12 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
                 # on pad 1's own position was correctly excluded. See
                 # docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-
                 # triangle-marker-design.md.
-                body_half = (
-                    courtyard_body_width / 2 if courtyard_body_width is not None else courtyard_body_size / 2
-                )
+                if courtyard_body_width is not None:
+                    body_half = courtyard_body_width / 2
+                elif isinstance(courtyard_body_size, (tuple, list)):
+                    body_half = courtyard_body_size[0] / 2
+                else:
+                    body_half = courtyard_body_size / 2
                 min_px, max_px = _pad_center_extent(geometry.pads, 0)
                 center_x = (min_px + max_px) / 2
                 perp_dir = -1.0 if px < center_x else 1.0
