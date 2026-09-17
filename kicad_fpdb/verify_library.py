@@ -15,6 +15,15 @@ CLI usage:
         Verifies only cases whose descriptor's family head matches one of
         these (e.g. LQFP QFN).
 
+Each case's work (generate_footprint + diff_footprint) is pure in-process
+Python, not subprocess calls like render_png.py -- CPU-bound, not
+I/O-bound, so it's parallelized via --jobs (default 12) using a process
+pool, not a thread pool: threads wouldn't give a real speedup here (the
+GIL serializes CPU-bound bytecode across threads), where separate
+processes each get their own GIL and interpreter. Pass -j 1 to force
+serial (also avoids process-pool startup overhead for a small --family
+subset).
+
 Exits 0 if every checked case matches exactly (within the same tolerances
 the regression suite uses), 1 if any case has at least one difference --
 usable as a scriptable check, not just for reading by hand.
@@ -22,6 +31,7 @@ usable as a scriptable check, not just for reading by hand.
 
 import argparse
 import os
+from concurrent.futures import ProcessPoolExecutor
 
 from kicad_fpdb.footprint_diff import KNOWN_UNNUMBERED_PAD_GAPS, diff_footprint
 from kicad_fpdb.pipeline import generate_footprint
@@ -43,11 +53,29 @@ def verify_case(
     return diff_footprint(descriptor, generated, real_text)
 
 
+def _verify_case_unpack(case: tuple[str, str]) -> list[str]:
+    # ProcessPoolExecutor.map needs a single-argument callable.
+    return verify_case(*case)
+
+
+def verify_cases(cases: list[tuple[str, str]], jobs: int = 1) -> list[list[str]]:
+    """Returns each case's diffs (same order as `cases`)."""
+    if jobs == 1:
+        return [verify_case(descriptor, reference_relpath) for descriptor, reference_relpath in cases]
+    with ProcessPoolExecutor(max_workers=jobs) as executor:
+        return list(executor.map(_verify_case_unpack, cases))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--family", nargs="+", default=None,
         help="Only verify cases whose descriptor's family head matches one of these (e.g. LQFP QFN).",
+    )
+    parser.add_argument(
+        "--jobs", "-j", type=int, default=12,
+        help="Verify this many cases in parallel via a process pool (CPU-bound work, not I/O -- "
+             "a thread pool wouldn't help here). Default: 12.",
     )
     args = parser.parse_args(argv)
 
@@ -60,12 +88,13 @@ def main(argv=None):
         families = set(args.family)
         cases = [(d, r) for d, r in CASES if _descriptor_head(d).split("-")[0] in families]
 
+    all_diffs = verify_cases(cases, jobs=args.jobs)
+
     mismatched = 0
     known_gap_skipped = 0
-    for descriptor, reference_relpath in cases:
+    for (descriptor, reference_relpath), diffs in zip(cases, all_diffs):
         if descriptor in KNOWN_UNNUMBERED_PAD_GAPS:
             known_gap_skipped += 1
-        diffs = verify_case(descriptor, reference_relpath)
         if diffs:
             mismatched += 1
             print(f"{descriptor} ({reference_relpath}):")
