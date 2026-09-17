@@ -328,6 +328,51 @@ MSOP:
                fab_reference_rotation: 90,
                silk_two_lines: true, body_width: 3.22, body_margin: 0.41}
 
+# TSSOP: same two-row gullwing topology as SOIC/DIP. Does NOT use
+# SOIC's variants:/default_width: width-class mechanism -- silk shape
+# (silk_two_lines vs silk_segments, genuinely different param sets)
+# and pin-1 triangle axis vary jointly by pin count AND width class,
+# not by width class alone, so each pin count is its own child (like
+# LQFP's own per-variant pattern) with a child-level `modifiers:`
+# block for `w`/`xw` where a wider real variant exists at that pin
+# count. See docs/superpowers/specs/2026-09-17-tssop-msop-family-
+# design.md.
+TSSOP:
+  generator: dual_row_grid
+  variant_param: pin_count
+  params:
+    pad_shape: roundrect
+    pad_type: smd
+    centered: true
+    courtyard_margin_x: 0.25
+    courtyard_margin_y: 0.25
+    fab_outline: true
+    fab_chamfer: 1.0
+  children:
+    TSSOP-8:
+      params: {pin_count: 8, pitch: 0.65, pad_size: [1.475, 0.4], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.525, fab_chamfer: 0.75,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: small, pin1_triangle_anchor_mm: 0.67,
+               silk_segments: [[[-2.31,-1.61],[2.31,-1.61]], [[-2.31,-1.435],[-2.31,-1.61]], [[-2.31,1.61],[-2.31,1.435]],
+                               [[2.31,-1.61],[2.31,-1.435]], [[2.31,1.435],[2.31,1.61]], [[2.31,1.61],[-2.31,1.61]]]}
+    TSSOP-14:
+      params: {pin_count: 14, pitch: 0.65, pad_size: [1.475, 0.4], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.55,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: large, pin1_triangle_anchor_mm: 0.75,
+               silk_segments: [[[-2.31,-2.61],[2.31,-2.61]], [[-2.31,-2.41],[-2.31,-2.61]], [[-2.31,2.61],[-2.31,2.41]],
+                               [[2.31,-2.61],[2.31,-2.41]], [[2.31,2.41],[2.31,2.61]], [[2.31,2.61],[-2.31,2.61]]]}
+    TSSOP-16:
+      params: {pin_count: 16, pitch: 0.65, pad_size: [1.475, 0.4], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.225,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               silk_two_lines: true, body_width: 4.62, body_margin: 0.46}
+    TSSOP-20:
+      params: {pin_count: 20, pitch: 0.65, pad_size: [1.475, 0.4], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.325,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               silk_two_lines: true, body_width: 4.62, body_margin: 0.46}
+    TSSOP-64:
+      params: {pin_count: 64, pitch: 0.5, pad_size: [1.475, 0.3], row_spacing: 7.425, courtyard_body_width: 6.1, courtyard_body_margin: 0.75,
+               pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: large, pin1_triangle_anchor_mm: 0.75,
+               silk_segments: [[[-3.16,-8.61],[3.16,-8.61]], [[-3.16,-8.16],[-3.16,-8.61]], [[-3.16,8.61],[-3.16,8.16]],
+                               [[3.16,-8.61],[3.16,-8.16]], [[3.16,8.16],[3.16,8.61]], [[3.16,8.61],[-3.16,8.61]]]}
+
 # two_pad_chip turned out to cover THT axial resistors too (R-AXIAL*
 # below), not just SMT -- extended with pad_type/drill/centered rather
 # than needing a separate generator.
