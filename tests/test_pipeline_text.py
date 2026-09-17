@@ -87,9 +87,13 @@ def test_reference_and_value_are_not_grid_snapped():
 
 
 def test_reference_and_value_use_real_dip16_positions():
-    # DIP-16's courtyard (-1.05, -1.52) to (8.67, 19.3) is the outermost
-    # outline -- 0.7mm clearance from it, snapped to the nearest 1.27mm,
-    # gives exactly these positions.
+    # DIP-16's courtyard is (-1.05, -1.52) to (8.67, 19.3) -- DIP's own
+    # real text margin is 0.805mm (not the 0.7mm default every other
+    # family uses), verified against CERDIP-8/CERDIP-14's real files
+    # giving this exact value directly, with every other DIP/CERDIP/
+    # SMDIP sample checked rounding to 0.80 or 0.81 at the real file's
+    # own 2-decimal precision -- consistent with one true value
+    # straddling that rounding boundary. No grid-snapping.
     text = generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
 
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
@@ -97,8 +101,8 @@ def test_reference_and_value_use_real_dip16_positions():
     ref_x, ref_y = (float(v) for v in _require_match(AT_3.search(ref_block)).groups())
     value_x, value_y = (float(v) for v in _require_match(AT_3.search(value_block)).groups())
 
-    assert (ref_x, ref_y) == (3.81, -2.54)
-    assert (value_x, value_y) == (3.81, 20.32)
+    assert (ref_x, ref_y) == (3.81, -2.325)
+    assert (value_x, value_y) == (3.81, 20.105)
 
 
 def test_generated_footprint_includes_fab_reference_text():

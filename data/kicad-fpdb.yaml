@@ -16,6 +16,7 @@ DIP:
     courtyard_margin_y: 0.72
     notch_radius: 1.0
     pin1_marker: false
+    text_margin_mm: 0.805
     fab_body_width: {narrow: 6.35, regular: 6.35, wide: 14.73, extra_wide: 22.35, ultra_wide: 24.89}
     fab_body_margin: 1.27
     fab_chamfer: 1.0
@@ -65,6 +66,7 @@ DIP:
       courtyard_margin_x: 1.52
       courtyard_margin_y: 1.58
       courtyard_from_pad_center: true
+      text_margin_mm: 0.94
       _with:
         longpads: {socket_margin_x: 1.44}
     longpads:
@@ -123,6 +125,7 @@ CERDIP:
     courtyard_margin_y: 0.72
     notch_radius: 1.0
     pin1_marker: false
+    text_margin_mm: 0.805
     fab_body_width: 7.49
     fab_body_margin: 1.27
     fab_chamfer: 1.0
@@ -139,6 +142,7 @@ CERDIP:
       courtyard_margin_x: 1.52
       courtyard_margin_y: 1.58
       courtyard_from_pad_center: true
+      text_margin_mm: 0.94
       _with:
         longpads: {socket_margin_x: 1.44}
     # Unlike DIP's own "regular" width, CERDIP's single width class
@@ -162,6 +166,7 @@ CERDIP:
           courtyard_margin_x: 1.52
           courtyard_margin_y: 3.11
           courtyard_from_pad_center: true
+          text_margin_mm: 0.94
           _with:
             longpads: {socket_margin_x: 1.44}
     CERDIP-14:
@@ -173,6 +178,7 @@ CERDIP:
           courtyard_margin_x: 1.52
           courtyard_margin_y: 2.22
           courtyard_from_pad_center: true
+          text_margin_mm: 0.94
           _with:
             longpads: {socket_margin_x: 1.44}
 
@@ -206,6 +212,7 @@ SMDIP:
     courtyard_margin_y: 0.63
     notch_radius: 1.0
     pin1_marker: false
+    text_margin_mm: 0.805
     fab_body_width: {narrow: 6.35, medium: 6.35, broad: 6.35, wide: 14.73}
     fab_body_margin: 1.27
     fab_chamfer: 1.0
@@ -318,6 +325,7 @@ R:
         courtyard_margin_x: 0.25
         courtyard_margin_y: 0.25
         courtyard_includes_body: true
+        text_margin_mm: 1.0
       children:
         R-AXIAL0204:
           params: {pad_pitch: 7.62, pad_size: [1.4, 1.4], drill: 0.7, body_width: 3.84, body_margin: 0.92, fab_body_size: [3.6, 1.6], fab_reference_font_size: 0.72, fab_reference_thickness: 0.108}

@@ -26,6 +26,7 @@ def _dip16_geometry():
     params.pop("fab_body_margin", None)
     params.pop("fab_chamfer", None)
     params.pop("fab_reference_rotation", None)
+    params.pop("text_margin_mm", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "DIP16_TEST"
     return geometry
