@@ -11,7 +11,7 @@ dependencies = ["pyyaml"]
 Repository = "https://github.com/mj1911/kicad-fpdb"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pillow"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
