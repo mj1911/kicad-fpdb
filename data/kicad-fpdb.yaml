@@ -372,6 +372,36 @@ TSSOP:
                pin1_marker_style: triangle, pin1_triangle_axis: y, pin1_triangle_size: large, pin1_triangle_anchor_mm: 0.75,
                silk_segments: [[[-3.16,-8.61],[3.16,-8.61]], [[-3.16,-8.16],[-3.16,-8.61]], [[-3.16,8.61],[-3.16,8.16]],
                                [[3.16,-8.61],[3.16,-8.16]], [[3.16,8.16],[3.16,8.61]], [[3.16,8.61],[-3.16,8.61]]]}
+    TSSOP-24:
+      params: {pin_count: 24, pitch: 0.65, pad_size: [1.475, 0.4], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.325,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               silk_two_lines: true, body_width: 4.62, body_margin: 0.46}
+      modifiers:
+        w:
+          row_spacing: 7.425
+          courtyard_body_width: 6.1
+          courtyard_body_margin: 0.325
+          pin1_marker_style: triangle
+          pin1_triangle_axis: x
+          silk_two_lines: true
+          body_width: 6.32
+          body_margin: 0.46
+    TSSOP-56:
+      params: {pin_count: 56, pitch: 0.4, pad_size: [1.475, 0.25], row_spacing: 5.725, courtyard_body_width: 4.4, courtyard_body_margin: 0.25,
+               pin1_marker_style: triangle, pin1_triangle_axis: x,
+               silk_two_lines: true, body_width: 4.62, body_margin: 0.385}
+      modifiers:
+        w:
+          pitch: 0.5
+          pad_size: [1.475, 0.3]
+          row_spacing: 7.425
+          courtyard_body_width: 6.1
+          courtyard_body_margin: 0.25
+          pin1_marker_style: triangle
+          pin1_triangle_axis: x
+          silk_two_lines: true
+          body_width: 6.32
+          body_margin: 0.41
 
 # two_pad_chip turned out to cover THT axial resistors too (R-AXIAL*
 # below), not just SMT -- extended with pad_type/drill/centered rather
