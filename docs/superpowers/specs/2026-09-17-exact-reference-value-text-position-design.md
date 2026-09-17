@@ -37,12 +37,25 @@ universal value and not something that needs per-variant hand-tuning:**
 |---|---|---|
 | Default (SOIC, LQFP, QFN, R, C, SOT-23, TSOT-23) | `0.7mm` | Exact match, zero variance, across SOIC-8, SOIC-14W, LQFP-32, LQFP-100, QFN-12, R-0603, R-1206, C-0603, SOT-23-6 |
 | DIP, CERDIP, SMDIP (plain, incl. `longpads`) | `0.805mm` | `CERDIP-8`/`CERDIP-14` give the exact value directly (`0.805`); every other DIP/CERDIP/SMDIP sample (~140 cases checked) rounds to `0.80` or `0.81` at the file's 2-decimal precision, consistent with one true value straddling that rounding boundary |
-| DIP's `socket` modifier (with or without `longpads`) | `0.94mm` | Exact, zero variance, across every socket sample (DIP and CERDIP alike) — a real, separate override, not the plain DIP value: the extra silk rectangle `_Socket` draws doesn't just widen the courtyard by the same amount the text shifts by, so this needs its own constant rather than falling out of the existing gap formula automatically |
-| R-AXIAL | `1.0mm` | Exact, zero variance, across all 4 body sizes (0204/0207/0309/0414) |
+| DIP's `socket` modifier (with or without `longpads`) | `0.745mm` | Exact-to-noise (`0.74`/`0.745`/`0.75` across every socket sample, DIP and CERDIP alike) — a real, separate override, not the plain DIP value |
+| R-AXIAL | `0.87mm` | Exact, zero variance, across all 4 body sizes (0204/0207/0309/0414) |
 
 No other modifier (`longpads` alone, the various SOIC-8-1EP/QFN
 pitch/width modifiers, LQFP/QFN's own variants) shifts the gap from
 its family's base value — only DIP's `socket` modifier does.
+
+**Correction during implementation:** the first pass at this
+investigation reported `0.94mm` (socket) and `1.0mm` (R-AXIAL) —
+both wrong. Both used a `.*?`-based regex to find each element's own
+`F.CrtYd` layer tag, which non-greedily crossed into a *different*,
+later geometry element when the first one it matched wasn't itself on
+that layer (the same DOTALL block-crossing bug already hit twice
+earlier this session, for the QFN pin-1 triangle and the corner-mark
+work). Socket's extra `F.SilkS` rectangle and R-AXIAL's `F.SilkS`
+body rect were the false matches in each case. Caught by the
+regression suite once `diff_footprint` actually checked text position
+against the real library — re-derived both values with a corrected,
+non-crossing regex before finalizing (see Verification).
 
 ## Design
 
@@ -66,13 +79,13 @@ so each needs its own declaration:
 - `DIP`'s `socket` modifier, and `CERDIP`'s own separate `socket`
   modifier (`CERDIP` declares its own, not inherited from `DIP` — plus
   per-child `socket` overrides on `CERDIP-8`/`CERDIP-14` for their own
-  distinct `socket_margin_y`): add `text_margin_mm: 0.94` to each
+  distinct `socket_margin_y`): add `text_margin_mm: 0.745` to each
   `socket` modifier's own override dict (same mechanism
   `socket_margin_x`/`_y` already use there) — applies whether or not
   `longpads` is also active, so no `_with` combo entry is needed. No
   `socket` modifier exists on `SMDIP`.
 - `R-AXIAL` (the `R-AXIAL` intermediate node, shared by all 4 body
-  sizes): `text_margin_mm: 1.0`.
+  sizes): `text_margin_mm: 0.87`.
 
 ## Non-goals
 
@@ -85,10 +98,17 @@ so each needs its own declaration:
 
 - Extend `kicad_fpdb.footprint_diff.diff_footprint` to parse and
   compare the real vs. generated `Reference`/`Value` property `at`
-  positions (both X and Y), with a small numeric tolerance (e.g.
-  `0.01mm`, the same rounding-noise category already accepted for
-  LQFP's corner marks and pin-1 triangle) to absorb the DIP-family
-  constant's own 2-decimal file-rounding residual.
+  positions (both X and Y), with a small numeric tolerance (`0.01mm`,
+  the same rounding-noise category already accepted for LQFP's corner
+  marks and pin-1 triangle) to absorb the DIP-family constant's own
+  2-decimal file-rounding residual. This check is also what caught the
+  `0.94`/`1.0` regex bug above, and separately surfaced that 4 SOIC
+  descriptors (`SOIC-14`/`-16`/`-20 w`/`-24 w`) inherit SOIC's own
+  already-documented ~0.02-0.04mm `courtyard_body_margin` averaging
+  approximation via their courtyard-relative text position — tracked
+  via `KNOWN_TEXT_POSITION_ANOMALIES` (a pre-existing, accepted
+  geometry approximation, not a new bug) rather than loosening the
+  tolerance globally.
 - Update `tests/test_pipeline_text.py`'s existing grid-snap-specific
   tests (`test_reference_and_value_are_snapped_to_005in_grid`, the
   `_snap_outward`-specific test using R-1206) to reflect the new plain
