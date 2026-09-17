@@ -18,6 +18,10 @@ IMPERIAL_TO_METRIC = {
     "0603": "1608",
     "0805": "2012",
     "1206": "3216",
+    "1210": "3225",
+    "1812": "4532",
+    "2010": "5025",
+    "2512": "6332",
 }
 
 # Modifier token -> real-KiCad-exact display name for the name suffix.

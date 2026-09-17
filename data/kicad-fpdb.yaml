@@ -307,6 +307,14 @@ R:
       params: {pad_pitch: 1.825, pad_size: [1.025, 1.4], silk_y: 0.735, silk_half_length: 0.227064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [2, 1.25], fab_reference_font_size: 0.5, fab_reference_thickness: 0.08}
     R-1206:
       params: {pad_pitch: 2.925, pad_size: [1.125, 1.75], silk_y: 0.91, silk_half_length: 0.727064, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [3.2, 1.6], fab_reference_font_size: 0.8, fab_reference_thickness: 0.12}
+    R-1210:
+      params: {pad_pitch: 2.925, pad_size: [1.125, 2.65], silk_y: 1.355, silk_half_length: 0.723737, courtyard_margin_x: 0.255, courtyard_margin_y: 0.255, fab_body_size: [3.2, 2.49], fab_reference_font_size: 0.8, fab_reference_thickness: 0.12}
+    R-1812:
+      params: {pad_pitch: 4.275, pad_size: [1.125, 3.4], silk_y: 1.71, silk_half_length: 1.386252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [4.5, 3.2], fab_reference_font_size: 1.0, fab_reference_thickness: 0.15}
+    R-2010:
+      params: {pad_pitch: 4.625, pad_size: [1.225, 2.65], silk_y: 1.36, silk_half_length: 1.527064, courtyard_margin_x: 0.255, courtyard_margin_y: 0.255, fab_body_size: [5.0, 2.5], fab_reference_font_size: 1.0, fab_reference_thickness: 0.15}
+    R-2512:
+      params: {pad_pitch: 5.925, pad_size: [1.225, 3.35], silk_y: 1.71, silk_half_length: 2.177064, courtyard_margin_x: 0.255, courtyard_margin_y: 0.255, fab_body_size: [6.3, 3.2], fab_reference_font_size: 1.0, fab_reference_thickness: 0.15}
     # THT axial resistors (JEDEC/DIN body sizes) share a completely
     # different pad/outline model from the SMD chip sizes above, grouped
     # under this intermediate node so it doesn't leak onto R-0201/etc.
@@ -351,6 +359,10 @@ C:
       params: {pad_pitch: 1.55, pad_size: [0.9, 0.95], silk_y: 0.51, silk_half_length: 0.14058, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [1.6, 0.8], fab_reference_font_size: 0.4, fab_reference_thickness: 0.06}
     C-0805:
       params: {pad_pitch: 1.9, pad_size: [1, 1.45], silk_y: 0.735, silk_half_length: 0.261252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [2, 1.25], fab_reference_font_size: 0.5, fab_reference_thickness: 0.08}
+    C-1210:
+      params: {pad_pitch: 2.95, pad_size: [1.15, 2.7], silk_y: 1.36, silk_half_length: 0.711252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [3.2, 2.5], fab_reference_font_size: 0.8, fab_reference_thickness: 0.12}
+    C-1812:
+      params: {pad_pitch: 4.1, pad_size: [1.4, 3.4], silk_y: 1.71, silk_half_length: 1.161252, courtyard_margin_x: 0.25, courtyard_margin_y: 0.25, fab_body_size: [4.5, 3.2], fab_reference_font_size: 1.0, fab_reference_thickness: 0.15}
 
 # LQFP is enumerated per-variant below rather than formula-driven like DIP/
 # SOIC: quad_perimeter's pad_offset depends on body size, which isn't
