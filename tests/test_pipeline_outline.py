@@ -40,6 +40,10 @@ def _qfp32_geometry():
     params.pop("courtyard_margin_y", None)
     params.pop("fab_outline", None)
     params.pop("fab_chamfer", None)
+    params.pop("pin1_marker_style", None)
+    params.pop("pin1_triangle_axis", None)
+    params.pop("pin1_triangle_size", None)
+    params.pop("pin1_triangle_anchor_mm", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "LQFP32_TEST"
     return geometry
@@ -59,6 +63,10 @@ def _soic8_geometry():
     params.pop("fab_outline", None)
     params.pop("fab_chamfer", None)
     params.pop("fab_reference_rotation", None)
+    params.pop("pin1_marker_style", None)
+    params.pop("pin1_triangle_axis", None)
+    params.pop("pin1_triangle_size", None)
+    params.pop("pin1_triangle_anchor_mm", None)
     geometry = GENERATORS[resolved.generator](**params)
     geometry.name = "SOIC8_TEST"
     return geometry
@@ -518,10 +526,14 @@ def test_generate_footprint_includes_outline_geometry():
     assert '(layer "F.SilkS")' in text
 
     # Pin-1 marker circle geometry is exercised via a family that still
-    # has one (DIP itself doesn't -- see test_generate_footprint_dip16_has_no_pin1_marker).
-    soic_text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
-    assert "(fp_circle" in soic_text
-    assert "(fill yes)" in soic_text
+    # has one (DIP itself doesn't -- see test_generate_footprint_dip16_has_no_pin1_marker;
+    # SOIC switched to the triangle marker -- see
+    # test_generate_footprint_soic8_has_triangle_pin1_marker -- so this
+    # uses SOT-23-6 instead, whose symmetric layout still keeps the
+    # plain circle marker, unlike SOT-23/-5's pin1_marker: false).
+    sot_text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
+    assert "(fp_circle" in sot_text
+    assert "(fill yes)" in sot_text
 
 
 def test_generate_footprint_dip16_narrow_silk_matches_real_body():
@@ -630,10 +642,12 @@ def test_generate_footprint_dip16_has_no_pin1_marker():
     assert "fp_circle" not in text
 
 
-def test_generate_footprint_soic8_still_has_pin1_marker():
-    # Regression guard: only DIP opted out -- other families with no
-    # square pin-1 pad shape of their own still get the circle marker.
-    text = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="SOIC8_TEST")
+def test_generate_footprint_sot236_still_has_circle_pin1_marker():
+    # Regression guard: DIP opted out (pin1_marker: false) and SOIC/LQFP/
+    # QFN opted into the triangle style -- SOT-23-6's symmetric layout
+    # still gets the plain circle marker (pin1_marker_style defaults to
+    # "circle"), unaffected by any of that.
+    text = generate_footprint("SOT-23-6", FAMILY_TREE_PATH, name="SOT236_TEST")
     assert "fp_circle" in text
 
 
@@ -666,6 +680,40 @@ def test_generate_footprint_does_not_leak_pin1_marker_style_to_generator():
     # generator, quad_perimeter would raise TypeError for an unexpected
     # kwarg -- this just has to not raise.
     generate_footprint("QFN-12", FAMILY_TREE_PATH, name="TEST")
+
+
+def test_generate_footprint_soic8_has_triangle_pin1_marker():
+    fp = generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="TEST")
+    silk_triangles = re.findall(
+        r'\(fp_poly\s*\(pts((?:\s*\(xy [-\d.]+ [-\d.]+\))+)\s*\)'
+        r'\s*\(stroke\s*\(width [-\d.]+\)\s*\(type \w+\)\s*\)'
+        r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)',
+        fp, re.S,
+    )
+    assert len(silk_triangles) == 1
+    points = re.findall(r"\(xy ([-\d.]+) ([-\d.]+)\)", silk_triangles[0])
+    assert len(points) == 3
+
+
+def test_generate_footprint_lqfp32_has_triangle_pin1_marker():
+    fp = generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="TEST")
+    silk_triangles = re.findall(
+        r'\(fp_poly\s*\(pts((?:\s*\(xy [-\d.]+ [-\d.]+\))+)\s*\)'
+        r'\s*\(stroke\s*\(width [-\d.]+\)\s*\(type \w+\)\s*\)'
+        r'\s*\(fill \w+\)\s*\(layer "F\.SilkS"\)\s*\)',
+        fp, re.S,
+    )
+    assert len(silk_triangles) == 1
+    points = re.findall(r"\(xy ([-\d.]+) ([-\d.]+)\)", silk_triangles[0])
+    assert len(points) == 3
+
+
+def test_generate_footprint_does_not_leak_pin1_triangle_params_to_generator():
+    # If pipeline.py forgot to pop pin1_triangle_axis/_size/_anchor_mm
+    # before calling the generator, this raises TypeError for an
+    # unexpected kwarg -- this just has to not raise.
+    generate_footprint("SOIC-8", FAMILY_TREE_PATH, name="TEST")
+    generate_footprint("LQFP-32", FAMILY_TREE_PATH, name="TEST")
 
 
 def test_add_outline_with_silk_line_params_draws_two_lines():

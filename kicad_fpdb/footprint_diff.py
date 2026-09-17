@@ -12,10 +12,13 @@ Tolerances mirror the regression suite's own documented reasoning:
 - roundrect_rratio: 1e-2 -- KiCad's own generator clamps corner radius
   to an absolute maximum on some parts, shifting the ratio slightly away
   from the nominal 0.25 without indicating a generator bug.
-- Pin-1 triangle points (QFN only): rounded to 0.01mm, compared as sets
-  since winding order isn't guaranteed to match.
+- Pin-1 triangle points (QFN/SOIC/LQFP): each real point must have a
+  generated point within TRIANGLE_POINT_TOLERANCE_MM (0.015mm) -- looser
+  than a simple rounded-value comparison, since LQFP's real files carry
+  an unavoidable ~0.01mm generator-rounding residual on some variants.
 """
 
+import math
 import re
 
 PAD_START = re.compile(r'\(pad "(\d+)" (\w+) (\w+)')
@@ -34,11 +37,38 @@ XY_PATTERN = re.compile(r"\(xy ([-\d.]+) ([-\d.]+)\)")
 # should report, since they're already tracked separately (see each
 # entry's own reasoning in the regression suite this mirrors).
 KNOWN_UNNUMBERED_PAD_GAPS = {"R-0201"}
+# SOIC-8-1EP_..._EP2.514x3.2mm's real reference file is a one-off
+# anomaly: its pad 1 shifts furthest of all 8 real EP variants
+# (-2.6375 vs the standard -2.475), and uniquely among them, its real
+# pin-1 triangle marker also shifts (by 0.04mm, uniformly across all 3
+# points) -- every other EP variant, including ones with a smaller pad
+# shift, keeps the marker at the exact standard body-anchored position
+# this project's formula computes. Not explainable by any formula
+# checked; tracked as an isolated real-file quirk rather than chased
+# further, per docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-
+# triangle-marker-design.md.
+KNOWN_TRIANGLE_ANOMALIES = {"SOIC-8 ep2_514x3_2"}
 
 NUMBERED_TOLERANCE_MM = 1e-4
 UNNUMBERED_TOLERANCE_MM = 1e-2
 RRATIO_TOLERANCE = 1e-2
-TRIANGLE_ROUND_DP = 2
+
+# Families whose real reference footprints carry a pin-1 triangle
+# marker on F.SilkS (matched via pin1_marker_style="triangle") --
+# checked against the descriptor's own family head (e.g. "QFN-12" ->
+# "QFN"). SOT-23/TSOT-23 also have real triangle markers but are
+# deliberately not included yet -- their geometry doesn't fit either
+# formula this project implements; see docs/superpowers/specs/
+# 2026-09-17-soic-lqfp-pin1-triangle-marker-design.md's Non-goals.
+TRIANGLE_MARKER_FAMILIES = {"QFN", "SOIC", "LQFP"}
+# Max allowed distance, in mm, between a real triangle point and its
+# closest generated counterpart. Needs to be looser than a simple
+# rounded-value comparison: LQFP's real files have an unavoidable
+# ~0.01mm generator-rounding residual on some variants (verified exact
+# match on the other variants) -- 0.015mm absorbs that while staying
+# far tighter than any plausible real geometry bug (marker dimensions
+# are 0.24-0.47mm at this scale).
+TRIANGLE_POINT_TOLERANCE_MM = 0.015
 
 
 def parse_silk_triangle(text: str) -> list[tuple[float, float]] | None:
@@ -118,6 +148,23 @@ def _diff_rratio(gen_rratio, real_rratio, label: str) -> list[str]:
     return []
 
 
+def _triangle_points_match(
+    real_points: list[tuple[float, float]], gen_points: list[tuple[float, float]],
+    tolerance: float = TRIANGLE_POINT_TOLERANCE_MM,
+) -> bool:
+    if len(real_points) != len(gen_points):
+        return False
+    remaining = list(gen_points)
+    for rp in real_points:
+        if not remaining:
+            return False
+        closest = min(remaining, key=lambda gp: math.hypot(gp[0] - rp[0], gp[1] - rp[1]))
+        if math.hypot(closest[0] - rp[0], closest[1] - rp[1]) > tolerance:
+            return False
+        remaining.remove(closest)
+    return True
+
+
 def diff_footprint(descriptor: str, generated: str, real_text: str) -> list[str]:
     """Compares a generated .kicad_mod's text against a real reference
     footprint's text, field by field, collecting every discrepancy found
@@ -188,23 +235,15 @@ def diff_footprint(descriptor: str, generated: str, real_text: str) -> list[str]
 
                 diffs.extend(_diff_rratio(gen["roundrect_rratio"], real["roundrect_rratio"], label))
 
-    if descriptor.split()[0] == "QFN":
-        # Scoped to QFN only -- see kicad_fpdb.naming/pipeline's own pin-1
-        # triangle work; other families (SOIC, SOT, LQFP) have real
-        # triangle markers too but this project still draws a circle for
-        # them, tracked separately, not a diff this tool should report.
+    family = descriptor.split()[0].split("-")[0]
+    if family in TRIANGLE_MARKER_FAMILIES and descriptor not in KNOWN_TRIANGLE_ANOMALIES:
         real_triangle = parse_silk_triangle(real_text)
         generated_triangle = parse_silk_triangle(generated)
         if real_triangle is None:
-            diffs.append("real file has no pin-1 triangle marker (unexpected for QFN)")
+            diffs.append(f"real file has no pin-1 triangle marker (unexpected for {family})")
         elif generated_triangle is None:
             diffs.append("missing pin-1 triangle marker")
-        else:
-            real_points = {(round(x, TRIANGLE_ROUND_DP), round(y, TRIANGLE_ROUND_DP)) for x, y in real_triangle}
-            gen_points = {
-                (round(x, TRIANGLE_ROUND_DP), round(y, TRIANGLE_ROUND_DP)) for x, y in generated_triangle
-            }
-            if gen_points != real_points:
-                diffs.append(f"pin-1 triangle points: generated={gen_points} real={real_points}")
+        elif not _triangle_points_match(real_triangle, generated_triangle):
+            diffs.append(f"pin-1 triangle points: generated={generated_triangle} real={real_triangle}")
 
     return diffs

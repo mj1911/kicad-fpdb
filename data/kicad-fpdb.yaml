@@ -246,6 +246,10 @@ SOIC:
     pad_shape: roundrect
     pad_type: smd
     centered: true
+    pin1_marker_style: triangle
+    pin1_triangle_axis: y
+    pin1_triangle_size: {narrow: small, wide: large}
+    pin1_triangle_anchor_mm: {narrow: 0.65, wide: 0.90}
   # SOIC-8-1EP: an exposed thermal pad at the footprint center, one
   # real vendor variant per EP copper size (e.g. "SOIC-8 ep2_41x3_3").
   # Byte-verified against all 8 real SOIC-8-1EP files: the F.SilkS/
@@ -358,6 +362,10 @@ LQFP:
     fab_outline: true
     fab_chamfer: 1.0
     pad_lead_extension: 0.675
+    pin1_marker_style: triangle
+    pin1_triangle_axis: y
+    pin1_triangle_size: large
+    pin1_triangle_anchor_mm: 0.75
   children:
     LQFP-32:
       params: {pin_count: 32, pitch: 0.8, pad_size: [1.5, 0.5], courtyard_body_size: 7.0}
