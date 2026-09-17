@@ -538,6 +538,33 @@ and become available for everyone to automatically update to.
   ep2_41x3_3`) rather than a formula, since vendor EP sizing has none.
   Real KiCad's own `_ThermalVias` sibling of each of these (adds an
   actual via array inside the pad) is not yet implemented — see TODO.
+* Added the `QFN` family (20 generic single-exposed-pad variants,
+  12-80 pins): 100% reuse of `quad_perimeter` and the existing
+  exposed-pad/courtyard/fab-outline pipeline (`ep_size`+
+  `_add_exposed_pad`, `courtyard_body_size`+`courtyard_margin_x/y`,
+  `fab_outline`+`fab_chamfer`, default `pin1_marker: true`) — the only
+  code change anywhere is generalizing `descriptive_suffix`'s
+  `family in ("SOIC", "LQFP")` branch to also accept `"QFN"`
+  (`kicad_fpdb/naming.py`), since QFN needs exactly the same
+  WxH+pitch+EP-size suffix SOIC's own `-1EP` variants already produce.
+  QFN's leads sit inboard of the true body edge rather than LQFP's
+  outward gull-wing leads, so `pad_lead_extension` is negative
+  (`-0.0625` at the family root, overridden per variant same as
+  LQFP's). Verification against the real `Package_DFN_QFN.pretty`
+  library found 3 of the spec's originally-scoped pin counts don't fit
+  `quad_perimeter` at all and have no same-pin-count generic
+  alternative: QFN-8's real file is actually a 2-row
+  `dual_row_grid`-style layout, and QFN-42/QFN-52 have uneven
+  per-side pin counts from a rectangular (non-square) body. Resolved
+  by giving QFN-16, QFN-32, and QFN-48 each a second real body/pitch
+  class instead, via the exact same `variants:`/`default_width:`
+  width-class mechanism DIP's narrow/regular/wide/extra_wide/
+  ultra_wide classes already use — keeping the total at 20 distinct
+  descriptors (12, 16, 16 p65, 20, 24, 28, 32, 32 p65, 36, 40, 44, 48,
+  48 p4, 56, 60, 64, 68, 72, 76, 80) while still covering a 12-80 pin
+  spread. All match their real reference `.kicad_mod` files within the
+  existing regression tolerances. See
+  `docs/superpowers/specs/2026-09-16-qfn-family-design.md`.
 
 ## TODO
 
@@ -552,11 +579,20 @@ each session, in roughly chronological order:
   different edge entirely (not top) would need the offset direction
   derived rather than assumed.
 * Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
-  widths, more chip passive sizes, additional package families (QFN,
-  BGA, etc.) — each needs its own hand-verified real-footprint
-  regression case per the existing pattern in
-  `tests/test_pipeline_regression.py`. SOT-23/-5/-6/-8 and
-  TSOT-23-5/-6/-8 are done.
+  widths, more chip passive sizes, additional package families (BGA,
+  etc.) — each needs its own hand-verified real-footprint regression
+  case per the existing pattern in `tests/test_pipeline_regression.py`.
+  SOT-23/-5/-6/-8, TSOT-23-5/-6/-8, and QFN (20 generic single-EP
+  variants) are done.
+* QFN follow-ups deliberately excluded from the initial batch:
+  vendor-specific QFN variants (`HVQFN`, `VQFN`, `DHVQFN`, ...);
+  multi-EP QFN variants (`-2EP`/`-3EP`/`-4EP`/`-5EP` — not supported
+  by the current single-EP `ep_size` mechanism, which assumes exactly
+  one center pad); QFN `_ThermalVias` siblings (needs a real via-array
+  primitive — same deferred item as SOIC-8-1EP's own `_ThermalVias`
+  siblings above); and a possible future `dual_row_grid`-based
+  QFN-8-style 2-row QFN family (or similar) to cover the pin counts
+  (8, 42, 52) that don't fit `quad_perimeter`.
 * SOT-23W: a natural follow-up under the existing `SOT` root, but NOT a
   mechanical addition like TSOT-23-5/6/8 was — its real reference
   footprint uses a filled-triangle silk polygon for the pin-1 marker

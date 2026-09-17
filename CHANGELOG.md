@@ -1,5 +1,20 @@
 # Changes
 
+2026-09-16 v0.0.16:
+
+* Added the `QFN` family (20 generic single-exposed-pad variants,
+  12-80 pins), fully reusing `quad_perimeter` and the existing
+  exposed-pad/courtyard/fab-outline pipeline — no new generator or
+  primitive, pure data addition to `data/kicad-fpdb.yaml`. Extended
+  `descriptive_suffix` to cover QFN by generalizing the existing
+  SOIC/LQFP branch rather than adding a new one.
+* Real KiCad's QFN-8/-42/-52 don't fit `quad_perimeter` (QFN-8 is a
+  2-row layout; QFN-42/-52 have uneven per-side pin counts from a
+  rectangular body) and have no same-pin-count generic alternative —
+  replaced with second body/pitch classes at QFN-16, QFN-32, and
+  QFN-48 instead, via the existing width-class mechanism.
+* Full suite passing (504 tests).
+
 2026-09-16 v0.0.15:
 
 * Added two more DIP width classes (`extra_wide`/`ultra_wide`, letters
