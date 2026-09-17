@@ -7,7 +7,7 @@ from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.asymmetric_dual_row import asymmetric_dual_row
 from kicad_fpdb.generators.two_pad import two_pad_chip
-from kicad_fpdb.pipeline import GENERATORS, _add_outline, generate_footprint
+from kicad_fpdb.pipeline import GENERATORS, _add_corner_marks, _add_outline, generate_footprint
 
 FAMILY_TREE_PATH = "data/kicad-fpdb.yaml"
 
@@ -316,6 +316,84 @@ def test_add_outline_pin1_marker_false_suppresses_triangle_too():
 
     assert len(geometry.circles) == 0
     assert len(geometry.polys) == 0
+
+
+def test_add_corner_marks_extends_legs_to_side_group_jog():
+    from kicad_fpdb.geometry import FootprintGeometry
+    geometry = FootprintGeometry(name="TEST")
+    side_groups = {
+        "top": (-1.0, -3.0, 1.0, -2.2),
+        "bottom": (-1.0, 2.2, 1.0, 3.0),
+        "left": (-3.0, -1.0, -2.2, 1.0),
+        "right": (2.2, -1.0, 3.0, 1.0),
+    }
+    _add_corner_marks(geometry, -2.0, -2.0, 2.0, 2.0, side_groups=side_groups, mx=0.25, my=0.25)
+
+    assert len(geometry.lines) == 8
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in geometry.lines for pt in (line.start, line.end)}
+    # Each leg now reaches the adjacent side's own margin-expanded edge
+    # (e.g. top-left corner's horizontal leg is bounded by "top"'s own
+    # left edge minus mx: -1.0 - 0.25 = -1.25) instead of a fixed 0.3mm
+    # offset -- see docs/superpowers/specs/2026-09-17-corner-mark-
+    # extends-to-courtyard-jog-design.md.
+    assert (-2.0, -2.0) in endpoints
+    assert (-1.25, -2.0) in endpoints
+    assert (-2.0, -1.25) in endpoints
+    assert (2.0, -2.0) in endpoints
+    assert (1.25, -2.0) in endpoints
+    assert (2.0, -1.25) in endpoints
+    assert (2.0, 2.0) in endpoints
+    assert (1.25, 2.0) in endpoints
+    assert (2.0, 1.25) in endpoints
+    assert (-2.0, 2.0) in endpoints
+    assert (-1.25, 2.0) in endpoints
+    assert (-2.0, 1.25) in endpoints
+    for line in geometry.lines:
+        assert line.layer == "F.SilkS"
+
+
+def test_add_corner_marks_falls_back_to_fixed_length_without_side_groups():
+    from kicad_fpdb.geometry import FootprintGeometry
+    geometry = FootprintGeometry(name="TEST")
+    _add_corner_marks(geometry, -2.0, -2.0, 2.0, 2.0)
+
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in geometry.lines for pt in (line.start, line.end)}
+    # No side_groups at all -- every leg keeps the old fixed 0.3mm length.
+    assert (-1.7, -2.0) in endpoints
+    assert (-2.0, -1.7) in endpoints
+    assert (1.7, -2.0) in endpoints
+    assert (2.0, -1.7) in endpoints
+    assert (1.7, 2.0) in endpoints
+    assert (2.0, 1.7) in endpoints
+    assert (-1.7, 2.0) in endpoints
+    assert (-2.0, 1.7) in endpoints
+
+
+def test_add_corner_marks_falls_back_per_leg_when_one_side_is_missing():
+    from kicad_fpdb.geometry import FootprintGeometry
+    geometry = FootprintGeometry(name="TEST")
+    # No "top" entry -- both top corners' horizontal legs must fall back
+    # to the fixed length, while every other leg (bounded by a side that
+    # IS present) still computes from side_groups.
+    side_groups = {
+        "bottom": (-1.0, 2.2, 1.0, 3.0),
+        "left": (-3.0, -1.0, -2.2, 1.0),
+        "right": (2.2, -1.0, 3.0, 1.0),
+    }
+    _add_corner_marks(geometry, -2.0, -2.0, 2.0, 2.0, side_groups=side_groups, mx=0.25, my=0.25)
+
+    endpoints = {(round(pt[0], 5), round(pt[1], 5)) for line in geometry.lines for pt in (line.start, line.end)}
+    # Top corners' horizontal legs: fixed-length fallback (no "top").
+    assert (-1.7, -2.0) in endpoints
+    assert (1.7, -2.0) in endpoints
+    # Top corners' vertical legs: computed from "left"/"right" (present).
+    assert (-2.0, -1.25) in endpoints
+    assert (2.0, -1.25) in endpoints
+    # Bottom corners: fully computed (both "bottom" and "left"/"right" present).
+    assert (1.25, 2.0) in endpoints
+    assert (2.0, 1.25) in endpoints
+    assert (-1.25, 2.0) in endpoints
+    assert (-2.0, 1.25) in endpoints
 
 
 def test_add_outline_with_courtyard_body_width_draws_stepped_courtyard():

@@ -93,13 +93,41 @@ def _quad_side_groups(pads) -> dict[str, tuple[float, float, float, float]]:
     }
 
 
-def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) -> None:
+def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float,
+                       side_groups: dict[str, tuple[float, float, float, float]] | None = None,
+                       mx: float = COURTYARD_MARGIN_MM, my: float = COURTYARD_MARGIN_MM) -> None:
+    # Each leg extends inward from the silk body corner until it reaches
+    # the courtyard's own "jog" on that same side -- the point where the
+    # stepped F.CrtYd outline transitions from the plain body corner to
+    # the adjacent side's own pad-arm edge -- instead of a fixed offset.
+    # side_groups uses the same per-side arm rects _quad_side_groups
+    # already computes for the courtyard (raw pad-group bbox, not yet
+    # margin-expanded -- mx/my are applied here). A missing side (or no
+    # side_groups at all) falls back to the old fixed CORNER_MARK_MM
+    # length for just that leg -- not reachable today (LQFP/QFN's
+    # quad_perimeter always populates all four sides) but keeps this
+    # function safe to call with partial data. See docs/superpowers/
+    # specs/2026-09-17-corner-mark-extends-to-courtyard-jog-design.md.
+    side_groups = side_groups or {}
     corners = [(sx0, sy0), (sx1, sy0), (sx1, sy1), (sx0, sy1)]
     for cx, cy in corners:
         x_dir = 1.0 if cx == sx0 else -1.0
         y_dir = 1.0 if cy == sy0 else -1.0
-        geometry.lines.append(Line(start=(cx, cy), end=(cx + x_dir * CORNER_MARK_MM, cy), layer="F.SilkS"))
-        geometry.lines.append(Line(start=(cx, cy), end=(cx, cy + y_dir * CORNER_MARK_MM), layer="F.SilkS"))
+
+        horiz_side = side_groups.get("top" if cy == sy0 else "bottom")
+        if horiz_side is not None:
+            leg_x_end = horiz_side[0] - mx if x_dir > 0 else horiz_side[2] + mx
+        else:
+            leg_x_end = cx + x_dir * CORNER_MARK_MM
+
+        vert_side = side_groups.get("left" if cx == sx0 else "right")
+        if vert_side is not None:
+            leg_y_end = vert_side[1] - my if y_dir > 0 else vert_side[3] + my
+        else:
+            leg_y_end = cy + y_dir * CORNER_MARK_MM
+
+        geometry.lines.append(Line(start=(cx, cy), end=(leg_x_end, cy), layer="F.SilkS"))
+        geometry.lines.append(Line(start=(cx, cy), end=(cx, leg_y_end), layer="F.SilkS"))
 
 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
