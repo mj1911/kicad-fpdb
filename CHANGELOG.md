@@ -42,6 +42,14 @@
   tuple-vs-scalar bug in the triangle's body-anchor calculation along
   the way. See docs/superpowers/specs/2026-09-17-sot23-pin1-triangle-
   marker-design.md.
+* Replaced Reference/Value text's flat-margin-plus-grid-snap placement
+  with real KiCad's own ungridded per-family-group margins (`0.7mm`
+  default, `0.805mm` DIP/CERDIP/SMDIP, `0.745mm` DIP's/CERDIP's
+  `socket` modifier, `0.87mm` R-AXIAL). Caught and fixed a regex
+  DOTALL-crossing bug in the initial investigation that had produced
+  two wrong constants (`0.94mm`/`1.0mm`) before landing. See
+  docs/superpowers/specs/2026-09-17-exact-reference-value-text-
+  position-design.md.
 
 2026-09-16 v0.0.16:
 

@@ -715,6 +715,36 @@ and become available for everyone to automatically update to.
   exercised through any real family's `generate_footprint` call. See
   docs/superpowers/specs/2026-09-17-sot23-pin1-triangle-marker-
   design.md.
+* Replaced Reference/Value text's flat `0.7mm` + 1.27mm-grid-snap
+  placement with real KiCad's own (ungridded) placement. Real KiCad
+  never grid-aligns this at all — the snap was a deliberate stylistic
+  choice this project had made, not something real footprints do. The
+  actual gap is a small set of per-family-group flat constants: `0.7mm`
+  default (SOIC, LQFP, QFN, R, C, SOT-23, TSOT-23), `0.805mm` for
+  DIP/CERDIP/SMDIP, `0.745mm` for DIP's/CERDIP's `socket` modifier
+  specifically (with or without `longpads`), and `0.87mm` for R-AXIAL.
+  New `text_margin_mm` param on `_add_outline`'s neighbor
+  `_add_reference_and_value_text`, defaulting to the unchanged `0.7mm`
+  so most families need no yaml change at all.
+  `kicad_fpdb.footprint_diff.diff_footprint` now also compares real
+  vs. generated Reference/Value position (`0.01mm` tolerance). Two
+  constants in the *first* pass at this investigation (`0.94mm` for
+  socket, `1.0mm` for R-AXIAL) were wrong — a regex used `.*?` to find
+  each element's own `F.CrtYd` layer tag, which non-greedily crossed
+  into a different, later geometry element (socket's own extra
+  `F.SilkS` rectangle; R-AXIAL's `F.SilkS` body rect) whenever the
+  first element matched wasn't itself on that layer — the same DOTALL
+  block-crossing bug already hit twice earlier this session (the QFN
+  pin-1 triangle, the corner-mark jog work). Caught by the regression
+  suite once this new check actually ran against the real library;
+  corrected with a stricter, non-crossing regex before landing. Also
+  added `KNOWN_TEXT_POSITION_ANOMALIES` (`SOIC-14`/`-16`/`-20 w`/
+  `-24 w`): these inherit SOIC's own already-documented ~0.02-0.04mm
+  `courtyard_body_margin` averaging approximation via their
+  courtyard-relative text position — a pre-existing, accepted geometry
+  approximation surfacing through a new check, not a new bug. See
+  docs/superpowers/specs/2026-09-17-exact-reference-value-text-
+  position-design.md.
 
 ## TODO
 
