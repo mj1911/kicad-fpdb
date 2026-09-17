@@ -55,6 +55,13 @@ PIN1_TRIANGLE_HALF_HEIGHT_MM = 0.24
 # edge and the triangle's apex -- the apex lands just past where the
 # courtyard line on that side already sits.
 PIN1_TRIANGLE_SILK_OFFSET_MM = 0.01
+# A second, larger real marker size -- SOIC's wide width class and
+# every LQFP variant use this pair instead of the "small" one above,
+# verified exact (zero error) against every real sample checked. See
+# docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-triangle-marker-
+# design.md.
+PIN1_TRIANGLE_DEPTH_LARGE_MM = 0.47
+PIN1_TRIANGLE_HALF_HEIGHT_LARGE_MM = 0.34
 # Length, in mm, of each leg of a QFP-style corner-mark bracket. Real
 # KiCad varies this per package (0.3mm for LQFP-32, 0.45mm for LQFP-48);
 # this project uses one fixed value for all QFP variants, consistent
@@ -133,6 +140,8 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float,
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
                   body_size: float | None = None, pin1_marker: bool = True,
                   pin1_marker_style: str = "circle",
+                  pin1_triangle_axis: str | None = None, pin1_triangle_size: str = "small",
+                  pin1_triangle_anchor_mm: float | None = None,
                   silk_y: float | None = None, silk_half_length: float | None = None,
                   silk_two_lines: bool = False,
                   silk_segments: list[tuple[tuple[float, float], tuple[float, float]]] | None = None,
@@ -432,32 +441,56 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
 
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
     if pin1_marker and pad1 is not None and pin1_marker_style == "triangle":
-        # A filled triangle pointing outward from pad 1, along whichever
-        # axis pad 1 itself points on -- real KiCad's own QFN convention
-        # (pin 1 sits on a side, not necessarily the top, unlike the
-        # circle marker below). Side/direction is detected the same way
-        # _quad_side_groups already classifies quad-perimeter pads: a
-        # pad wider than it is tall sits on the left or right side (its
-        # outward axis is X); otherwise it's on the top or bottom (Y).
-        # See docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-
-        # marker-design.md.
+        # A filled triangle pointing outward from pad 1. Real KiCad's own
+        # per-family generator scripts each choose which axis the marker
+        # extends along independently -- not inferrable from pad shape
+        # alone (SOIC/LQFP's pad 1 is wide-in-X, same as QFN's, but their
+        # real marker extends in Y, not X) -- so pin1_triangle_axis makes
+        # that choice explicit, defaulting to the old shape-based
+        # inference (pw > ph -> "x") so QFN's yaml needs no change. See
+        # docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-marker-
+        # design.md (axis="x", the original QFN case) and
+        # docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-triangle-
+        # marker-design.md (axis="y", added for SOIC/LQFP).
         pw, ph = pad1.size
         px, py = pad1.at
         mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
         my = courtyard_margin_y if courtyard_margin_y is not None else COURTYARD_MARGIN_MM
         offset = PIN1_TRIANGLE_SILK_OFFSET_MM
-        depth = PIN1_TRIANGLE_DEPTH_MM
-        half_h = PIN1_TRIANGLE_HALF_HEIGHT_MM
-        if pw > ph:
+        depth, half_span = (
+            (PIN1_TRIANGLE_DEPTH_LARGE_MM, PIN1_TRIANGLE_HALF_HEIGHT_LARGE_MM)
+            if pin1_triangle_size == "large"
+            else (PIN1_TRIANGLE_DEPTH_MM, PIN1_TRIANGLE_HALF_HEIGHT_MM)
+        )
+        axis = pin1_triangle_axis if pin1_triangle_axis is not None else ("x" if pw > ph else "y")
+        if axis == "x":
             direction = -1.0 if px < 0 else 1.0
             apex_x = px + direction * (pw / 2 + mx + offset)
             base_x = apex_x + direction * depth
-            points = [(apex_x, py), (base_x, py - half_h), (base_x, py + half_h)]
+            points = [(apex_x, py), (base_x, py - half_span), (base_x, py + half_span)]
         else:
             direction = -1.0 if py < 0 else 1.0
             apex_y = py + direction * (ph / 2 + my + offset)
             base_y = apex_y + direction * depth
-            points = [(px, apex_y), (px - half_h, base_y), (px + half_h, base_y)]
+            if pin1_triangle_anchor_mm is not None:
+                # Body-anchored, not pad-relative: real KiCad's own LQFP/
+                # SOIC marker sits a fixed distance from the true body
+                # edge regardless of where pad 1's own lead happens to
+                # extend to -- verified exact (zero error) against every
+                # real LQFP/SOIC sample once pad_lead_extension's effect
+                # on pad 1's own position was correctly excluded. See
+                # docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-
+                # triangle-marker-design.md.
+                body_half = (
+                    courtyard_body_width / 2 if courtyard_body_width is not None else courtyard_body_size / 2
+                )
+                min_px, max_px = _pad_center_extent(geometry.pads, 0)
+                center_x = (min_px + max_px) / 2
+                perp_dir = -1.0 if px < center_x else 1.0
+                apex_x = center_x + perp_dir * (body_half + pin1_triangle_anchor_mm)
+            else:
+                apex_x = px
+            points = [(apex_x, apex_y), (apex_x - half_span, base_y), (apex_x + half_span, base_y)]
         geometry.polys.append(Poly(points=points, layer="F.SilkS"))
     elif pin1_marker and pad1 is not None:
         # A filled circle directly above pad 1: same X as the pad,

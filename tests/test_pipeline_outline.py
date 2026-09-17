@@ -322,6 +322,64 @@ def test_add_outline_pin1_marker_false_suppresses_triangle_too():
     assert len(geometry.polys) == 0
 
 
+def test_add_outline_with_y_axis_triangle_uses_body_anchor():
+    geometry = _qfp32_geometry()
+    _add_outline(
+        geometry, body_size=7.22, pin1_marker_style="triangle",
+        pin1_triangle_axis="y", pin1_triangle_size="large", pin1_triangle_anchor_mm=0.75,
+        courtyard_margin_x=0.25, courtyard_margin_y=0.25, courtyard_body_size=7.0,
+    )
+
+    assert len(geometry.polys) == 1
+    marker = geometry.polys[0]
+    assert marker.layer == "F.SilkS"
+
+    # Extension axis (Y): apex = pad1's own top edge (-2.8 - 0.25 = -3.05)
+    # minus courtyard_margin_y (0.25) minus the fixed 0.01mm silk offset
+    # = -3.31; base = apex - 0.47 (the "large" depth) = -3.78.
+    # Perpendicular axis (X): body-anchored, NOT pad1-relative -- apex.x
+    # = -(courtyard_body_size/2 + anchor) = -(3.5 + 0.75) = -4.25,
+    # independent of pad1.x entirely. Base spread +/-0.34 (the "large"
+    # half-width) around that.
+    apex = (-4.25, -3.31)
+    base_a = (-4.59, -3.78)
+    base_b = (-3.91, -3.78)
+    points = {(round(x, 5), round(y, 5)) for x, y in marker.points}
+    assert points == {apex, base_a, base_b}
+
+
+def test_add_outline_with_y_axis_triangle_falls_back_to_pad_relative_without_anchor():
+    geometry = _qfp32_geometry()
+    _add_outline(
+        geometry, body_size=7.22, pin1_marker_style="triangle",
+        pin1_triangle_axis="y", pin1_triangle_size="large",
+        courtyard_margin_x=0.25, courtyard_margin_y=0.25,
+    )
+
+    assert len(geometry.polys) == 1
+    marker = geometry.polys[0]
+    # No pin1_triangle_anchor_mm -- perpendicular axis (X) falls back to
+    # pad1's own x (-4.175) directly, not body-anchored.
+    apex = (-4.175, -3.31)
+    points = {(round(x, 5), round(y, 5)) for x, y in marker.points}
+    assert apex in points
+
+
+def test_add_outline_triangle_axis_none_still_infers_from_pad_shape():
+    # Regression guard: pin1_triangle_axis's default (None) must keep
+    # reproducing today's QFN behavior exactly -- shape-inferred axis
+    # ("x", since this fixture's pad 1 is wider than tall), "small" size,
+    # pad-relative perpendicular position. Byte-identical to the
+    # existing test_add_outline_with_triangle_style_draws_pin1_triangle.
+    geometry = _qfp32_geometry()
+    _add_outline(geometry, body_size=7.22, pin1_marker_style="triangle")
+
+    marker = geometry.polys[0]
+    apex = (-5.435, -2.8)
+    points = {(round(x, 5), round(y, 5)) for x, y in marker.points}
+    assert apex in points
+
+
 def test_add_corner_marks_extends_legs_to_side_group_jog():
     from kicad_fpdb.geometry import FootprintGeometry
     geometry = FootprintGeometry(name="TEST")
