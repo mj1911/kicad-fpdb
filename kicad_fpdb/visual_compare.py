@@ -192,6 +192,8 @@ PREVIEW_ONLY_DESCRIPTORS = {
     "QFN-32", "QFN-32 p65", "QFN-36", "QFN-40", "QFN-44", "QFN-48",
     "QFN-48 p4", "QFN-56", "QFN-60", "QFN-64", "QFN-68", "QFN-72",
     "QFN-76", "QFN-80",
+    "LQFP-32", "LQFP-48", "LQFP-64", "LQFP-80", "LQFP-100",
+    "LQFP-144", "LQFP-176", "LQFP-208",
 }
 
 
