@@ -685,22 +685,42 @@ and become available for everyone to automatically update to.
   per-point distance tolerance (`TRIANGLE_POINT_TOLERANCE_MM =
   0.015mm`), needed to absorb LQFP's known ≤0.01mm residual without
   loosening things enough to hide a real bug.
+* Extended the pin-1 triangle marker to SOT-23-6/-8 (and their
+  byte-identical TSOT-23-6/-8 aliases) — a pure reuse of SOIC's
+  narrow-class formula and constants (`axis="y"`, `size="small"`,
+  `anchor_mm=0.65`), verified exact (SOT-23-6) and near-exact
+  (SOT-23-8, the same ~0.005mm rounding-noise category already
+  accepted elsewhere) against both real reference files, with zero new
+  geometry needed. SOT-23 and SOT-23-5 (`pin1_marker: false`, their
+  asymmetric layouts are only placeable one way) are untouched — only
+  packages that can physically be placed backwards get a marker at
+  all, unchanged from before. One real bug fixed along the way: the
+  triangle's body-anchor calculation assumed `courtyard_body_size` was
+  always a plain number (true for QFN/LQFP), but SOT declares it as a
+  `[width, height]` tuple (a non-square true body) — now takes the
+  width specifically instead of raising `TypeError`. A second bug
+  caught before landing: the design spec's own draft assumed SOT-23/
+  SOT-23-5's real reference files had no triangle marker either
+  (matching this project's deliberate no-marker choice there) — they
+  actually do; `diff_footprint`'s triangle check now looks at whether
+  the *generated* output has any marker at all before applying
+  `TRIANGLE_MARKER_FAMILIES`, not just family membership, so those
+  stay correctly unflagged without asserting something false about the
+  real files. No family left has a circle marker any more (every
+  family that previously defaulted to one — SOIC, LQFP, QFN,
+  SOT-23-6/-8 — now uses the triangle; DIP/R/C/R-AXIAL/SOT-23/SOT-23-5
+  all have `pin1_marker: false`) — the circle mechanism itself is
+  still covered directly at the `_add_outline` level
+  (`test_add_outline_produces_pin1_marker_circle`), just no longer
+  exercised through any real family's `generate_footprint` call. See
+  docs/superpowers/specs/2026-09-17-sot23-pin1-triangle-marker-
+  design.md.
 
 ## TODO
 
 This is a running list of everything yet planned, updated at the end of
 each session, in roughly chronological order:
 
-* Extend the `pin1_marker_style: triangle` convention to SOT-23 (and
-  TSOT-23) — SOIC and LQFP are done (see above). SOT-23's real
-  triangle geometry doesn't fit either the QFN (`axis="x"`) or
-  SOIC/LQFP (`axis="y"`, body-anchored) formula and needs its own
-  investigation. Also raises a separate question: real SOT-23/SOT-23-5
-  reference files have a triangle marker even though this project
-  currently sets `pin1_marker: false` for both (reasoned as
-  "asymmetric layout, only placeable one way" — a functional argument
-  unrelated to whether real KiCad draws a marker there) — needs its
-  own decision before implementing.
 * Generalize the pin-1 marker's "above pad 1" direction: every current
   generator places pin 1 at the top, so the marker just offsets in -Y.
   Real packages sometimes put pin 1 mid-side rather than at a corner

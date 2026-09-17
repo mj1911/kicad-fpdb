@@ -27,7 +27,21 @@
   design.md.
 * Added `verify_library.py`: full-report diff check (not just
   pass/fail) against the real KiCad library for every known case, via
-  a new shared `kicad_fpdb/footprint_diff.py` module.
+  a new shared `kicad_fpdb/footprint_diff.py` module. Parallelized via
+  a process pool (`-j`, default 12) -- CPU-bound pure Python, unlike
+  `render_png.py`'s subprocess-based work, so threads wouldn't have
+  helped (confirmed: ~3x faster, 20.4s -> 6.7s for all 250 cases).
+* Parallelized the pytest suite itself by default via `pytest-xdist`
+  (`-n 6` in `pyproject.toml`'s `addopts`) -- ~3x faster (43.6s ->
+  ~13.5s for the full 517-test suite on this 4-core machine).
+* Extended the pin-1 triangle marker to SOT-23-6/-8 (and TSOT-23-6/-8),
+  reusing SOIC's narrow-class formula and constants exactly -- no new
+  geometry needed. SOT-23/SOT-23-5 stay marker-less, unchanged, even
+  though their real reference files also carry a triangle (verified) --
+  a deliberate placement-safety choice, not an oversight. Fixed a
+  tuple-vs-scalar bug in the triangle's body-anchor calculation along
+  the way. See docs/superpowers/specs/2026-09-17-sot23-pin1-triangle-
+  marker-design.md.
 
 2026-09-16 v0.0.16:
 
