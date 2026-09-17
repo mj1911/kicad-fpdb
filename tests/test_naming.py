@@ -53,6 +53,17 @@ def test_soic_suffix_empty_without_fab_outline():
     assert descriptive_suffix("SOIC", "8", {"pitch": 1.27}, geom) == ""
 
 
+def test_qfn_suffix_uses_fab_bbox_pitch_and_ep_size():
+    geom = _poly_geometry([(-0.75, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5), (-1.5, -0.75)])
+    suffix = descriptive_suffix("QFN", "16", {"pitch": 0.5, "ep_size": [1.45, 1.45]}, geom)
+    assert suffix == "-1EP_3x3mm_P0.5mm_EP1.45x1.45mm"
+
+
+def test_qfn_suffix_empty_without_ep_size():
+    geom = _poly_geometry([(-0.75, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5), (-1.5, -0.75)])
+    assert descriptive_suffix("QFN", "16", {"pitch": 0.5}, geom) == "_3x3mm_P0.5mm"
+
+
 def test_chip_resistor_suffix_uses_metric_lookup():
     geom = FootprintGeometry(name="TEST")
     assert descriptive_suffix("R", "0603", {"pad_pitch": 1.65}, geom) == "_1608Metric"

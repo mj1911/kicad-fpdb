@@ -96,14 +96,14 @@ def descriptive_suffix(family: str, variant: str, params: dict, geometry,
         family_suffix = "_SideBrazed" if family == "CERDIP" else ""
         return f"_W{_fmt(row_spacing)}mm" + family_suffix + modifier_suffix
 
-    if family in ("SOIC", "LQFP"):
+    if family in ("SOIC", "LQFP", "QFN"):
         pitch = params.get("pitch")
         bbox = fab_outline_bounding_box(geometry)
         if pitch is None or bbox is None:
             return ""
         min_x, min_y, max_x, max_y = bbox
         dims = f"_{_fmt(max_x - min_x)}x{_fmt(max_y - min_y)}mm_P{_fmt(pitch)}mm"
-        ep_size = params.get("ep_size") if family == "SOIC" else None
+        ep_size = params.get("ep_size") if family in ("SOIC", "QFN") else None
         if ep_size is not None:
             # Real KiCad names an exposed-pad SOIC "SOIC-8-1EP_..." --
             # the "-1EP" sits right after the base name, before the
