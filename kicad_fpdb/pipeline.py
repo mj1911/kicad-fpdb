@@ -1,5 +1,3 @@
-import math
-
 from kicad_fpdb.descriptor import parse_descriptor
 from kicad_fpdb.family_tree import load_family_tree, resolve_descriptor
 from kicad_fpdb.generators.asymmetric_dual_row import asymmetric_dual_row
@@ -19,15 +17,14 @@ GENERATORS = {
 }
 
 # Margin, in mm, between the outermost silk/courtyard outline edge and
-# the Reference/Value text placed above/below it. Real KiCad's own gap
-# here varies a little per family (~0.7-0.8mm checked); this project
-# uses one flat value, then snaps the result to TEXT_GRID_MM.
+# the Reference/Value text placed above/below it. Default for every
+# family except DIP/CERDIP/SMDIP (0.805mm) and R-AXIAL (1.0mm), both
+# overridden via the text_margin_mm param -- see docs/superpowers/
+# specs/2026-09-17-exact-reference-value-text-position-design.md.
+# Verified exact (or near-exact, within real-file rounding noise)
+# against real KiCad -- not grid-snapped; real KiCad doesn't grid-
+# align this either.
 TEXT_MARGIN_MM = 0.7
-# Grid, in mm, that Reference/Value text placement snaps to (0.05in),
-# matching a common KiCad hand-placement convention rather than real
-# KiCad's own generator scripts, whose exact per-family text offsets
-# aren't themselves grid-aligned.
-TEXT_GRID_MM = 1.27
 
 # Generic outline conventions: not meant to pixel-match real KiCad's own
 # family-specific outline styles (which vary a lot), just to produce a
@@ -511,22 +508,6 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
         geometry.circles.append(Circle(center=(cx, cy), radius=radius, layer="F.SilkS"))
 
 
-def _snap_to_grid(value: float, grid: float = TEXT_GRID_MM) -> float:
-    return round(round(value / grid) * grid, 6)
-
-
-def _snap_outward(value: float, sign: float, grid: float = TEXT_GRID_MM) -> float:
-    """Snaps to the grid, but only in the direction away from zero along
-    `sign` (negative or positive) -- never inward. Rounding to the
-    *nearest* grid point (as _snap_to_grid does) can land closer to the
-    part than the intended TEXT_MARGIN_MM clearance, visually
-    overlapping the outline once a family's margin sits close enough to
-    a grid line (confirmed on R-1206's courtyard)."""
-    if sign < 0:
-        return round(math.floor(value / grid) * grid, 6)
-    return round(math.ceil(value / grid) * grid, 6)
-
-
 def _outline_bounding_box(geometry) -> tuple[float, float, float, float]:
     """Bounding box of the actual silk/courtyard outline geometry already
     added by _add_outline (rects, lines, arcs) -- deliberately excludes
@@ -548,16 +529,17 @@ def _outline_bounding_box(geometry) -> tuple[float, float, float, float]:
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def _add_reference_and_value_text(geometry, name: str, fab_reference_font_size: float | None = None,
+def _add_reference_and_value_text(geometry, name: str, text_margin_mm: float = TEXT_MARGIN_MM,
+                                   fab_reference_font_size: float | None = None,
                                    fab_reference_thickness: float | None = None,
                                    fab_reference_rotation: float | None = None) -> None:
     min_x, min_y, max_x, max_y = _outline_bounding_box(geometry)
-    center_x = _snap_to_grid((min_x + max_x) / 2)
+    center_x = (min_x + max_x) / 2
     geometry.texts.append(
-        Text(kind="reference", text="REF**", at=(center_x, _snap_outward(min_y - TEXT_MARGIN_MM, -1)), layer="F.SilkS")
+        Text(kind="reference", text="REF**", at=(center_x, min_y - text_margin_mm), layer="F.SilkS")
     )
     geometry.texts.append(
-        Text(kind="value", text=name, at=(center_x, _snap_outward(max_y + TEXT_MARGIN_MM, 1)), layer="F.Fab")
+        Text(kind="value", text=name, at=(center_x, max_y + text_margin_mm), layer="F.Fab")
     )
     # Real KiCad also carries a separate fp_text user "${REFERENCE}" on
     # F.Fab, centered on the footprint's true midpoint (not grid-snapped
@@ -686,6 +668,7 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     fab_reference_font_size = params.pop("fab_reference_font_size", None)
     fab_reference_thickness = params.pop("fab_reference_thickness", None)
     fab_reference_rotation = params.pop("fab_reference_rotation", None)
+    text_margin_mm = params.pop("text_margin_mm", TEXT_MARGIN_MM)
     solder_mask_margin = params.pop("solder_mask_margin", None)
     solder_paste_margin = params.pop("solder_paste_margin", None)
     socket_margin_x = params.pop("socket_margin_x", None)
@@ -750,7 +733,8 @@ def generate_footprint(descriptor_text: str, family_tree_path: str, name: str) -
     name = name + descriptive_suffix(parsed.family, parsed.variant, params, geometry,
                                       applied_modifiers=resolved.applied_modifiers)
     geometry.name = name
-    _add_reference_and_value_text(geometry, name, fab_reference_font_size=fab_reference_font_size,
+    _add_reference_and_value_text(geometry, name, text_margin_mm=text_margin_mm,
+                                   fab_reference_font_size=fab_reference_font_size,
                                    fab_reference_thickness=fab_reference_thickness,
                                    fab_reference_rotation=fab_reference_rotation)
 

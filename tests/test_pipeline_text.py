@@ -69,7 +69,12 @@ def test_reference_and_value_sit_outside_courtyard_not_just_pads():
     assert value_y > 0.725
 
 
-def test_reference_and_value_are_snapped_to_005in_grid():
+def test_reference_and_value_are_not_grid_snapped():
+    # Real KiCad never grid-aligns Reference/Value text -- the previous
+    # 1.27mm (0.05in) grid-snap was a deliberate stylistic choice this
+    # project made, not something real footprints do. R-0603's
+    # courtyard is (-1.475, -0.725) to (1.475, 0.725); the plain 0.7mm
+    # margin lands at -1.425/1.425, neither a multiple of 1.27.
     text = generate_footprint("R-0603", "data/kicad-fpdb.yaml", name="R_TEST")
 
     ref_block = text[text.index('(property "Reference"'):text.index('(property "Value"')]
@@ -77,9 +82,8 @@ def test_reference_and_value_are_snapped_to_005in_grid():
     ref_x, ref_y = (float(v) for v in _require_match(AT_3.search(ref_block)).groups())
     value_x, value_y = (float(v) for v in _require_match(AT_3.search(value_block)).groups())
 
-    grid = 1.27  # 0.05in
-    for coord in (ref_x, ref_y, value_x, value_y):
-        assert abs(round(coord / grid) * grid - coord) < 1e-6
+    assert (ref_x, ref_y) == (0.0, -1.425)
+    assert (value_x, value_y) == (0.0, 1.425)
 
 
 def test_reference_and_value_use_real_dip16_positions():
@@ -175,3 +179,9 @@ def test_reference_and_value_never_land_closer_than_the_intended_gap():
 
         assert courtyard_min_y - ref_y >= 0.7 - 1e-6, descriptor
         assert value_y - courtyard_max_y >= 0.7 - 1e-6, descriptor
+
+
+def test_generate_footprint_does_not_leak_text_margin_mm_to_generator():
+    # If pipeline.py forgot to pop text_margin_mm before calling the
+    # generator, this raises TypeError for an unexpected kwarg.
+    generate_footprint("DIP-16", "data/kicad-fpdb.yaml", name="DIP16_TEST")
