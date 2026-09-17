@@ -285,6 +285,38 @@ def test_add_outline_with_body_size_keeps_pin1_marker():
     assert marker.radius == pytest.approx(0.3)
 
 
+def test_add_outline_with_triangle_style_draws_pin1_triangle():
+    geometry = _qfp32_geometry()
+    _add_outline(geometry, body_size=7.22, pin1_marker_style="triangle")
+
+    assert len(geometry.circles) == 0
+    assert len(geometry.polys) == 1
+    marker = geometry.polys[0]
+    assert marker.layer == "F.SilkS"
+    assert marker.fill == "yes"
+
+    # Pad "1" sits at (-4.175, -2.8), size (1.5, 0.5) -- a left-side pad
+    # (width > height), same orientation convention real QFN's pin 1
+    # uses. No courtyard_margin_x/_y passed, so _add_outline falls back
+    # to COURTYARD_MARGIN_MM (0.5).
+    # Apex: pad's own left edge (-4.175 - 0.75 = -4.925), minus the
+    # courtyard margin (0.5), minus the fixed 0.01mm silk offset.
+    # Base: apex_x - 0.33 (fixed depth), spread pad-y +/- 0.24 (fixed).
+    apex = (-5.435, -2.8)
+    base_top = (-5.765, -3.04)
+    base_bottom = (-5.765, -2.56)
+    points = {(round(x, 5), round(y, 5)) for x, y in marker.points}
+    assert points == {apex, base_top, base_bottom}
+
+
+def test_add_outline_pin1_marker_false_suppresses_triangle_too():
+    geometry = _qfp32_geometry()
+    _add_outline(geometry, body_size=7.22, pin1_marker=False, pin1_marker_style="triangle")
+
+    assert len(geometry.circles) == 0
+    assert len(geometry.polys) == 0
+
+
 def test_add_outline_with_courtyard_body_width_draws_stepped_courtyard():
     geometry = _soic8_geometry()
     _add_outline(

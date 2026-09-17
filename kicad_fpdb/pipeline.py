@@ -42,6 +42,19 @@ PIN1_MARKER_MM = 0.6
 # ~0.05-0.1mm mask expansion) to clear the mask opening too, not just
 # the copper pad.
 PIN1_MARKER_CLEARANCE_MM = 0.3
+# Fixed geometry of the QFN-style filled-triangle pin-1 marker
+# (pin1_marker_style="triangle"), verified against 11 real QFN
+# reference files spanning 12-80 pins and 0.4/0.5/0.65mm pitch -- see
+# docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-marker-design.md.
+# Depth (apex to base) along pad 1's own outward axis.
+PIN1_TRIANGLE_DEPTH_MM = 0.33
+# Half-height of the base, perpendicular to the outward axis, centered
+# on pad 1's own center.
+PIN1_TRIANGLE_HALF_HEIGHT_MM = 0.24
+# Extra clearance, beyond the courtyard margin, between pad 1's own
+# edge and the triangle's apex -- the apex lands just past where the
+# courtyard line on that side already sits.
+PIN1_TRIANGLE_SILK_OFFSET_MM = 0.01
 # Length, in mm, of each leg of a QFP-style corner-mark bracket. Real
 # KiCad varies this per package (0.3mm for LQFP-32, 0.45mm for LQFP-48);
 # this project uses one fixed value for all QFP variants, consistent
@@ -91,6 +104,7 @@ def _add_corner_marks(geometry, sx0: float, sy0: float, sx1: float, sy1: float) 
 
 def _add_outline(geometry, body_width: float | None = None, body_margin: float | None = None,
                   body_size: float | None = None, pin1_marker: bool = True,
+                  pin1_marker_style: str = "circle",
                   silk_y: float | None = None, silk_half_length: float | None = None,
                   silk_two_lines: bool = False,
                   silk_segments: list[tuple[tuple[float, float], tuple[float, float]]] | None = None,
@@ -388,7 +402,35 @@ def _add_outline(geometry, body_width: float | None = None, body_margin: float |
             geometry.lines.append(Line(start=right_pad.at, end=(fsx1, right_pad.at[1]), layer="F.Fab", width=0.1))
 
     pad1 = next((p for p in geometry.pads if p.number == "1"), None)
-    if pin1_marker and pad1 is not None:
+    if pin1_marker and pad1 is not None and pin1_marker_style == "triangle":
+        # A filled triangle pointing outward from pad 1, along whichever
+        # axis pad 1 itself points on -- real KiCad's own QFN convention
+        # (pin 1 sits on a side, not necessarily the top, unlike the
+        # circle marker below). Side/direction is detected the same way
+        # _quad_side_groups already classifies quad-perimeter pads: a
+        # pad wider than it is tall sits on the left or right side (its
+        # outward axis is X); otherwise it's on the top or bottom (Y).
+        # See docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-
+        # marker-design.md.
+        pw, ph = pad1.size
+        px, py = pad1.at
+        mx = courtyard_margin_x if courtyard_margin_x is not None else COURTYARD_MARGIN_MM
+        my = courtyard_margin_y if courtyard_margin_y is not None else COURTYARD_MARGIN_MM
+        offset = PIN1_TRIANGLE_SILK_OFFSET_MM
+        depth = PIN1_TRIANGLE_DEPTH_MM
+        half_h = PIN1_TRIANGLE_HALF_HEIGHT_MM
+        if pw > ph:
+            direction = -1.0 if px < 0 else 1.0
+            apex_x = px + direction * (pw / 2 + mx + offset)
+            base_x = apex_x + direction * depth
+            points = [(apex_x, py), (base_x, py - half_h), (base_x, py + half_h)]
+        else:
+            direction = -1.0 if py < 0 else 1.0
+            apex_y = py + direction * (ph / 2 + my + offset)
+            base_y = apex_y + direction * depth
+            points = [(px, apex_y), (px - half_h, base_y), (px + half_h, base_y)]
+        geometry.polys.append(Poly(points=points, layer="F.SilkS"))
+    elif pin1_marker and pad1 is not None:
         # A filled circle directly above pad 1: same X as the pad,
         # offset up past its own top edge (and the circle's own radius,
         # so its *near* edge — not its center — clears the pad by
