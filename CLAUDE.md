@@ -619,6 +619,26 @@ and become available for everyone to automatically update to.
   The regression suite's new triangle check (`test_pipeline_regression.
   py`) is deliberately scoped to QFN descriptors only, so it won't flag
   these other families' still-circle markers as failures.
+* LQFP/QFN's F.SilkS corner-mark legs no longer use a fixed 0.3mm
+  length for every variant of both families — each leg now extends
+  inward exactly until it reaches the courtyard's own "jog" (the point
+  where the stepped F.CrtYd outline transitions from the plain body
+  corner to the adjacent side's own pad-arm edge), computed from the
+  same `_quad_side_groups` per-side rects the courtyard itself already
+  uses. No new yaml params or per-family opt-in — `_add_corner_marks`
+  is only ever reached by LQFP/QFN, so the fix applies everywhere it's
+  used. Direction is unchanged (still inward); only the length is now
+  exact instead of approximated. Coincidentally lands close to real
+  KiCad's own per-package lengths on the cases checked (LQFP-48: 0.46mm
+  computed vs. real KiCad's 0.45mm for that package, previously this
+  project's flat 0.3mm for every LQFP variant alike) without attempting
+  to match them exactly — still a deliberate, symbolic convention, not
+  real-KiCad matching (see the original corner-mark design spec's own
+  "not meant to pixel-match" framing). `_add_corner_marks` gained a
+  fixed-length fallback for a missing/absent side, not reachable today
+  since `quad_perimeter` always populates all four sides, but keeps the
+  function safe to call with partial data. See docs/superpowers/specs/
+  2026-09-17-corner-mark-extends-to-courtyard-jog-design.md.
 
 ## TODO
 

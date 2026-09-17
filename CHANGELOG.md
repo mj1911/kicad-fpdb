@@ -10,6 +10,14 @@
   their own triangle markers too — tracked as a follow-up, out of
   scope here. See docs/superpowers/specs/2026-09-17-qfn-pin1-triangle-
   marker-design.md.
+* Added `render_png.py`: renders every known case (or a `--family`
+  subset) as a flat generated|reference PNG for quick visual review
+  without a browser, parallelized via a thread pool (`-j`, default 12).
+* Replaced LQFP/QFN's fixed 0.3mm corner-mark leg length with one
+  computed exactly to reach the courtyard's own jog on each side,
+  instead of approximating every variant with the same constant. See
+  docs/superpowers/specs/2026-09-17-corner-mark-extends-to-courtyard-
+  jog-design.md.
 
 2026-09-16 v0.0.16:
 
