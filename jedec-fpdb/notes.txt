@@ -1,0 +1,32 @@
+> Could jedec-fpdb be fully-parameterized? Meaning, can we define these 
+footprints solely by dimensions and formulas, then thread these parameters 
+through for user interaction?  So any DIP package could be created by picking 
+'DIP' and the number of pins, etc?
+
+Read dip.py
+
+Confirmed — dip.py is already formula/parameter-driven, no per-file data at 
+all: generate(width_class, pin_count, density) derives everything (pad 
+positions, drill, pad diameter, body, courtyard) from ms001_dip.py's
+constants + ipc7251.py's formulas. So "pick DIP and a pin count" already 
+works mechanically for the one width class that's populated.
+
+Two separate gaps stand between that and "any DIP package":
+
+Width classes — SUPPORTED_WIDTH_CLASSES = ("narrow",) (line 18) is the only 
+one with real data, because MS-001 Issue D only documents 0.300in row 
+spacing. Adding regular (0.400in)/wide (0.600in) is cheap once their 
+JEDEC outline docs are found — same formulas, just more rows in 
+ms001_dip.py.
+
+A real "pick a family, then answer questions" interaction layer — today 
+it's a CLI with explicit flags (narrow 16 --density M), not the guided/
+interactive picker you're describing. That's a thin layer to add on top, 
+not blocked by anything architecturally.
+
+The bigger tradeoff is if "etc." means other package families too (SOIC, 
+QFP...): that's not one universal formula, it's a new formula-set per 
+family, since each needs its own JEDEC outline doc and its own IPC 
+land-pattern standard (SOIC/QFP would need IPC-7351B, not 7251). 
+Mechanically similar to what you already did for DIP, but each one is 
+its own research pass, not a generalization of the DIP code.
