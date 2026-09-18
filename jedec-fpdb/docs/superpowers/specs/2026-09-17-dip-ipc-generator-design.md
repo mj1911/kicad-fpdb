@@ -228,8 +228,16 @@ consistent pattern, not just per-file noise:
 * Exposing density level as a first-class CLI/API convenience beyond the
   existing `--density` flag (e.g. generating all three at once for
   comparison).
-* Additional DIP width classes (extra_wide, ultra_wide) once real JEDEC
-  outline documents for them are located.
+* Additional DIP width classes (extra_wide/0.900in, ultra_wide/1.000in)
+  once real *plastic*-DIP JEDEC outline documents for them are located —
+  checked the full `jedec-fpdb/JEDEC/` collection on 2026-09-18 and
+  neither exists there yet. The one 0.900in-row-spacing document present,
+  `MS-015a`, is for side-brazed **ceramic** DIPs (CERDIP), a different
+  package family/body construction than plastic DIP, so it was
+  deliberately not adapted as a stand-in data source (would mix a
+  ceramic body spec into a plastic-DIP generator with no real
+  justification). Nothing at all covers 1.000in row spacing, ceramic or
+  plastic, in the current collection.
 * Additional families beyond DIP (SOIC is the natural next step, but
   needs IPC-7351B proper rather than IPC-7251, since SOIC is
   surface-mount).
