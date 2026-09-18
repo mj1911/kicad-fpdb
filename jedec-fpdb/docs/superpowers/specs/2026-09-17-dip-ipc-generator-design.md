@@ -195,6 +195,34 @@ not just Nominal — the formula work identically regardless of density,
 so restricting to Nominal only would have added complexity, not removed
 it.
 
+## Findings
+
+Running `compare.diff()` across all covered pin counts (4, 6, 8, 14, 16,
+24) and all three density levels against the real KiCad files surfaced a
+consistent pattern, not just per-file noise:
+
+* **Pitch and row spacing match real KiCad exactly** at every pin count
+  and density level (delta 0.000mm) — expected, since both are JEDEC
+  Basic (theoretical-exact) dimensions with no tolerance to deviate.
+* **Real KiCad's drill diameter (0.8mm, flat across every pin count)
+  tracks IPC-7251's own "Most" (Level A, Maximum) density level almost
+  exactly** — delta only +0.009mm at Most, vs. -0.041mm at Nominal and
+  -0.091mm at Least. If real KiCad is targeting a density level for hole
+  sizing at all, this suggests Level A, not Level B (Nominal), despite
+  Nominal being the more commonly assumed default.
+* **Real KiCad's pad diameter (1.6mm, flat across every pin count)
+  exceeds every IPC-7251 density level**, including Most (-0.291mm delta
+  even there, growing to -0.491mm at Nominal and -0.591mm at Least). So
+  real KiCad tracks the standard's hole sizing closely but is
+  consistently more generous on annular ring/pad diameter than IPC-7251
+  permits at any density level — a genuine standard-vs-practice gap, not
+  an implementation bug on either side.
+* **Courtyard height is the only metric that varies non-monotonically
+  with pin count** (e.g. Nominal deltas of +1.30mm at N=14, -0.22mm at
+  N=16, +1.32mm at N=24) — this mirrors MS-001's own body-length table
+  not being perfectly linear in pin count either (see the regression
+  note above), rather than indicating an error in either file.
+
 ## Open follow-ups (not in this deliverable)
 
 * Regular (0.400in) and wide (0.600in) width classes, once their own
