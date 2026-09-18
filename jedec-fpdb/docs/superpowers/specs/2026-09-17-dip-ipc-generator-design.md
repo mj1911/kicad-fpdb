@@ -39,8 +39,15 @@ before writing the implementation plan:
   regression over the table's own N=14..28 nominal values, extrapolated
   to N=8, rather than sourced directly from the table (see Data flow).
 
-IPC-7251 itself is not yet on hand; its formulas remain a best-effort
-public reconstruction per the Non-goals note below.
+A real copy of IPC-7251 ("Generic Requirements for Through-Hole Design
+and Land Pattern Standard", June 2008 Final Draft) is also available at
+`docs/IPC-7251-req-for-Through-Hole-Designs.pdf` (same location
+convention as MS-001, also gitignored). Its **Table 3-5, "Dual In-Line
+Packages"** gives DIP-specific values directly — Hole Diameter Factor,
+Annular Ring Excess, and Courtyard Excess, each for Maximum/Nominal/Least
+(Level A/B/C) — so `ipc7251.py`'s formulas are transcribed from the real
+standard's own DIP table, not a secondary-source reconstruction (see
+Data flow).
 
 This is background research, not a production feature: the deliverable is
 a working formula pipeline for DIP plus a documented comparison against
@@ -56,14 +63,11 @@ real KiCad output, not a footprint library meant to replace `kicad-fpdb`.
   those are KiCad/vendor drawing conventions, not something either JEDEC
   MS-001 or IPC-7251/7351B specifies. First pass draws pads, a plain body
   outline rectangle, and a courtyard only.
-* No access to the actual IPC-7251 document. Its formulas and table
-  values (hole clearance, minimum annular ring per density level) are
-  sourced from publicly available secondary references found via web
-  search, cited inline in code comments, and should be treated as
-  best-effort reconstructions, not guaranteed byte-for-byte matches to
-  the official standard. (JEDEC MS-001 itself is on hand — see Purpose —
-  so its numbers are taken directly from the real document, not
-  reconstructed.)
+* No modeling of Table 3-5's "Anti Pad Excess" row (internal-plane
+  ground/power-pour clearance around a plated hole) — this project
+  models only the external copper pad, a single-layer-adjacent concept;
+  anti-pad is a multi-layer-stackup feature out of scope for this first
+  pass.
 * No attempt to reconcile deviations from real KiCad files — deviations
   are expected and are the point of the comparison, not bugs to fix.
 
@@ -117,19 +121,28 @@ Sits as a sibling top-level directory in the same git repo as
    (see Initial scope) — there is no `regular`/`wide` entry to accidentally
    fall back to.
 2. **`ipc7251.py`** takes a lead diameter (from MS-001's lead dimension
-   range) and a density level (Most / Nominal / Least material condition)
-   and returns:
-   * `drill_diameter = lead_diameter_max + hole_clearance(density)`
-   * `pad_diameter = drill_diameter + 2 * min_annular_ring(density)`
-
-   `hole_clearance` and `min_annular_ring` are small lookup tables keyed
-   by density level, sourced from public IPC-7251 summaries during
-   implementation and cited in a code comment next to the table.
+   range) and a density level (`"M"` Most / `"N"` Nominal / `"L"` Least
+   material condition, i.e. IPC-7251's own Level A/B/C) and, using Table
+   3-5's three rows verbatim, returns:
+   * `drill_diameter = lead_diameter_max + hole_diameter_factor(density)`
+     — Table 3-5's "Hole Diameter Factor" (0.25/0.20/0.15mm).
+   * `pad_diameter = drill_diameter + annular_ring_excess(density)` —
+     Table 3-5's "Int. & Ext. Annular ring Excess (added to hole dia.)"
+     (0.50/0.35/0.30mm). Note this is added to the *diameter* directly,
+     not doubled as a per-side radius value — Table 3-5's own wording
+     ("added to hole dia.") already accounts for both sides.
+   * `courtyard_excess(density)` — Table 3-5's "Courtyard Excess from
+     Component body and/or lands" (0.5/0.25/0.1mm), consumed by `dip.py`
+     below.
 3. **`dip.py`**'s `generate(width_class, pin_count, density="N")` combines
    both: computes pin positions from pitch + row spacing, pad/drill size
    from `ipc7251`, and package body outline from MS-001, assembling a
    `Footprint` (pads + a plain body rectangle on silkscreen + a courtyard
-   rectangle — no notch, no pin-1 marker).
+   rectangle — no notch, no pin-1 marker). The courtyard is the union
+   bounding box of the body outline and the pad bounding box (Table
+   3-5's "whichever is greater"), expanded by `courtyard_excess(density)`,
+   then its full width/height rounded up to the nearest 0.10mm (Table
+   3-5's "Courtyard Round-off factor").
 4. **`writer.py`** serializes the `Footprint` to a real `.kicad_mod` file,
    an independent implementation of the KiCad S-expression format (reusing
    only the *format knowledge* already established while building
@@ -146,9 +159,9 @@ Sits as a sibling top-level directory in the same git repo as
 
 ## Testing
 
-* `test_ipc7251.py` — unit tests for the annular-ring/hole-clearance
-  formulas against IPC-7251's published worked examples, independent of
-  any KiCad comparison.
+* `test_ipc7251.py` — unit tests for the hole-diameter/annular-ring/
+  courtyard-excess formulas against Table 3-5's own transcribed values,
+  independent of any KiCad comparison.
 * `test_dip.py` — sanity checks on generated geometry: pad count matches
   pin count, row spacing/pitch match the MS-001 table, no overlapping
   pads, symmetric layout.
@@ -181,9 +194,9 @@ deliverable.
 
 * Regular (0.400in) and wide (0.600in) width classes, once their own
   JEDEC outline document is located — MS-001 Issue D does not cover them.
-* IPC-7251 itself, if a copy turns up — would replace `ipc7251.py`'s
-  best-effort reconstructed constants with the real standard's values.
-* Most/Least density levels, and exposing density as a CLI/API option.
+* Exposing density level as a first-class CLI/API convenience beyond the
+  existing `--density` flag (e.g. generating all three at once for
+  comparison).
 * Additional DIP width classes (extra_wide, ultra_wide) once regular/wide
   are validated.
 * Additional families beyond DIP (SOIC is the natural next step, but

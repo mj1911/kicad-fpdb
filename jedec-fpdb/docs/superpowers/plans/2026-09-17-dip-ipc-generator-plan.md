@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a fully independent Python package, `jedec-fpdb/`, that generates narrow-width (0.300in/7.62mm row spacing) DIP `.kicad_mod` footprints purely from JEDEC MS-001 body/lead data and a best-effort IPC-7251 thru-hole sizing formula, then compares the output against real KiCad reference files as a documented sanity check.
+**Goal:** Build a fully independent Python package, `jedec-fpdb/`, that generates narrow-width (0.300in/7.62mm row spacing) DIP `.kicad_mod` footprints purely from JEDEC MS-001 body/lead data and IPC-7251 Table 3-5's real thru-hole sizing values, then compares the output against real KiCad reference files as a documented sanity check.
 
 **Architecture:** A JEDEC data table (`data/ms001_dip.py`) and an IPC-7251 formula module (`jedec_fpdb/ipc7251.py`) feed a generator (`jedec_fpdb/dip.py`) that builds a plain `Footprint` object (`jedec_fpdb/geometry.py`); a writer (`jedec_fpdb/writer.py`) serializes it to `.kicad_mod`; a comparison tool (`jedec_fpdb/compare.py`) diffs it against real reference files read directly from the system KiCad library. No code or data is shared with `kicad-fpdb` at the repo root.
 
@@ -15,8 +15,9 @@
 - Fully independent of `kicad-fpdb`: no `import kicad_fpdb...` anywhere in this package, and no copying of its YAML/data/geometry/writer code. The only permitted contact is `compare.py`/its tests reading real `.kicad_mod` files directly from the filesystem path `/usr/share/kicad/footprints/Package_DIP.pretty/` (a plain string constant in this project, not an import).
 - Narrow (0.300in/7.62mm row spacing) DIP only. `dip.generate()` must reject any other `width_class` with a clear `ValueError` — do not add `"regular"`/`"wide"` support in this plan.
 - JEDEC MS-001 numbers (pitch, row spacing, body width, lead width, per-pin-count body length table) are transcribed directly from `docs/Ms-001d.pdf` (repo root `docs/`, gitignored, not `jedec-fpdb`'s own `docs/`) — cite the document inline in a comment wherever a constant comes from it.
-- IPC-7251 numbers (hole clearance, minimum annular ring, per density level) are a best-effort public reconstruction, not from the real standard — comment them as such.
+- IPC-7251 numbers (hole diameter factor, annular ring excess, courtyard excess, per density level) are transcribed directly from Table 3-5 ("Dual In-Line Packages") of `docs/IPC-7251-req-for-Through-Hole-Designs.pdf` (repo root `docs/`, gitignored) — cite the table inline in a comment wherever a constant comes from it. The annular ring excess is added directly to the drill diameter to get the pad diameter (Table 3-5's own "added to hole dia." wording) — do not double it as a per-side radius value.
 - Pin count 8's body length is not in MS-001's own table; compute it via linear least-squares regression over the table's own N=14..28 nominal values (see Task 1), not a hand-picked constant.
+- The courtyard's final width and height are each rounded up to the nearest 0.10mm (Table 3-5's "Courtyard Round-off factor"), applied to the full dimension, not the half-extent, then re-centered.
 - No `pip install`/`pip install -e` of this package anywhere — it must run via `pytest` (using a `pythonpath` pytest.ini setting) and via `python -m jedec_fpdb` from within the `jedec-fpdb/` directory, both relying on Python's own `sys.path` insertion, avoiding this machine's externally-managed-Python pip restriction entirely.
 - Density level is always one of the literal strings `"M"` (Most), `"N"` (Nominal, the default), `"L"` (Least) — never a longer word, never case-insensitive matching.
 
@@ -201,7 +202,7 @@ git commit -m "jedec-fpdb: add project scaffolding and JEDEC MS-001 DIP data tab
 
 **Interfaces:**
 - Consumes: nothing from Task 1 directly (takes a plain `lead_diameter_mm: float` argument, not `ms001_dip` types).
-- Produces: `jedec_fpdb.ipc7251.drill_diameter_mm(lead_diameter_mm: float, density: str) -> float`, `jedec_fpdb.ipc7251.pad_diameter_mm(lead_diameter_mm: float, density: str) -> float`, both raising `ValueError` for an unknown `density`.
+- Produces: `jedec_fpdb.ipc7251.drill_diameter_mm(lead_diameter_mm: float, density: str) -> float`, `jedec_fpdb.ipc7251.pad_diameter_mm(lead_diameter_mm: float, density: str) -> float`, `jedec_fpdb.ipc7251.courtyard_excess_mm(density: str) -> float`, `jedec_fpdb.ipc7251.round_up_to_0_1mm(value_mm: float) -> float`, all raising `ValueError` for an unknown `density` (the last one takes no density).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -215,25 +216,35 @@ LEAD = 0.559  # MS-001's lead width max, mm
 
 
 def test_drill_diameter_by_density():
-    assert ipc7251.drill_diameter_mm(LEAD, "N") == pytest.approx(0.759)
+    # Table 3-5 "Hole Diameter Factor": Max 0.25, Nominal 0.20, Least 0.15
     assert ipc7251.drill_diameter_mm(LEAD, "M") == pytest.approx(0.809)
+    assert ipc7251.drill_diameter_mm(LEAD, "N") == pytest.approx(0.759)
     assert ipc7251.drill_diameter_mm(LEAD, "L") == pytest.approx(0.709)
 
 
 def test_pad_diameter_by_density():
-    assert ipc7251.pad_diameter_mm(LEAD, "N") == pytest.approx(0.959)
-    assert ipc7251.pad_diameter_mm(LEAD, "M") == pytest.approx(1.109)
-    assert ipc7251.pad_diameter_mm(LEAD, "L") == pytest.approx(0.809)
+    # Table 3-5 "Int. & Ext. Annular ring Excess (added to hole dia.)":
+    # Max 0.50, Nominal 0.35, Least 0.30 -- added directly to the drill
+    # diameter, not doubled.
+    assert ipc7251.pad_diameter_mm(LEAD, "M") == pytest.approx(1.309)
+    assert ipc7251.pad_diameter_mm(LEAD, "N") == pytest.approx(1.109)
+    assert ipc7251.pad_diameter_mm(LEAD, "L") == pytest.approx(1.009)
+
+
+def test_courtyard_excess_by_density():
+    # Table 3-5 "Courtyard Excess from Component body and/or lands":
+    # Max 0.5, Nominal 0.25, Least 0.1
+    assert ipc7251.courtyard_excess_mm("M") == pytest.approx(0.5)
+    assert ipc7251.courtyard_excess_mm("N") == pytest.approx(0.25)
+    assert ipc7251.courtyard_excess_mm("L") == pytest.approx(0.1)
 
 
 def test_most_is_more_generous_than_nominal_than_least():
-    # "Most material condition" (M) is the most generous/conservative
-    # density level, "Least" (L) the tightest -- pad size should reflect
-    # that ordering regardless of the exact constants used.
-    m = ipc7251.pad_diameter_mm(LEAD, "M")
-    n = ipc7251.pad_diameter_mm(LEAD, "N")
-    l = ipc7251.pad_diameter_mm(LEAD, "L")
-    assert m > n > l
+    # "Most material condition" (M) is Table 3-5's most generous/
+    # conservative density level, "Least" (L) the tightest -- every
+    # quantity should reflect that ordering.
+    assert ipc7251.pad_diameter_mm(LEAD, "M") > ipc7251.pad_diameter_mm(LEAD, "N") > ipc7251.pad_diameter_mm(LEAD, "L")
+    assert ipc7251.courtyard_excess_mm("M") > ipc7251.courtyard_excess_mm("N") > ipc7251.courtyard_excess_mm("L")
 
 
 def test_unknown_density_raises():
@@ -241,6 +252,18 @@ def test_unknown_density_raises():
         ipc7251.drill_diameter_mm(LEAD, "X")
     with pytest.raises(ValueError):
         ipc7251.pad_diameter_mm(LEAD, "X")
+    with pytest.raises(ValueError):
+        ipc7251.courtyard_excess_mm("X")
+
+
+@pytest.mark.parametrize("raw_mm,expected_mm", [
+    (9.079, 9.1),
+    (9.10, 9.1),   # already exact -- must not round up further
+    (11.2286, 11.3),
+    (0.01, 0.1),
+])
+def test_round_up_to_0_1mm(raw_mm, expected_mm):
+    assert ipc7251.round_up_to_0_1mm(raw_mm) == pytest.approx(expected_mm)
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -251,26 +274,35 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'jedec_fpdb.ipc7251'`
 - [ ] **Step 3: Write `jedec_fpdb/ipc7251.py`**
 
 ```python
-"""IPC-7251 thru-hole land pattern sizing -- a best-effort reconstruction
-from public secondary references. No copy of the actual (paywalled)
-IPC-7251 document is available yet; see the design spec's Non-goals.
-These constants should be replaced with the real standard's values if a
-copy turns up.
+"""IPC-7251 ("Generic Requirements for Through-Hole Design and Land
+Pattern Standard") thru-hole land pattern sizing, transcribed directly
+from Table 3-5 ("Dual In-Line Packages") of a copy of the document at
+docs/IPC-7251-req-for-Through-Hole-Designs.pdf (repo root `docs/`,
+gitignored -- IPC's document, not ours to redistribute).
 
-Density level is one of "M" (Most material condition / Density Level A,
-the most generous -- easiest to assemble/rework), "N" (Nominal / Level
-B), or "L" (Least material condition / Level C, the tightest -- highest
-density).
+Density level is one of "M" (Most material condition / Table 3-5's
+"Maximum Level A", the most generous -- easiest to assemble/rework),
+"N" (Nominal / Level B), or "L" (Least material condition / Level C,
+the tightest -- highest density).
 """
+
+import math
 
 _DENSITY_LEVELS = ("M", "N", "L")
 
-# Hole diameter = lead diameter + this clearance.
-_HOLE_CLEARANCE_MM = {"M": 0.25, "N": 0.20, "L": 0.15}
+# Table 3-5, "Hole Diameter Factor" ("Max Lead dia. plus value"): hole
+# diameter = max lead diameter + this factor.
+_HOLE_DIAMETER_FACTOR_MM = {"M": 0.25, "N": 0.20, "L": 0.15}
 
-# Minimum annular ring (each side), added on top of the drill diameter
-# to get the pad diameter.
-_MIN_ANNULAR_RING_MM = {"M": 0.15, "N": 0.10, "L": 0.05}
+# Table 3-5, "Int. & Ext. Annular ring Excess (added to hole dia.)":
+# pad diameter = hole diameter + this value, added directly to the
+# diameter (Table 3-5's own wording), not doubled as a per-side value.
+_ANNULAR_RING_EXCESS_MM = {"M": 0.50, "N": 0.35, "L": 0.30}
+
+# Table 3-5, "Courtyard Excess from Component body and/or lands"
+# ("Which ever is greater" of the component-body or pad-derived
+# bounding box -- see dip.py, which does that max() before adding this).
+_COURTYARD_EXCESS_MM = {"M": 0.5, "N": 0.25, "L": 0.1}
 
 
 def _check_density(density: str) -> None:
@@ -282,12 +314,24 @@ def _check_density(density: str) -> None:
 
 def drill_diameter_mm(lead_diameter_mm: float, density: str) -> float:
     _check_density(density)
-    return lead_diameter_mm + _HOLE_CLEARANCE_MM[density]
+    return lead_diameter_mm + _HOLE_DIAMETER_FACTOR_MM[density]
 
 
 def pad_diameter_mm(lead_diameter_mm: float, density: str) -> float:
     _check_density(density)
-    return drill_diameter_mm(lead_diameter_mm, density) + 2 * _MIN_ANNULAR_RING_MM[density]
+    return drill_diameter_mm(lead_diameter_mm, density) + _ANNULAR_RING_EXCESS_MM[density]
+
+
+def courtyard_excess_mm(density: str) -> float:
+    _check_density(density)
+    return _COURTYARD_EXCESS_MM[density]
+
+
+def round_up_to_0_1mm(value_mm: float) -> float:
+    """Table 3-5's "Courtyard Round-off factor": round up to the nearest
+    0.10mm (e.g. 1.00, 1.10, 1.20, ..., always rounding up, never down),
+    applied to the courtyard's own final width/height."""
+    return math.ceil(value_mm * 10 - 1e-9) / 10
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -300,7 +344,7 @@ Expected: PASS (4 tests)
 ```bash
 cd jedec-fpdb
 git add jedec_fpdb/ipc7251.py tests/test_ipc7251.py
-git commit -m "jedec-fpdb: add best-effort IPC-7251 thru-hole sizing formulas"
+git commit -m "jedec-fpdb: add IPC-7251 Table 3-5 thru-hole sizing formulas"
 ```
 
 ---
@@ -313,7 +357,7 @@ git commit -m "jedec-fpdb: add best-effort IPC-7251 thru-hole sizing formulas"
 - Test: `jedec-fpdb/tests/test_dip.py`
 
 **Interfaces:**
-- Consumes: `data.ms001_dip.{PITCH_MM, ROW_SPACING_MM, BODY_WIDTH_MM, LEAD_WIDTH_MAX_MM, body_length_mm}` (Task 1), `jedec_fpdb.ipc7251.{drill_diameter_mm, pad_diameter_mm}` (Task 2).
+- Consumes: `data.ms001_dip.{PITCH_MM, ROW_SPACING_MM, BODY_WIDTH_MM, LEAD_WIDTH_MAX_MM, body_length_mm}` (Task 1), `jedec_fpdb.ipc7251.{drill_diameter_mm, pad_diameter_mm, courtyard_excess_mm, round_up_to_0_1mm}` (Task 2).
 - Produces: `jedec_fpdb.geometry.Pad` (fields: `number: int, x_mm: float, y_mm: float, drill_mm: float, diameter_mm: float, shape: str`), `jedec_fpdb.geometry.RectOutline` (fields: `layer: str, x1_mm: float, y1_mm: float, x2_mm: float, y2_mm: float`), `jedec_fpdb.geometry.Footprint` (fields: `name: str, pads: list[Pad], silk_body: RectOutline | None, courtyard: RectOutline | None`); `jedec_fpdb.dip.generate(width_class: str, pin_count: int, density: str = "N") -> Footprint`, `jedec_fpdb.dip.SUPPORTED_WIDTH_CLASSES` (tuple of str).
 
 - [ ] **Step 1: Write the failing test**
@@ -439,10 +483,6 @@ from jedec_fpdb.geometry import Footprint, Pad, RectOutline
 
 SUPPORTED_WIDTH_CLASSES = ("narrow",)
 
-# Generic IPC land-pattern courtyard excess -- a commonly published
-# default across density levels, not itself density-level-specific.
-COURTYARD_MARGIN_MM = 0.25
-
 
 def generate(width_class: str, pin_count: int, density: str = "N") -> Footprint:
     if width_class not in SUPPORTED_WIDTH_CLASSES:
@@ -479,11 +519,15 @@ def generate(width_class: str, pin_count: int, density: str = "N") -> Footprint:
     body_half_y = ms001_dip.body_length_mm(pin_count) / 2
     silk_body = RectOutline("F.SilkS", -body_half_x, -body_half_y, body_half_x, body_half_y)
 
+    # Table 3-5's courtyard rule: excess is added to whichever of the
+    # component body or the pad bounding box is larger on that axis,
+    # then the resulting full width/height is rounded up to 0.10mm.
+    courtyard_excess = ipc7251.courtyard_excess_mm(density)
     pad_bbox_half_x = row_spacing / 2 + pad_dia / 2
     pad_bbox_half_y = top_y + pad_dia / 2
-    crtyd_half_x = max(body_half_x, pad_bbox_half_x) + COURTYARD_MARGIN_MM
-    crtyd_half_y = max(body_half_y, pad_bbox_half_y) + COURTYARD_MARGIN_MM
-    courtyard = RectOutline("F.CrtYd", -crtyd_half_x, -crtyd_half_y, crtyd_half_x, crtyd_half_y)
+    crtyd_width = ipc7251.round_up_to_0_1mm(2 * (max(body_half_x, pad_bbox_half_x) + courtyard_excess))
+    crtyd_height = ipc7251.round_up_to_0_1mm(2 * (max(body_half_y, pad_bbox_half_y) + courtyard_excess))
+    courtyard = RectOutline("F.CrtYd", -crtyd_width / 2, -crtyd_height / 2, crtyd_width / 2, crtyd_height / 2)
 
     name = f"DIP-{pin_count}_{width_class}_{density}"
     return Footprint(name=name, pads=pads, silk_body=silk_body, courtyard=courtyard)
@@ -644,9 +688,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 # (pin_count, real filename, drill/pad diameter tolerance is looser than
-# pitch/row_spacing since our best-effort IPC-7251 constants are known
-# to differ from KiCad's own generous, round-number pad sizing -- see
-# the design spec).
+# pitch/row_spacing since real KiCad uses generous, round-number pad
+# sizing -- 0.8mm drill / 1.6mm pad regardless of pin count -- that
+# noticeably exceeds even IPC-7251's own "Maximum" (Level A) density
+# level; see the design spec).
 CASES = [
     (8, "DIP-8_W7.62mm.kicad_mod"),
     (14, "DIP-14_W7.62mm.kicad_mod"),
@@ -895,8 +940,8 @@ Expected: PASS (2 tests)
 # jedec-fpdb
 
 A spec-derived DIP footprint generator: builds `.kicad_mod` files purely
-from JEDEC MS-001 (package body/lead outline) and a best-effort
-IPC-7251 (thru-hole land pattern sizing) formula, independent of
+from JEDEC MS-001 (package body/lead outline) and IPC-7251 Table 3-5
+(Dual In-Line Packages thru-hole land pattern sizing), independent of
 `kicad-fpdb`'s own reverse-engineered-from-real-files approach at the
 repo root. See `docs/superpowers/specs/2026-09-17-dip-ipc-generator-design.md`
 for the full design rationale.
@@ -929,8 +974,7 @@ machine.
 Fully independent of `kicad-fpdb`: no shared code, no shared data. See
 the design spec's Non-goals and Open follow-ups sections for what's
 deliberately out of scope (regular/wide width classes, other package
-families, IPC-7251 itself if a real copy turns up, cosmetic silkscreen
-conventions).
+families, cosmetic silkscreen conventions).
 ```
 
 - [ ] **Step 6: Run the full test suite**
