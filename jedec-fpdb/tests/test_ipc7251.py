@@ -1,24 +1,30 @@
 import pytest
 
+from data import ms001_dip
 from jedec_fpdb import ipc7251
 
-LEAD = 0.559  # MS-001's lead width max, mm
+# Imported rather than a local literal so this can't drift from the real
+# value the way it once did -- this used to be a hardcoded 0.559 (a
+# hand-rounded approximation of MS-001's actual .022in lead width, which
+# converts exactly to 0.5588mm), silently stale even after ms001_dip.py
+# itself was fixed to compute the conversion instead of hand-rounding it.
+LEAD = ms001_dip.LEAD_WIDTH_MAX_MM
 
 
 def test_drill_diameter_by_density():
     # Table 3-5 "Hole Diameter Factor": Max 0.25, Nominal 0.20, Least 0.15
-    assert ipc7251.drill_diameter_mm(LEAD, "M") == pytest.approx(0.809)
-    assert ipc7251.drill_diameter_mm(LEAD, "N") == pytest.approx(0.759)
-    assert ipc7251.drill_diameter_mm(LEAD, "L") == pytest.approx(0.709)
+    assert ipc7251.drill_diameter_mm(LEAD, "M") == pytest.approx(0.8088)
+    assert ipc7251.drill_diameter_mm(LEAD, "N") == pytest.approx(0.7588)
+    assert ipc7251.drill_diameter_mm(LEAD, "L") == pytest.approx(0.7088)
 
 
 def test_pad_diameter_by_density():
     # Table 3-5 "Int. & Ext. Annular ring Excess (added to hole dia.)":
     # Max 0.50, Nominal 0.35, Least 0.30 -- added directly to the drill
     # diameter, not doubled.
-    assert ipc7251.pad_diameter_mm(LEAD, "M") == pytest.approx(1.309)
-    assert ipc7251.pad_diameter_mm(LEAD, "N") == pytest.approx(1.109)
-    assert ipc7251.pad_diameter_mm(LEAD, "L") == pytest.approx(1.009)
+    assert ipc7251.pad_diameter_mm(LEAD, "M") == pytest.approx(1.3088)
+    assert ipc7251.pad_diameter_mm(LEAD, "N") == pytest.approx(1.1088)
+    assert ipc7251.pad_diameter_mm(LEAD, "L") == pytest.approx(1.0088)
 
 
 def test_courtyard_excess_by_density():
