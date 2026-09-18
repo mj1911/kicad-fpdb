@@ -183,12 +183,17 @@ code depending on it, not a library needing defensive fallback behavior.
 ## Initial scope
 
 DIP only, **narrow (0.300in/7.62mm) width class only** — the only family
-MS-001 Issue D actually documents (see Purpose) — across pin counts 8,
-14, 16, and 24. N=8's body length is a regression extrapolation (see Data
-flow); N=14/16/24 come directly from the document's own table. Density
-level fixed to Nominal for this first pass; Most/Least are a natural
-follow-up once the Nominal pipeline is validated, not part of this
-deliverable.
+MS-001 Issue D actually documents (see Purpose) — across pin counts 4,
+6, 8, 14, 16, 18, 20, 22, 24, and 28. N=14 through N=28 come directly
+from the document's own table; N=4/6/8 (below the table's own range) are
+each a linear regression extrapolation over that table (see Data flow),
+cross-checked against real KiCad DIP-4/6/8 files in `tests/test_compare.py`
+— all three land comfortably inside the existing comparison tolerances,
+though the extrapolation grows less certain the further below N=14 it's
+evaluated. All three density levels (Most/Nominal/Least) are supported,
+not just Nominal — the formula work identically regardless of density,
+so restricting to Nominal only would have added complexity, not removed
+it.
 
 ## Open follow-ups (not in this deliverable)
 

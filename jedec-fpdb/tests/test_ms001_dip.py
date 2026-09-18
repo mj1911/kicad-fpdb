@@ -23,12 +23,20 @@ def test_body_length_table_lookup(pin_count, expected_mm):
     assert ms001_dip.body_length_mm(pin_count) == pytest.approx(expected_mm)
 
 
-def test_body_length_8_pin_is_regression_extrapolation():
-    # N=8 has no full-lead entry in MS-001's own table (see design spec) --
-    # this only bounds the extrapolation to a sane range, since we can't
-    # independently verify a precise "official" value for it.
-    result = ms001_dip.body_length_mm(8)
-    assert 8.0 < result < 14.0
+@pytest.mark.parametrize("pin_count,lower_mm,upper_mm", [
+    (4, 4.0, 8.0),
+    (6, 6.0, 10.0),
+    (8, 8.0, 14.0),
+])
+def test_body_length_below_table_is_regression_extrapolation(pin_count, lower_mm, upper_mm):
+    # N=4/6/8 have no full-lead entry in MS-001's own table (see design
+    # spec) -- this only bounds the extrapolation to a sane range, since
+    # we can't independently verify a precise "official" value for any
+    # of them. (Cross-checked against real KiCad DIP-4/6/8 files in
+    # test_compare.py, where all three land comfortably inside the
+    # existing comparison tolerances.)
+    result = ms001_dip.body_length_mm(pin_count)
+    assert lower_mm < result < upper_mm
 
 
 def test_body_length_rejects_odd_pin_count():

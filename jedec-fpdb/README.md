@@ -8,7 +8,10 @@ repo root. See `docs/superpowers/specs/2026-09-17-dip-ipc-generator-design.md`
 for the full design rationale.
 
 Currently covers narrow (0.300in/7.62mm row spacing) DIP only, pin
-counts 8 (extrapolated -- see the spec), 14, 16, 18, 20, 22, 24, 28.
+counts 4, 6, 8 (regression-extrapolated -- MS-001's own table starts at
+14, see the spec), 14, 16, 18, 20, 22, 24, 28. The extrapolated pin
+counts are cross-checked against real KiCad DIP-4/6/8 files in
+`tests/test_compare.py`.
 
 ## Usage
 

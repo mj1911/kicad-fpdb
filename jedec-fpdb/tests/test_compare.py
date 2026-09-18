@@ -17,6 +17,8 @@ pytestmark = pytest.mark.skipif(
 # noticeably exceeds even IPC-7251's own "Maximum" (Level A) density
 # level; see the design spec).
 CASES = [
+    (4, "DIP-4_W7.62mm.kicad_mod"),
+    (6, "DIP-6_W7.62mm.kicad_mod"),
     (8, "DIP-8_W7.62mm.kicad_mod"),
     (14, "DIP-14_W7.62mm.kicad_mod"),
     (16, "DIP-16_W7.62mm.kicad_mod"),
