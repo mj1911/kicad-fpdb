@@ -4,4 +4,5 @@ __pycache__/
 renders/
 renders_png/
 .pytest_cache/
+docs/*.pdf
 

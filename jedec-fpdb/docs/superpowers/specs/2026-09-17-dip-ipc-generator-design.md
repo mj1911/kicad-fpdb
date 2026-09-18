@@ -20,6 +20,28 @@ reference to any real `.kicad_mod` file as a data source. Real reference
 files from `kicad-fpdb`'s existing test fixtures are used only afterward,
 read-only, as a comparison/sanity-check baseline (see Validation below).
 
+A real copy of JEDEC MS-001 (Issue D, "R-PDIP-T ... .300 INCH ROW
+SPACING") is available at `docs/Ms-001d.pdf` (repo root `docs/`, not this
+project's own `jedec-fpdb/docs/`) and is the actual data source for the
+narrow-width-class numbers below — not a secondary-source reconstruction.
+Reading it surfaced two scope-narrowing facts, resolved with the user
+before writing the implementation plan:
+
+* This specific document covers **only** the 0.300in (narrow, 7.62mm)
+  row-spacing DIP family. The regular (0.400in) and wide (0.600in)
+  families are separate JEDEC outline registrations not yet located —
+  see Initial scope below.
+* Its full-lead body-length ("D") table only lists N = 14, 16, 18, 20,
+  22, 24, 28 — there is no full-lead entry for N=8 (8 only appears under
+  a "1/2 lead" staggered variation, a different, less common
+  lead-population style than the ordinary fully-populated 8-pin DIP).
+  Per the user's decision, N=8's body length is computed by linear
+  regression over the table's own N=14..28 nominal values, extrapolated
+  to N=8, rather than sourced directly from the table (see Data flow).
+
+IPC-7251 itself is not yet on hand; its formulas remain a best-effort
+public reconstruction per the Non-goals note below.
+
 This is background research, not a production feature: the deliverable is
 a working formula pipeline for DIP plus a documented comparison against
 real KiCad output, not a footprint library meant to replace `kicad-fpdb`.
@@ -34,14 +56,14 @@ real KiCad output, not a footprint library meant to replace `kicad-fpdb`.
   those are KiCad/vendor drawing conventions, not something either JEDEC
   MS-001 or IPC-7251/7351B specifies. First pass draws pads, a plain body
   outline rectangle, and a courtyard only.
-* No access to the actual paywalled JEDEC/IPC PDF documents. All formulas
-  and table values are sourced from publicly available secondary
-  references (manufacturer datasheets citing MS-001, published land
-  pattern calculator documentation/tools, standards summaries) found via
-  web search, cited inline in code comments where a constant is
-  standards-derived rather than a plain geometric formula. Values should
-  be treated as best-effort reconstructions of the standards, not
-  guaranteed byte-for-byte matches to the official documents.
+* No access to the actual IPC-7251 document. Its formulas and table
+  values (hole clearance, minimum annular ring per density level) are
+  sourced from publicly available secondary references found via web
+  search, cited inline in code comments, and should be treated as
+  best-effort reconstructions, not guaranteed byte-for-byte matches to
+  the official standard. (JEDEC MS-001 itself is on hand — see Purpose —
+  so its numbers are taken directly from the real document, not
+  reconstructed.)
 * No attempt to reconcile deviations from real KiCad files — deviations
   are expected and are the point of the comparison, not bugs to fix.
 
@@ -81,16 +103,19 @@ Sits as a sibling top-level directory in the same git repo as
 
 ## Data flow
 
-1. **`data/ms001_dip.py`** holds JEDEC MS-001's DIP table as plain Python
-   data: lead pitch (2.54mm, fixed across all DIP variants), row spacing
-   per width class, and body length as a function of pin count
-   (`body_length = (pin_count / 2 - 1) * pitch + end_margin`, `end_margin`
-   a MS-001 constant). Width class names (narrow/regular/wide/...) mirror
-   the vocabulary `kicad-fpdb` already uses for the same physical concept,
-   but the numeric row-spacing values here are independently sourced from
-   MS-001, not copied from `kicad-fpdb`'s YAML — the two are expected to
-   agree closely but are derived independently, and any mismatch is itself
-   a data point for the comparison step.
+1. **`data/ms001_dip.py`** holds JEDEC MS-001's narrow-width DIP data as
+   plain Python data, transcribed directly from `docs/Ms-001d.pdf`: lead
+   pitch `e` = 2.54mm (0.100in, Basic), row spacing `eA` = 7.62mm (0.300in,
+   Basic), body width `E1` = 6.35mm nominal, lead width `b` max = 0.559mm
+   (0.022in), and the full-lead body-length ("D") table keyed by pin count
+   (N=14..28, nominal values transcribed from the document). A
+   `body_length_mm(pin_count)` function returns the table value directly
+   for N in the table; for N=8 (not in the table — see Purpose) it instead
+   fits a linear least-squares regression over the table's own N=14..28
+   nominal values and evaluates it at N=8, entirely in plain Python (no
+   numpy dependency). Width classes beyond narrow are not represented yet
+   (see Initial scope) — there is no `regular`/`wide` entry to accidentally
+   fall back to.
 2. **`ipc7251.py`** takes a lead diameter (from MS-001's lead dimension
    range) and a density level (Most / Nominal / Least material condition)
    and returns:
@@ -127,10 +152,16 @@ Sits as a sibling top-level directory in the same git repo as
 * `test_dip.py` — sanity checks on generated geometry: pad count matches
   pin count, row spacing/pitch match the MS-001 table, no overlapping
   pads, symmetric layout.
-* `test_compare.py` — runs `compare.py` against real reference DIP files
-  already in `kicad-fpdb`'s test fixtures (DIP-8, DIP-14, DIP-16, DIP-16w,
-  DIP-24w) and asserts deltas stay within the documented tolerance band.
-  This is the test that validates the project's core claim.
+* `test_compare.py` — runs `compare.py` against the real narrow-width
+  (`_W7.62mm`) reference files for DIP-8, DIP-14, DIP-16, and DIP-24,
+  read directly from the system KiCad library at
+  `/usr/share/kicad/footprints/Package_DIP.pretty/` (the same real
+  library `kicad-fpdb`'s own regression suite validates against — the
+  path is a plain constant in this project's own test, not an import of
+  `kicad-fpdb` code, keeping the two projects code-independent per Code
+  sharing above), skipped when that path isn't present on the machine.
+  Asserts deltas stay within the documented tolerance band. This is the
+  test that validates the project's core claim.
 
 No error handling beyond input validation (an unsupported pin count or
 width class raises a clear error) — this is a research tool with no other
@@ -138,16 +169,23 @@ code depending on it, not a library needing defensive fallback behavior.
 
 ## Initial scope
 
-DIP only, at the width classes `kicad-fpdb` already validates (narrow,
-regular, wide) across pin counts 8, 14, 16, and 24. Density level fixed to
-Nominal for this first pass; Most/Least are a natural follow-up once the
-Nominal pipeline is validated, not part of this deliverable.
+DIP only, **narrow (0.300in/7.62mm) width class only** — the only family
+MS-001 Issue D actually documents (see Purpose) — across pin counts 8,
+14, 16, and 24. N=8's body length is a regression extrapolation (see Data
+flow); N=14/16/24 come directly from the document's own table. Density
+level fixed to Nominal for this first pass; Most/Least are a natural
+follow-up once the Nominal pipeline is validated, not part of this
+deliverable.
 
 ## Open follow-ups (not in this deliverable)
 
+* Regular (0.400in) and wide (0.600in) width classes, once their own
+  JEDEC outline document is located — MS-001 Issue D does not cover them.
+* IPC-7251 itself, if a copy turns up — would replace `ipc7251.py`'s
+  best-effort reconstructed constants with the real standard's values.
 * Most/Least density levels, and exposing density as a CLI/API option.
-* Additional DIP width classes (extra_wide, ultra_wide) once the base
-  three are validated.
+* Additional DIP width classes (extra_wide, ultra_wide) once regular/wide
+  are validated.
 * Additional families beyond DIP (SOIC is the natural next step, but
   needs IPC-7351B proper rather than IPC-7251, since SOIC is
   surface-mount).
