@@ -225,16 +225,80 @@ consistent pattern, not just per-file noise:
 
 ## Open follow-ups (not in this deliverable)
 
-* Regular (0.400in) and wide (0.600in) width classes, once their own
-  JEDEC outline document is located — MS-001 Issue D does not cover them.
 * Exposing density level as a first-class CLI/API convenience beyond the
   existing `--density` flag (e.g. generating all three at once for
   comparison).
-* Additional DIP width classes (extra_wide, ultra_wide) once regular/wide
-  are validated.
+* Additional DIP width classes (extra_wide, ultra_wide) once real JEDEC
+  outline documents for them are located.
 * Additional families beyond DIP (SOIC is the natural next step, but
   needs IPC-7351B proper rather than IPC-7251, since SOIC is
   surface-mount).
 * Cosmetic silkscreen conventions (pin-1 notch, etc.) if a later goal
   needs visual parity with `kicad-fpdb`'s output rather than just
   standards-derived geometry.
+
+## Regular and wide width classes (2026-09-18)
+
+Added `regular` (0.400in/10.16mm row spacing) and `wide` (0.600in/15.24mm
+row spacing), closing the "Open follow-ups" item above, once real copies
+of `MS-010` (regular) and `MS-011` (wide) became available in
+`jedec-fpdb/JEDEC/` (gitignored, same convention as MS-001/IPC-7251).
+Both are addenda documenting only a subset of variations — MS-010 Issue C
+covers just N=22/24/28/32, MS-011 Issue B just N=24/28/40/48 — not full
+base standards with every pin count, unlike MS-001's own fuller N=14–28
+table. `data/ms001_dip.py` was restructured from flat module constants
+into a `_WidthClass` dataclass keyed by width class (`row_spacing_mm`,
+`body_width_mm`, and its own `body_length_table_mm`), with
+`row_spacing_mm()`/`body_width_mm()`/`body_length_mm()` functions
+replacing the old `ROW_SPACING_MM`/`BODY_WIDTH_MM` constants and
+single-table `body_length_mm(pin_count)`. `PITCH_MM`/`LEAD_WIDTH_MAX_MM`
+stay shared top-level constants — both new documents confirm identical
+values to MS-001's own (0.100in pitch, 0.022in max lead width).
+
+Pin-count coverage for each new class was grounded in what real KiCad
+files actually exist (`Package_DIP.pretty`'s `_W10.16mm`/`_W15.24mm`
+base files), not just the documented table entries, reusing the same
+linear-regression extrapolation already established for narrow's N=8:
+regular covers N=4–16 (even) plus 22/24 (9 real files; N=28/32 are also
+directly supported since MS-010 documents them, just with no real file
+to compare against), wide covers N=24/26/28/32/40/42/48/64 (8 real
+files). Regular's extrapolation turned out unusually low-risk: its 4
+documented points (N=22/24/28/32) fall on a perfectly linear D-vs-N line
+(slope exactly half the lead pitch, 1.27mm/pin), so extrapolating down to
+N=4 follows the same line rather than guessing at curvature. Wide's table
+is noisier, like narrow's, and its extrapolation reaches further past the
+table's own range (N=64 vs. a max of 48) — same accepted-uncertainty
+category as narrow's N=8, not a new kind of risk.
+
+While transcribing this data, found and fixed a real (if tiny) bug in the
+*existing* narrow data: `LEAD_WIDTH_MAX_MM` had been hand-computed from
+MS-001's `.022in` and typed as a 3-decimal rounded `0.559`, not the exact
+`0.5588`. Root cause was doing the inch→mm conversion by hand instead of
+in code — 25.4mm/inch is an exact ratio, so there's no inherent precision
+loss from working in mm, only from rounding a hand-computed literal
+before typing it in. Fixed by adding an `_in()` helper (`inches * 25.4`)
+and expressing every constant in `ms001_dip.py` as a computed conversion
+from its documented inch value, rather than a hand-rounded mm literal
+(wide's D/E1 values are the one exception, converted verbatim from
+MS-011's own already-published mm table instead, since those mm numbers
+are the document's own, not derived by us).
+
+Comparison against real KiCad files (`tests/test_compare.py`, 17 new
+cases) confirms the same pattern narrow already established, now shown
+to hold independent of width class:
+
+* Pitch and row spacing still match exactly (0.000mm) across both new
+  classes — expected, both are Basic dimensions.
+* Drill delta (-0.0412mm at Nominal) and pad diameter delta (-0.4912mm
+  at Nominal) are the same magnitude as narrow's own findings above,
+  confirming IPC-7251's hole/pad sizing is genuinely width-class-
+  independent — it only depends on lead width, which MS-001/010/011 all
+  document identically.
+* Courtyard width delta is consistently negative for both classes (-0.46
+  regular, -0.44 wide) — generated courtyards run narrower than real
+  KiCad's. Courtyard *height*, however, flips sign for wide (+0.52mm at
+  N=24 up to +1.17mm at N=26) where narrow/regular's height delta was
+  negative or mixed-sign — a new observation this data didn't surface
+  before: real KiCad appears to give wide-body DIPs more vertical
+  courtyard headroom than IPC-7251's flat excess-plus-round-up formula
+  produces, more so than for narrow/regular.

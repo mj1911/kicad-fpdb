@@ -15,7 +15,7 @@ from data import ms001_dip
 from jedec_fpdb import ipc7251
 from jedec_fpdb.geometry import Footprint, Pad, RectOutline
 
-SUPPORTED_WIDTH_CLASSES = ("narrow",)
+SUPPORTED_WIDTH_CLASSES = ms001_dip.SUPPORTED_WIDTH_CLASSES
 
 
 def generate(width_class: str, pin_count: int, density: str = "N") -> Footprint:
@@ -27,7 +27,7 @@ def generate(width_class: str, pin_count: int, density: str = "N") -> Footprint:
         raise ValueError(f"pin_count must be even and >= 4, got {pin_count}")
 
     pitch = ms001_dip.PITCH_MM
-    row_spacing = ms001_dip.ROW_SPACING_MM
+    row_spacing = ms001_dip.row_spacing_mm(width_class)
     pins_per_row = pin_count // 2
 
     drill = ipc7251.drill_diameter_mm(ms001_dip.LEAD_WIDTH_MAX_MM, density)
@@ -49,8 +49,8 @@ def generate(width_class: str, pin_count: int, density: str = "N") -> Footprint:
         for i in range(pins_per_row)
     ]
 
-    body_half_x = ms001_dip.BODY_WIDTH_MM / 2
-    body_half_y = ms001_dip.body_length_mm(pin_count) / 2
+    body_half_x = ms001_dip.body_width_mm(width_class) / 2
+    body_half_y = ms001_dip.body_length_mm(width_class, pin_count) / 2
     silk_body = RectOutline("F.SilkS", -body_half_x, -body_half_y, body_half_x, body_half_y)
 
     # Table 3-5's courtyard rule: excess is added to whichever of the

@@ -17,14 +17,15 @@ def test_pin1_is_rect_others_are_circle():
     assert all(p.shape == "circle" for p in others)
 
 
-def test_row_spacing_and_pitch_match_ms001():
+@pytest.mark.parametrize("width_class", ["narrow", "regular", "wide"])
+def test_row_spacing_and_pitch_match_ms001(width_class):
     from data import ms001_dip
-    fp = dip.generate("narrow", 16, "N")
+    fp = dip.generate(width_class, 24, "N")
     pad1 = next(p for p in fp.pads if p.number == 1)
     pad2 = next(p for p in fp.pads if p.number == 2)
-    pad9 = next(p for p in fp.pads if p.number == 9)  # first right-column pin (16/2 + 1)
+    pad13 = next(p for p in fp.pads if p.number == 13)  # first right-column pin (24/2 + 1)
     assert abs(pad2.y_mm - pad1.y_mm) == pytest.approx(ms001_dip.PITCH_MM)
-    assert abs(pad9.x_mm - pad1.x_mm) == pytest.approx(ms001_dip.ROW_SPACING_MM)
+    assert abs(pad13.x_mm - pad1.x_mm) == pytest.approx(ms001_dip.row_spacing_mm(width_class))
 
 
 def test_no_two_pads_share_a_position():
@@ -45,7 +46,7 @@ def test_courtyard_encloses_all_pads():
 
 def test_unsupported_width_class_raises():
     with pytest.raises(ValueError):
-        dip.generate("wide", 16, "N")
+        dip.generate("extra_wide", 16, "N")
 
 
 def test_invalid_pin_count_raises():
