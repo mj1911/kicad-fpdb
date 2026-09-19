@@ -9,11 +9,11 @@ from jedec_fpdb.visual_compare import (
     FRAME_PX,
     compose_panel,
     render_comparison,
+    _pad1_center_mm,
     _pad1_frame_position_px,
     _panel_placement,
-    _real_pad1_mm,
     _scale_reference_background,
-    _svg_viewbox_mm,
+    _svg_size_mm,
 )
 
 requires_tools = pytest.mark.skipif(
@@ -51,34 +51,51 @@ def test_panel_placement_downscales_image_larger_than_frame():
     assert 0 <= offset[1] < FRAME_PX
 
 
-def test_real_pad1_mm_finds_pad_one_not_pad_two():
-    text = (
-        '(pad "2" thru_hole circle (at 1.27 2.54) (size 1.6 1.6) (drill 0.8))\n'
-        '(pad "1" thru_hole rect (at -1.27 -2.54) (size 1.6 1.6) (drill 0.8))\n'
-    )
-    assert _real_pad1_mm(text) == (-1.27, -2.54)
-
-
-def test_real_pad1_mm_raises_when_no_pad_one():
-    with pytest.raises(ValueError):
-        _real_pad1_mm('(pad "2" thru_hole circle (at 0 0) (size 1 1) (drill 0.5))')
-
-
-def test_svg_viewbox_mm_parses_origin_and_size(tmp_path):
+def test_svg_size_mm_parses_viewbox_size(tmp_path):
     svg_path = tmp_path / "case.svg"
     svg_path.write_text('<svg viewBox="1.500000 2.000000 9.000000 11.000000"></svg>')
-    assert _svg_viewbox_mm(svg_path) == (1.5, 2.0, 9.0, 11.0)
+    assert _svg_size_mm(svg_path) == (9.0, 11.0)
 
 
-def test_pad1_frame_position_px_accounts_for_viewbox_origin(tmp_path):
-    svg_path = tmp_path / "case.svg"
-    # A 10x10mm viewBox starting at (1, 1) -- pad 1 sits at its footprint-
-    # local (1, 1), i.e. exactly the viewBox origin, so it should land at
-    # pixel (0, 0) of the rasterized image, then centered by _panel_placement.
-    svg_path.write_text('<svg viewBox="1.000000 1.000000 10.000000 10.000000"></svg>')
-    px = _pad1_frame_position_px(svg_path, (1.0, 1.0))
-    offset, _scale = _panel_placement((200, 200))  # 10mm * PX_PER_MM(20)
-    assert px == offset
+# A minimal kicad-cli-shaped SVG fragment: pad "1" as the first #C83434
+# path (kicad-cli's copper fill color), matching how a rect/roundrect
+# thru-hole pad is actually rendered -- see real output inspected while
+# diagnosing the viewBox-origin bug this replaced.
+_PAD1_PATH_SVG = (
+    '<g style="fill:#C83434; fill-opacity:1.000000; stroke:none;">'
+    '<path style="fill:#C83434; fill-opacity:1.000000; stroke:none;" '
+    'd="M 2.000000,3.000000 4.000000,3.000000 4.000000,5.000000 2.000000,5.000000 Z" />'
+    '</g>'
+    '<g style="fill:#C83434; fill-opacity:1.000000;"><circle cx="9.0" cy="3.0" r="0.8" /></g>'
+)
+
+# A round (non-pin-1) pad rendered first, pad 1's own circle second --
+# pad 1 must still be the one picked, by document order, not shape.
+_PAD1_CIRCLE_SVG = (
+    '<g style="fill:#C83434; fill-opacity:1.000000;"><circle cx="9.0" cy="3.0" r="0.8" /></g>'
+    '<g style="fill:#C83434; fill-opacity:1.000000;"><circle cx="2.0" cy="2.0" r="0.8" /></g>'
+)
+
+
+def test_pad1_center_mm_finds_earliest_path_shape():
+    assert _pad1_center_mm(_PAD1_PATH_SVG) == (3.0, 4.0)
+
+
+def test_pad1_center_mm_finds_earliest_circle_shape():
+    assert _pad1_center_mm(_PAD1_CIRCLE_SVG) == (9.0, 3.0)
+
+
+def test_pad1_center_mm_raises_when_no_copper_fill_found():
+    with pytest.raises(ValueError):
+        _pad1_center_mm('<path style="fill:#000000;" d="M 0,0 1,1 Z" />')
+
+
+def test_pad1_frame_position_px_scales_and_centers():
+    # pad 1's own center at (3, 4)mm in a 10x10mm image -- pixel-in-image
+    # is (60, 80) at PX_PER_MM(20), then centered by _panel_placement.
+    px = _pad1_frame_position_px(_PAD1_PATH_SVG, (200, 200))
+    offset, _scale = _panel_placement((200, 200))
+    assert px == (offset[0] + 60.0, offset[1] + 80.0)
 
 
 def test_compose_panel_centers_small_footprint_on_frame(tmp_path):

@@ -12,6 +12,7 @@ CLI usage:
 """
 
 import argparse
+import re
 import subprocess
 import tempfile
 import tkinter as tk
@@ -21,7 +22,6 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageTk
 
 from jedec_fpdb import dip, writer
-from jedec_fpdb.compare import _PAD_RE
 from jedec_fpdb.reference_cases import CASES, KICAD_DIP_DIR
 
 # Pixels per millimeter for rasterizing both panels -- both use this same
@@ -63,25 +63,54 @@ def _export_svg(library_dir: Path, footprint_name: str, output_dir: Path) -> Pat
     return output_dir / f"{footprint_name}.svg"
 
 
-def _svg_viewbox_mm(svg_path: Path) -> tuple[float, float, float, float]:
-    """(x0, y0, width, height) of the SVG's viewBox, in mm -- x0/y0 is the
-    coordinate-space origin kicad-cli picked for this file's own bounding
-    box, needed to place a pad's own footprint-local mm coordinate at its
-    correct pixel position within the rasterized image."""
+def _svg_size_mm(svg_path: Path) -> tuple[float, float]:
+    """(width, height) of the SVG's viewBox, in mm."""
     text = svg_path.read_text()
     start = text.index('viewBox="') + len('viewBox="')
     end = text.index('"', start)
-    x0, y0, w, h = (float(v) for v in text[start:end].split())
-    return x0, y0, w, h
+    _x0, _y0, w, h = (float(v) for v in text[start:end].split())
+    return w, h
 
 
-def _real_pad1_mm(text: str) -> tuple[float, float]:
-    """Pad "1"'s (x, y) position, in mm, from a real .kicad_mod file's raw
-    text -- reuses compare.py's own pad regex rather than duplicating it."""
-    for match in _PAD_RE.finditer(text):
-        if match.group(1) == "1":
-            return float(match.group(2)), float(match.group(3))
-    raise ValueError('no pad "1" found')
+# kicad-cli's default theme fills F.Cu copper (pads) with this exact color.
+# Pads are the only filled shapes using it, and kicad-cli plots them in a
+# footprint's own pad-declaration order, so the first #C83434 shape in
+# document order is always pad "1" for every case here (both this
+# project's own writer and every real reference file list pad "1" first,
+# the near-universal KiCad convention). Coordinates in the SVG are
+# already in the rasterized image's own mm-per-unit frame -- unlike a
+# pad's raw .kicad_mod "at" coordinate, which cannot be mapped to a pixel
+# position by subtracting the SVG's viewBox origin: kicad-cli's exported
+# viewBox does not preserve the footprint's own local coordinate frame
+# (confirmed on DIP-4 narrow, whose real courtyard extends to local
+# (-1.06, -1.52) yet the exported SVG's viewBox starts at exactly
+# (0.0, 0.0) regardless). Locating pad 1 directly in the rendered output,
+# the same technique kicad_fpdb's own review viewer already uses and for
+# the same reason, sidesteps that mismatch entirely.
+_PAD1_PATH = re.compile(r'<path style="fill:#C83434[^"]*"\s*d="([^"]+)"', re.DOTALL)
+_PAD1_CIRCLE = re.compile(r'<g style="fill:#C83434[^"]*">\s*<circle cx="(-?[\d.]+)" cy="(-?[\d.]+)"')
+_COORD_PAIR = re.compile(r'(-?[\d.]+),(-?[\d.]+)')
+
+
+def _pad1_center_mm(svg_text: str) -> tuple[float, float]:
+    """Pad 1's exact geometric center, in the SVG's own mm-per-unit
+    coordinate frame (i.e. directly scalable to a pixel position by
+    PX_PER_MM, no viewBox-origin correction needed)."""
+    candidates = []
+    path_match = _PAD1_PATH.search(svg_text)
+    if path_match:
+        candidates.append((path_match.start(), path_match))
+    circle_match = _PAD1_CIRCLE.search(svg_text)
+    if circle_match:
+        candidates.append((circle_match.start(), circle_match))
+    if not candidates:
+        raise ValueError("no pad 1 (#C83434 fill) found in rendered SVG")
+    _, match = min(candidates, key=lambda c: c[0])
+    if match.re is _PAD1_CIRCLE:
+        return float(match.group(1)), float(match.group(2))
+    coords = [(float(x), float(y)) for x, y in _COORD_PAIR.findall(match.group(1))]
+    xs, ys = [x for x, _ in coords], [y for _, y in coords]
+    return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
 
 def _panel_placement(image_size_px: tuple[int, int]) -> tuple[tuple[int, int], float]:
@@ -96,19 +125,18 @@ def _panel_placement(image_size_px: tuple[int, int]) -> tuple[tuple[int, int], f
     return offset, scale
 
 
-def _pad1_frame_position_px(svg_path: Path, pad1_mm: tuple[float, float]) -> tuple[float, float]:
+def _pad1_frame_position_px(svg_text: str, image_size_px: tuple[int, int]) -> tuple[float, float]:
     """Pad 1's pixel position within its FRAME_PX-square panel, once
     compose_panel places this svg's rasterized image (centered, and
     downscaled if it overflows the frame)."""
-    x0, y0, w, h = _svg_viewbox_mm(svg_path)
-    pad1_px_in_image = ((pad1_mm[0] - x0) * PX_PER_MM, (pad1_mm[1] - y0) * PX_PER_MM)
-    image_size_px = (round(w * PX_PER_MM), round(h * PX_PER_MM))
+    center_mm = _pad1_center_mm(svg_text)
+    pad1_px_in_image = (center_mm[0] * PX_PER_MM, center_mm[1] * PX_PER_MM)
     (offset_x, offset_y), scale = _panel_placement(image_size_px)
     return offset_x + pad1_px_in_image[0] * scale, offset_y + pad1_px_in_image[1] * scale
 
 
 def _rasterize_svg(svg_path: Path, output_png: Path) -> Path:
-    _x0, _y0, width_mm, height_mm = _svg_viewbox_mm(svg_path)
+    width_mm, height_mm = _svg_size_mm(svg_path)
     result = subprocess.run(
         [
             "rsvg-convert",
@@ -142,16 +170,18 @@ def render_comparison(
         fp = dip.generate(width_class, pin_count, density)
         writer.write_footprint(fp, lib_dir / f"{fp.name}.kicad_mod")
         generated_svg = _export_svg(lib_dir, fp.name, Path(tmp) / "out")
-        pad1 = next(p for p in fp.pads if p.number == 1)
-        generated_pad1_px = _pad1_frame_position_px(generated_svg, (pad1.x_mm, pad1.y_mm))
+        generated_svg_text = generated_svg.read_text()
+        generated_image_size_px = tuple(round(v * PX_PER_MM) for v in _svg_size_mm(generated_svg))
+        generated_pad1_px = _pad1_frame_position_px(generated_svg_text, generated_image_size_px)
         generated_png = output_dir / f"{name}_generated.png"
         _rasterize_svg(generated_svg, generated_png)
 
     ref_path = Path(reference_path)
-    ref_pad1_mm = _real_pad1_mm(ref_path.read_text())
     with tempfile.TemporaryDirectory() as tmp:
         reference_svg = _export_svg(ref_path.parent, ref_path.stem, Path(tmp) / "out")
-        reference_pad1_px = _pad1_frame_position_px(reference_svg, ref_pad1_mm)
+        reference_svg_text = reference_svg.read_text()
+        reference_image_size_px = tuple(round(v * PX_PER_MM) for v in _svg_size_mm(reference_svg))
+        reference_pad1_px = _pad1_frame_position_px(reference_svg_text, reference_image_size_px)
         reference_png = output_dir / f"{name}_reference.png"
         _rasterize_svg(reference_svg, reference_png)
 
