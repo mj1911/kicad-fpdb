@@ -1,0 +1,845 @@
+> This project moved into its own `kicad-fpdb/` subdirectory of the
+> monorepo on 2026-09-19, sitting alongside the independent `jedec-fpdb/`
+> side project (see the repo root's own minimal `CLAUDE.md`). Every
+> relative path and command below (`data/kicad-fpdb.yaml`, `kicad_fpdb/`,
+> `docs/superpowers/`, `pip install -e ".[dev]"`, `python -m
+> kicad_fpdb.visual_compare`, etc.) assumes a working directory of this
+> `kicad-fpdb/` subdirectory, not the repo root — same convention
+> `jedec-fpdb/` already uses via its own `pyproject.toml`.
+
+## Claude-isms below
+
+* Working across machines (e.g. after moving this folder to another
+  computer): this repo was developed against KiCad 10.0.6 on Linux, with
+  `kicad-cli` on PATH and the official footprint library at
+  `/usr/share/kicad*/footprints/*.pretty`. On a new machine:
+  * Run `pip install -e ".[dev]"` again — the editable install isn't part
+    of the repo and won't follow the folder.
+  * If the repo lives on a FAT32/exFAT drive (e.g. a flash drive), don't
+    put the venv inside the repo — FAT has no symlinks and no exec
+    permission bits, so `virtualenv`/`venv` creation fails there with a
+    `PermissionError` on the python symlink. Create the venv elsewhere
+    (e.g. `~/.venvs/kicad-fpdb`) and `pip install -e` the project from
+    its path on the drive instead; this has no effect on the repo itself.
+  * If the system Python has no `pip` module (e.g. Arch/Manjaro's
+    externally-managed Python), use `virtualenv -p python3 <path>` to
+    create a venv (it bundles its own pip), then use that venv's
+    `bin/pip` / `bin/python` for everything above.
+  * If KiCad isn't installed at the same path (different OS, different
+    KiCad version, or not installed at all), every test that depends on
+    it — the pipeline regression suite, the kicad-cli round-trip test in
+    `tests/test_writer.py`, `tests/test_visual_compare.py` — skips
+    gracefully rather than failing (all guarded with `pytest.mark.skipif`).
+    Core unit tests (geometry, descriptor, family_tree, generators) don't
+    need KiCad at all.
+  * `python -m kicad_fpdb.visual_compare` needs `kicad-cli` on PATH to do
+    anything; without it, it'll error clearly rather than silently.
+  * Nothing in the tracked code hardcodes this machine's absolute path —
+    verified via `grep -rn "/media/sda1"` before the move — so a plain
+    folder copy (not just a git clone) is safe.
+  * `.worktrees/`, `__pycache__/`, `*.egg-info/`, `.pytest_cache/`, and
+    `renders/` are all gitignored and disposable; fine to delete before
+    copying to save space, or just let them come along.
+* Design specs live in `docs/superpowers/specs/`. First spec: descriptor
+  language + generator engine (`2026-09-13-descriptor-engine-design.md`).
+  Scoped deliberately to exclude the KiCad plugin, full-library conversion,
+  and the contribution/moderation server — those get their own specs later.
+* Local KiCad is installed (`kicad-cli`, `/usr/share/kicad*/footprints/*.pretty`)
+  — use these as ground truth for footprint format and validation, rather
+  than guessing at S-expression conventions.
+* Engine language: Python, chosen partly because it matches KiCad's own
+  pcbnew scripting API for eventual plugin integration.
+* This repo was git-initialized on 2026-09-13 (it did not exist before).
+* First milestone complete (2026-09-13): the descriptor + generator engine
+  (`kicad_fpdb/`) exists and is validated against 12 real KiCad reference
+  footprints across DIP, SOIC, R, C, and QFP. Implementation plan and specs
+  are in `docs/superpowers/specs/` and `docs/superpowers/plans/` — read
+  those before extending the engine, they carry the design rationale.
+* Visual review tool exists: `python -m kicad_fpdb.visual_compare` renders
+  all known reference cases (or an ad-hoc `--descriptor`/`--reference`
+  pair) into a local `renders/review.html` page for side-by-side pass/fail
+  review, with both panels at matched true physical scale (20px/mm) in a
+  500x500px frame with a checkerboard scale reference, pad numbers shown
+  on both panels, and a dark-themed page chrome (the frame background is
+  black with a grey checkerboard — note that real KiCad's SVG export
+  draws silkscreen/outline strokes in black, so those are only visible
+  against a light backdrop; on this dark frame only the copper pads
+  reliably show up). Use this instead of ad-hoc SVG exports when
+  eyeballing generator output — regenerate it after any change to
+  `kicad_fpdb/visual_compare.py`. Embedded SVGs get their viewBox
+  padded slightly (`SVG_VIEWBOX_PAD_MM`, far edge only, origin
+  untouched) before inlining: `kicad-cli`'s exported viewBox wraps path
+  centerlines exactly with no stroke-width allowance, and a hairline
+  courtyard line sitting right on that boundary (routine now that a
+  stepped courtyard's own arm is often the single widest feature) had
+  its outer half clipped by the SVG viewport's default
+  `overflow:hidden` — invisible at this tool's ~1px render scale.
+  Discovered on QFP-32/48 and SOIC-14's right-edge courtyard line
+  going missing. Panels for a footprint taller/wider than the 500px
+  frame (e.g. DIP-24 w at 696px tall) also fall back from centered to
+  `flex-start` on whichever axis overflows (`_frame_overflow_style`):
+  `.frame`'s flex-centering splits overflow evenly on both sides, but
+  `overflow:auto`'s default scroll origin can only reach the end-side
+  half, permanently hiding the start-side half (a tall footprint's top
+  edge) — axes that fit stay centered as before. `_pad1_frame_position_px`
+  (the dot-grid/checkerboard anchor) applies this same per-axis
+  centered-vs-flex-start condition, or the grid drifts off pin 1 on
+  exactly the panels the overflow fix touches. The grid's
+  `background-attachment` is `local`, not the CSS default `scroll`, so
+  it scrolls together with the svg content instead of staying fixed to
+  the frame's own viewport while the footprint scrolls underneath it.
+  Each panel's grid is anchored to that panel's *own* pad 1
+  (`_pad1_frame_position_px` called separately on the generated and
+  reference markup), not a single anchor shared from the reference —
+  `kicad-cli` assigns each exported svg its own viewBox origin from
+  that file's own bounding box, and the generated file has a feature
+  the reference doesn't (the pin-1 marker circle) that can shift it;
+  sharing one anchor drifted the generated panel's grid ~0.21mm off
+  its own pad 1 on DIP-18/DIP-24 w. This is purely a viewer artifact —
+  the actual generated pad positions already match the real library
+  exactly (0.0mm delta, per `tests/test_pipeline_regression.py`).
+  The page footer also shows a size comparison: `data/kicad-fpdb.yaml`'s
+  own byte size vs. the combined size of the unique real `.kicad_mod`
+  reference files behind every known case, plus the ratio between them
+  (`_size_comparison_html`/`_size_stats_html`) — the project's core
+  value proposition, made concrete on every run. Below that, a second
+  footer line tallies hand-verified reference cases (`CASES`, 32
+  today) against the total `.kicad_mod` file count across the whole
+  real KiCad library (`_footprint_count_html`/
+  `_count_library_footprints`, a recursive glob under
+  `KICAD_FOOTPRINTS`) — how much of the real library this project can
+  already replace, made visible alongside the size ratio.
+* Pin-1 marker: a small filled silkscreen circle sitting directly
+  above pad 1 (same X as the pad, offset past its own top edge by a
+  fixed clearance), independent of the F.SilkS outline entirely — a
+  deliberate departure from real KiCad's own top-center notch
+  convention, not an attempt to match it (see
+  `kicad_fpdb.pipeline._add_outline`,
+  `docs/superpowers/specs/2026-09-14-pin1-circle-marker-design.md`).
+  "Above" assumes pin 1 is at the top of the part, true for every
+  generator today — pin 1 isn't always at a corner in real packages
+  (sometimes mid-side), and this anchor-to-pad-1 approach already
+  handles that correctly, but a family with pin 1 on a different edge
+  would need the "above" direction generalized. Controlled by a
+  `pin1_marker` param (default true, so SOIC/QFP need no declaration);
+  `R` and `C` declare it false at their family root in
+  `data/kicad-fpdb.yaml` since resistors are never polarized and
+  capacitors only occasionally are — see
+  `docs/superpowers/specs/2026-09-14-pin1-marker-opt-out-design.md`. A
+  future polarized capacitor variant opts back in with
+  `pin1_marker: true` in its own params. DIP also declares it false —
+  DIP already has a square pin-1 pad and a silk notch, so a third
+  circle marker was redundant.
+* Generated footprints include Reference ("REF**", on `F.SilkS`) and Value
+  (the footprint's own name, on `F.Fab`) text properties — matches real
+  KiCad's layer convention. Placed 0.7mm above/below the outermost edge
+  of the actual silk/courtyard outline (not the pad bounding box, and
+  not the pin-1 marker circle, an ornament with no real-KiCad
+  equivalent — see `kicad_fpdb.pipeline._outline_bounding_box`), then
+  snapped to the nearest 0.05in (`TEXT_GRID_MM`). Real KiCad's own gap
+  here varies a little per family (~0.7-0.8mm checked across DIP, SOIC,
+  R, QFP) and isn't itself grid-aligned; this project uses one flat gap
+  then grid-snaps for a clean look, rather than chasing per-family
+  exactness. The Y snap only rounds *outward* (`_snap_outward`: floor
+  for Reference's negative direction, ceil for Value's positive
+  direction), never to the plain nearest multiple — nearest-rounding
+  can land closer to the outline than the intended 0.7mm gap once a
+  family's margin sits close enough to a grid line, confirmed visually
+  overlapping the courtyard on R-1206 (only 0.145mm actual gap) and
+  tighter than intended on R-0603/R-0805/C-0603/C-0805.
+* Generated footprints also carry a separate `fp_text user "${REFERENCE}"`
+  on `F.Fab` (`Text.kind == "fab_reference"`, written via a dedicated
+  `_write_fab_reference_text` — a distinct s-expression, not a
+  `property` block) — matches real KiCad exactly: an assembly-drawing
+  overlay, centered on the footprint's true midpoint (not grid-snapped,
+  unlike Reference/Value), that resolves to whatever reference
+  designator gets assigned (e.g. "U1"). Font size defaults to the
+  standard 1mm/0.15 but chip passives override it per package size via
+  `fab_reference_font_size`/`fab_reference_thickness` in
+  `data/kicad-fpdb.yaml` (hand-copied from real values, same
+  no-shared-formula convention as `silk_y`/`silk_half_length`) — the
+  default 1mm font badly overflowed their tiny courtyard, confirmed
+  visually on R-0603 and R-1206 before adding the override. Also
+  rotated 90 degrees for DIP and SOIC (`fab_reference_rotation: 90` at
+  each family's root) so it reads along their tall/narrow body's long
+  axis, matching real KiCad exactly; QFP and chip passives stay
+  unrotated like real KiCad.
+* SOT-23 family added (SOT-23, SOT-23-5, SOT-23-6, SOT-23-8 —
+  `data/kicad-fpdb.yaml`'s `SOT` root): the first family with an
+  asymmetric pin layout (2+1, 3+2, 3+3, 4+4), handled by a new
+  `asymmetric_dual_row` generator (`kicad_fpdb/generators/
+  asymmetric_dual_row.py`) taking explicit per-pin `left_offsets`/
+  `right_offsets` rather than a `pin_count` formula — verified real
+  SOT-23-5's right column uses only the outer two positions of a
+  3-position lead-frame grid shared with SOT-23-6, not independently
+  centered with its own pitch, so no formula holds generally. Real
+  courtyard is the same union-of-margin-expanded-rects model already
+  used for SOIC/QFP, generalized to accept a `(width, height)` tuple
+  for `courtyard_body_size` (a non-square true body) and to union each
+  *individual* pad's own bbox rather than a per-side group — needed so
+  a gap between two same-side pads (SOT-23-5's right column) stays
+  open instead of being bridged; QFP's own per-side-group code is
+  untouched, unaffected by this. Real silk is a body rectangle with
+  notches cut out wherever a pad crosses an edge — subtractive, the
+  opposite topology from the courtyard's additive union, so not worth
+  a general algorithm for one family — instead a new `silk_segments`
+  param takes a verbatim per-variant line list, same "no shared
+  formula, hand-copied" convention as chip-passive `silk_y`/
+  `silk_half_length`. F.Fab reference text rotated 90° with a smaller
+  font (0.72mm), matching real KiCad. `pin1_marker: false` for SOT-23
+  and SOT-23-5 specifically — their asymmetric layouts (2+1, 3+2) are
+  only placeable one way; SOT-23-6 (3+3) and SOT-23-8 (4+4) are
+  symmetric (a 180° rotation still fits) and keep the marker. See
+  `docs/superpowers/specs/2026-09-15-sot23-family-design.md`. `SOT`'s
+  yaml root now carries every param shared across all 4 variants
+  (`generator`, `pad_shape`/`pad_type`, `courtyard_margin_x`/`_y`,
+  `fab_outline`, all 3 `fab_reference_*`), plus an intermediate
+  `SOT-23-5-6-8` node (never itself a valid descriptor — just a
+  chain-merge grouping point) for the `row_spacing`/
+  `courtyard_body_size`/`fab_chamfer` those three additionally share.
+  QFP's own root got the same treatment for QFP-32/48's shared params.
+* `TSOT-23-5`/`-6`/`-8` added under a new `TSOT` root: byte-diffed each
+  against its `SOT-23-*` sibling (e.g. `SOT-23-5.kicad_mod` vs.
+  `TSOT-23-5.kicad_mod`) and confirmed the geometry is 100% identical —
+  only name/`descr`/`tags`/3D-model path differ. Declared entirely via
+  YAML anchors/aliases onto `SOT`'s own param mappings
+  (`&sot_common_params`, `&sot_5_6_8_shared`, `&sot23_5_params`, etc.)
+  rather than repeating any values, so `TSOT` has zero geometry data of
+  its own. The base 3-pin `TSOT-23` (no `SOT-23` equivalent in this
+  project) is a different, hand-authored footprint from a different
+  vendor spec with its own geometry — deliberately not covered; see
+  TODO for `SOT-23W`, the other still-open follow-up from the original
+  SOT-23 work.
+* First through-hole family: `R-AXIAL0204`/`0207`/`0309`/`0414` (axial
+  DIN/JEDEC body sizes), grouped under a new `R-AXIAL` intermediate
+  node (shared thru-hole/lead/courtyard params) so it doesn't affect
+  the existing SMD `R-*` chip variants. `two_pad_chip` gained
+  `pad_type`/`drill`/`centered` (axial pads sit at `(0,0)`/`(pitch,0)`,
+  not symmetric about `x=0` like SMD chip passives) rather than
+  needing a whole new generator. Silk/F.Fab bodies reuse the existing
+  `body_width`/`body_margin` and `fab_body_size` mechanisms unchanged
+  (a single-row 2-pad layout collapses `_pad_center_extent`'s Y range
+  to a point, so `body_margin` becomes a flat half-height "for free");
+  new `silk_leads`/`fab_leads` flags additionally draw two short lead
+  lines from each pad to the body edge (silk starts at pad edge + a
+  fixed 0.24mm clearance verified constant across all 4 body sizes;
+  F.Fab starts exactly at the pad center). Courtyard is a genuinely
+  new, simpler shape than SOIC/QFP/SOT's stepped union — `courtyard_
+  includes_body` just combines the raw pad bbox and true F.Fab body
+  bbox before one flat margin, since that happens to always produce a
+  plain rectangle for axial resistors (pad bbox dominates in X, body
+  dominates in Y). All match the real reference footprints exactly,
+  not just the usual ~0.005mm tolerance. See
+  `docs/superpowers/specs/2026-09-15-tht-axial-resistor-design.md`.
+* Generated footprints also draw the true physical body on `F.Fab`
+  (`kicad_fpdb.pipeline._add_outline`, near the pin-1 marker block),
+  chamfered at pin 1's corner for polarized families — an
+  assembly-drawing outline distinct from both the oversized F.SilkS
+  body and the margin-expanded F.CrtYd courtyard. SOIC, QFP, and all 4
+  SOT-23 variants reuse their already-declared
+  `courtyard_body_width`/`courtyard_body_margin` or
+  `courtyard_body_size` directly via `fab_outline: true` (verified
+  those values are already the exact true body real KiCad's own F.Fab
+  outline uses); DIP (no reusable courtyard true-body concept — its
+  courtyard is a flat margin on the pad bbox) and each `R`/`C` variant
+  (no reusable value either) declare their own new
+  `fab_body_width`/`fab_body_margin` or `fab_body_size`. Chamfer size
+  is its own per-family constant (DIP/QFP 1.0mm, SOIC 0.975mm, SOT-23
+  0.325mm, SOT-23-5/6/8 0.4mm); `R`/`C` get no chamfer (no polarity,
+  matching their existing `pin1_marker: false`) — a plain `Rect`
+  instead of the chamfered `Poly`. See
+  `docs/superpowers/specs/2026-09-15-fab-body-outline-design.md`.
+* Generated footprints have courtyard (`F.CrtYd`) and silkscreen body
+  outline (`F.SilkS`, with a pin-1 corner marker on families that use
+  one) geometry (see `kicad_fpdb.pipeline._add_outline`). No family
+  uses a generic pad-bbox margin/rectangle for either layer anymore.
+  DIP's courtyard uses a real, asymmetric margin
+  (`courtyard_margin_x`/`courtyard_margin_y` in `data/kicad-fpdb.yaml`:
+  0.25mm perpendicular to the pin rows, 0.72mm along them), matching
+  real KiCad almost exactly across every pin count and width checked —
+  see `docs/superpowers/specs/2026-09-14-dip-courtyard-margin-design.md`.
+  SOIC and QFP have a real *stepped* courtyard instead: the union of
+  the true physical body outline (`courtyard_body_width`/
+  `courtyard_body_margin` for SOIC, `courtyard_body_size` for QFP —
+  deliberately different, smaller numbers than `body_width`/`body_size`,
+  which stay oversized for F.SilkS) and one pad-bounding-box arm per
+  side that has pads, both independently expanded by a flat 0.25mm
+  margin (`courtyard_margin_x`/`_y`), verified exactly against SOIC-8,
+  SOIC-14, LQFP-32, and LQFP-48 reference footprints (SOIC-14 carries
+  the same ~0.02mm approximation already accepted for SOIC's silk
+  body). The rectangle-union math lives in `kicad_fpdb/rect_union.py`
+  (`union_outline`), generic over any number of margin-expanded
+  rectangles — see
+  `docs/superpowers/specs/2026-09-15-stepped-courtyard-design.md`. Chip
+  passives (R/C) needed no shape change, just their real per-variant
+  flat margin (0.15mm for R-0402, 0.25mm for R-0603/R-0805/C-0603)
+  instead of the old generic 0.5mm fallback. None of these 12 reference
+  footprints declare an explicit `solder_mask_margin`/
+  `solder_paste_margin` override on any pad — both they and the
+  generated pads just opt into the board's default mask/paste
+  expansion via the pad's `layers` list, so there's no gap there today
+  (see TODO for a possible future per-footprint override). For F.SilkS
+  geometry: DIP and SOIC both derive body position from `body_width`/
+  `body_margin` in `data/kicad-fpdb.yaml` (DIP's body_width keyed by
+  width class narrow/regular/wide; SOIC's margin an averaged
+  approximation, off by ~0.01-0.02mm — see
+  `docs/superpowers/specs/2026-09-14-real-body-silk-outline-design.md`),
+  but draw different shapes from it. DIP cuts a semicircular notch into
+  the top edge of an otherwise closed rectangle (`notch_radius: 1.0` in
+  `data/kicad-fpdb.yaml`, constant across every pin count and width
+  checked), matching real KiCad's own DIP pin-1-side indicator exactly
+  — see `docs/superpowers/specs/2026-09-14-dip-notch-arc-design.md`.
+  SOIC instead declares `silk_two_lines: true` and draws only the
+  top/bottom body edges, no vertical sides at all — matching real
+  KiCad's own SOIC silk (which is not a closed rectangle either),
+  and never declares `notch_radius`.
+  QFP draws real corner-mark brackets instead of a rectangle
+  (`body_size` in `data/kicad-fpdb.yaml`, derived per variant — see
+  below), matching real KiCad's own QFP silk convention except for a
+  fixed 0.3mm bracket leg length shared by all QFP variants (real
+  values vary — see
+  `docs/superpowers/specs/2026-09-14-qfp-corner-mark-silk-design.md`).
+  QFP is now formula-driven like DIP/SOIC rather than each variant
+  hand-computing its own `pad_offset`: `quad_perimeter` derives
+  `pad_offset = courtyard_body_size/2 + pad_lead_extension` (default
+  `0.675`, overridden per variant for the 2 of 8 real LQFP samples
+  that need a different value), and `_add_outline` derives the silk
+  corner-mark `body_size = courtyard_body_size + 0.22` (exact across
+  all 8 samples, 7mm-28mm bodies) — both explicit-value escape
+  hatches, same convention as `silk_segments` elsewhere.
+  `courtyard_body_size` is now the single body-size input for a QFP
+  variant, feeding pad placement, the silk corner marks, the
+  courtyard, and (via `fab_outline: true`) the F.Fab body outline all
+  at once. 8 QFP variants total now (was 2), spanning 7mm-28mm real
+  bodies — see `docs/superpowers/specs/2026-09-15-qfp-formula-driven-
+  design.md`.
+  R and C (chip passives) draw two short silk lines instead of a
+  rectangle (`silk_y`/`silk_half_length` in `data/kicad-fpdb.yaml`,
+  declared per variant with no shared formula — each is copied verbatim
+  from its real reference footprint, matching real KiCad almost exactly
+  — see `docs/superpowers/specs/2026-09-14-chip-passive-silk-lines-
+  design.md`); this mode has no pin-1 marker regardless (R/C already
+  declare `pin1_marker: false`, and this mode never computes the corner
+  point the marker needs). Verified visually via the review tool rather
+  than an automated geometry diff, per the spec's stated approach for
+  outline geometry.
+* `roundrect_rratio` (the roundrect corner ratio) is now computed by one
+  shared `kicad_fpdb.geometry.clamped_roundrect_rratio` for every
+  generator: nominally 0.25, clamped so the corner radius never exceeds
+  an absolute 0.25mm — matches real KiCad, only visibly different from a
+  flat 0.25 once a pad's min dimension exceeds ~1mm (surfaced by
+  R-1206's 1.125mm pad). Previously a DIP-only special case; now the one
+  formula everywhere.
+* Chip passives small enough that real KiCad draws no F.SilkS outline at
+  all (0201 and below) declare `no_silk: true` in `data/kicad-fpdb.yaml`
+  (R-0201 is the first) — `_add_outline` skips the whole silk branch,
+  courtyard is unaffected.
+* `data/kicad-fpdb.yaml` coverage widened: DIP's wide (15.24mm) width
+  class now has a verified regression case (DIP-24 w) alongside
+  narrow/regular; SOIC-16 is a third verified pin count; R-0201, R-1206,
+  C-0402, and C-0805 add four new chip-passive sizes. 18 reference cases
+  total, up from 12.
+* Pads support an optional per-descriptor solder mask/paste margin
+  override (`Pad.solder_mask_margin`/`solder_paste_margin` in
+  `kicad_fpdb/geometry.py`, emitted by the writer only when set). New
+  `solder_mask_margin`/`solder_paste_margin` YAML params are popped in
+  `generate_footprint` and applied uniformly to every pad in the
+  generated geometry after the generator runs — no generator-specific
+  plumbing needed, since it's a flat post-generation override rather
+  than something any generator computes. No real reference footprint
+  declares it yet (all 18 just opt into the board's default mask/paste
+  expansion via the pad's `layers` list), so `data/kicad-fpdb.yaml` is
+  untouched; covered by synthetic writer and pipeline tests instead of
+  a reference-footprint regression case.
+* Generated footprints get a descriptive dimension suffix appended to
+  their identity/Value text, matching each family's own real KiCad
+  naming convention exactly (verified against real reference
+  footprints) — e.g. `DIP-16` → `DIP-16_W7.62mm`, `SOIC-8` →
+  `SOIC-8_3.9x4.9mm_P1.27mm`, `LQFP-32` → `LQFP-32_7x7mm_P0.8mm`,
+  `R-0603` → `R-0603_1608Metric`, `R-AXIAL0204` →
+  `R-AXIAL0204_L3.6_D1.6_P7.62mm` — so a user assigning a
+  generated footprint can sanity-check its real dimensions at a
+  glance, the way real KiCad's own descriptive filenames already let
+  them (real KiCad's `Value` text and footprint identity are the
+  filename itself, no separate display name — matched here rather
+  than inventing a new convention). New `kicad_fpdb/naming.py`
+  (`descriptive_suffix`, `fab_outline_bounding_box`) dispatches per
+  family: DIP uses its `row_spacing` param directly (real DIP names
+  encode lead-to-lead spacing, not body size); SOIC/LQFP use the
+  generated F.Fab true-body outline's own bounding box (generic across
+  any generator that draws one, rather than a per-family formula) plus
+  the `pitch` param; R/C chip passives use a small fixed
+  imperial→metric code lookup table (`IMPERIAL_TO_METRIC` — real
+  KiCad's numbers there are a standard pairing, not derivable from our
+  params); R-AXIAL uses the F.Fab outline bbox (lead length/diameter)
+  plus `pad_pitch` — only the trailing `P{pitch}` carries an explicit
+  `mm` unit (`_L3.6_D1.6_P7.62mm`), since real KiCad's own axial names
+  do the same (`R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_...`, redundantly
+  units-suffixing all three, but this project's shorter form still
+  reads unambiguously as mm throughout). SOT/TSOT get no suffix,
+  matching real KiCad exactly
+  — those families have no single `pitch`/`pad_pitch` param (asymmetric
+  per-pin offsets instead). One subtlety: the descriptor grammar splits
+  on the first hyphen only, so `R-AXIAL0204` parses to family `"R"`,
+  variant `"AXIAL0204"` — `descriptive_suffix` checks
+  `variant.startswith("AXIAL")` before the plain chip-lookup branch, or
+  axial descriptors would (mis)match as an unknown metric code.
+* Renamed the `QFP` family to `LQFP` (`data/kicad-fpdb.yaml`'s root and
+  all 8 variant descriptors, `LQFP-32` etc.) to match real KiCad's own
+  naming exactly — its library tracks distinct QFP lead-frame profiles
+  by name (LQFP, PQFP, TQFP, ...), and this project only implements
+  the low-profile one (`quad_perimeter`), so the family name now says
+  so explicitly instead of implying it covers every QFP variant. Pure
+  rename, no behavior change — earlier narrative entries above still
+  say "QFP" since they describe the family as it was named at the
+  time; only the naming-suffix examples just above were updated since
+  they document current behavior. A future `PQFP`/`TQFP` family, if
+  one turns out to need genuinely different geometry, would get its
+  own root rather than folding into `LQFP`.
+* Fixed a bug the LQFP rename surfaced: the review viewer's default
+  case-name derivation (`render_all_known_cases`) stripped hyphens as
+  well as spaces out of the descriptor (`DIP-14` → `DIP_14`), harmless
+  before the descriptive-naming feature but now leaking into the
+  generated footprint's own Value text (`DIP_14_W7.62mm` instead of
+  the correct `DIP-14_W7.62mm`) — `render_comparison`'s own default
+  didn't have this extra `.replace("-", "_")`, so the two copies had
+  quietly drifted. Deduped into one `_default_case_name` helper used
+  by both, plus the CLI entry point, so this can't drift again.
+* The review viewer's preview now omits the 5 largest LQFP variants
+  (80/100/144/176/208-pin) via `_preview_cases`/
+  `PREVIEW_EXCLUDED_DESCRIPTORS` in `visual_compare.py` — each one's
+  pad count roughly doubles `review.html`'s size for no extra review
+  value (same stepped-courtyard validation regardless of size). `CASES`
+  itself is untouched, so `test_pipeline_regression.py` still verifies
+  all 35; only the HTML preview and its rendered SVG count (30) shrink.
+  The footprint-count footer reads `CASES` directly, so it still
+  correctly reports 35.
+* Real KiCad's own library has 281 DIP footprints (`Package_DIP.pretty`)
+  — grown from 5 to 230 total verified reference cases across all
+  families since, closing a large share of that gap; see below.
+* DIP grew two more width classes, `extra_wide`/`ultra_wide` (letters
+  `x`/`u`, row spacing 22.86mm/25.4mm) — same mechanism as the existing
+  narrow/regular/wide classes, no new code.
+* Added `CERDIP` (ceramic side-brazed DIP, JEDEC MS-015) as a sibling
+  family reusing `dual_row_grid` and almost all of DIP's own constants
+  — only the F.Fab true-body width differs (7.49mm flat vs DIP's
+  6.35mm). `CERDIP-8`/`CERDIP-14` additionally override `body_margin`/
+  `fab_body_margin`/`courtyard_margin_y` for a JEDEC-mandated minimum
+  ceramic body length at small pin counts. Real KiCad names always
+  carry a trailing `_SideBrazed`, unconditional (not a selectable
+  modifier) — see `kicad_fpdb.naming.descriptive_suffix`.
+* Added a "socket" modifier (e.g. `DIP-14 socket`, also on CERDIP):
+  real KiCad's `_Socket` variant draws one extra F.SilkS rectangle
+  around the pads. Its silk *and* courtyard margins are measured from
+  each pin's own **center**, not the pad bbox edge (`socket_margin_x/y`,
+  `courtyard_from_pad_center` in `kicad_fpdb.pipeline._add_outline`) —
+  this only looked edge-based before because every pad was the same
+  1.6mm size; LongPads (below) exposed the real behavior.
+* Added a "longpads" modifier (e.g. `DIP-14 longpads`): widens the pad
+  to 2.4×1.6mm and shrinks the silk body by a flat 0.8mm (except DIP's
+  "regular" width at pin counts 4–16, which real KiCad leaves
+  unchanged). Required generalizing `dual_row_grid`'s non-pin-1 pad
+  shape to "oval" whenever the pad is non-square (`_non_pin1_shape` in
+  `kicad_fpdb/generators/dual_row.py`) — previously always "circle".
+  Socket+LongPads together need their own distinct silk margin
+  (1.44mm vs Socket-alone's 1.33mm, courtyard unchanged) — handled by
+  a new reserved `_with` key inside a modifier's own override dict in
+  `data/kicad-fpdb.yaml`, applied order-independently against the full
+  set of active modifier tokens rather than sequentially (see
+  `kicad_fpdb.family_tree.resolve_descriptor`).
+* Fixed a naming redundancy: `DIP-16 r` produced a Value of
+  `DIP-16_r_W10.16mm` — the width letter, now redundant since the
+  dimension suffix already encodes it. Root cause was `_default_case_name`
+  (which keeps every modifier token, for unique on-disk file naming)
+  being reused as the footprint's own identity name; decoupled via a
+  new `footprint_name` parameter on `render_comparison` backed by
+  `_descriptor_head` (strips modifier tokens entirely). Fixed alongside:
+  Socket's suffix ordering (`_socket_W7.62mm` → `_W7.62mm_Socket`) and
+  CERDIP getting no suffix at all (`descriptive_suffix` only checked
+  `family == "DIP"`). `MODIFIER_DISPLAY_NAMES` in `kicad_fpdb/naming.py`
+  maps a modifier token to its exact-capitalization real-KiCad display
+  name (`"longpads"` → `"LongPads"`, not `.capitalize()`'s `"Longpads"`).
+* `remove_unused_layers no` was missing from every thru-hole pad the
+  writer emits — real KiCad puts it on every one (never on SMD pads);
+  fixed in `kicad_fpdb/writer.py`.
+* Fixed the review viewer's footer size-comparison stat going stale
+  once `PREVIEW_ONLY_DESCRIPTORS` (below) started filtering the
+  rendered case list — `_size_comparison_html` was being passed that
+  filtered list instead of the full `CASES`.
+* Added `SMDIP` (surface-mount DIP): reuses essentially all of DIP's
+  numeric constants but has its own `body_width`/`fab_body_width`
+  tiers and `courtyard_margin_y`, `pad_type: smd`, `centered: true`.
+* The review viewer's preview can now be pinned to just the newest
+  batch of cases via `PREVIEW_ONLY_DESCRIPTORS` in
+  `kicad_fpdb/visual_compare.py` (checked before the existing
+  `PREVIEW_EXCLUDED_DESCRIPTORS` exclusion list) — `CASES` and the
+  regression suite always cover everything regardless; this only
+  narrows what `review.html` renders, so a reviewer isn't stuck
+  paging through hundreds of already-verified cases every round.
+  Left non-empty between sessions is intentional-for-now, not a
+  leftover bug.
+* Added SOIC's `wide` width class (the real `*W` 7.5mm-body variants,
+  e.g. `SOIC-16W`), selected the same way as DIP's width classes
+  (`SOIC-16 w`) — zero generator changes, same `dual_row_grid` +
+  stepped-courtyard/naming code already used for narrow.
+* Added SOIC-8's exposed-pad (`-1EP`) variants: a center thermal
+  ("heatsink") pad plus a 4-way paste-stencil split, both new pad
+  concepts. `Pad` gained optional `layers`/`pad_prop`/`zone_connect`
+  overrides (`kicad_fpdb/geometry.py`, `kicad_fpdb/writer.py`) since
+  these don't fit the plain pad_type-derived layer set every other pad
+  uses. The paste-split size/position formula was reverse-engineered
+  from all 8 real `SOIC-8-1EP_*.kicad_mod` files (no formula is
+  published for it): per axis, `size = 0.8094 * (H/1) - 0.0057` where
+  H is half the effective size, position = `effective_size / 4`, fit
+  by least squares (max residual 0.006mm across all 8 samples). Two of
+  the eight additionally declare a separate `ep_mask_size` (a smaller
+  solder-mask opening over the same copper pad) — real KiCad computes
+  the paste split from *that* size instead, and drops F.Mask from the
+  copper pad itself in favor of a dedicated mask-only pad. Each of the
+  8 real files needed its own hand-verified outer-pad `row_spacing`/
+  `pad_size` too (5 of the 8 shrink/shift the ordinary 8 pads to clear
+  the larger EP; only 3 sit on the plain narrow SOIC-8 grid unchanged)
+  — modeled as one SOIC modifier per EP size (e.g. `SOIC-8
+  ep2_41x3_3`) rather than a formula, since vendor EP sizing has none.
+  Real KiCad's own `_ThermalVias` sibling of each of these (adds an
+  actual via array inside the pad) is not yet implemented — see TODO.
+* Added the `QFN` family (20 generic single-exposed-pad variants,
+  12-80 pins): 100% reuse of `quad_perimeter` and the existing
+  exposed-pad/courtyard/fab-outline pipeline (`ep_size`+
+  `_add_exposed_pad`, `courtyard_body_size`+`courtyard_margin_x/y`,
+  `fab_outline`+`fab_chamfer`, default `pin1_marker: true`) — the only
+  code change anywhere is generalizing `descriptive_suffix`'s
+  `family in ("SOIC", "LQFP")` branch to also accept `"QFN"`
+  (`kicad_fpdb/naming.py`), since QFN needs exactly the same
+  WxH+pitch+EP-size suffix SOIC's own `-1EP` variants already produce.
+  QFN's leads sit inboard of the true body edge rather than LQFP's
+  outward gull-wing leads, so `pad_lead_extension` is negative
+  (`-0.0625` at the family root, overridden per variant same as
+  LQFP's). Verification against the real `Package_DFN_QFN.pretty`
+  library found 3 of the spec's originally-scoped pin counts don't fit
+  `quad_perimeter` at all and have no same-pin-count generic
+  alternative: QFN-8's real file is actually a 2-row
+  `dual_row_grid`-style layout, and QFN-42/QFN-52 have uneven
+  per-side pin counts from a rectangular (non-square) body. Resolved
+  by giving QFN-16, QFN-32, and QFN-48 each a second real body/pitch
+  class instead, via the exact same `variants:`/`default_width:`
+  width-class mechanism DIP's narrow/regular/wide/extra_wide/
+  ultra_wide classes already use — keeping the total at 20 distinct
+  descriptors (12, 16, 16 p65, 20, 24, 28, 32, 32 p65, 36, 40, 44, 48,
+  48 p4, 56, 60, 64, 68, 72, 76, 80) while still covering a 12-80 pin
+  spread. All match their real reference `.kicad_mod` files within the
+  existing regression tolerances. See
+  `docs/superpowers/specs/2026-09-16-qfn-family-design.md`.
+* Final-review fixes to the QFN family: the paste-stencil split over
+  the exposed pad isn't always the 2x2 grid `_add_exposed_pad`'s
+  formula produces (real KiCad also uses 1x2, 3x3, and 4x4 splits
+  depending on EP size) — 16 of the 20 QFN variants now carry an
+  explicit `ep_paste_pads` list of real `(x, y, w, h)` sub-pads
+  (copied verbatim from the real reference files) via a new optional
+  `ep_paste_pads` param on `_add_exposed_pad`/`generate_footprint`;
+  the other 4 (QFN-16 default/p65, QFN-20, QFN-24) already matched the
+  2x2 formula and are untouched. `fab_reference_font_size`/
+  `fab_reference_thickness` were also wrong at the QFN root (0.75/0.11
+  applied to the whole family) — only QFN-12 and QFN-16 actually use
+  those real values; every other variant (including QFN-16 p65) uses
+  the pipeline's own 1.0/0.15 default, so the root-level override was
+  dropped and moved onto QFN-12 directly and QFN-16 as a width-class
+  dict. The regression suite's pad parser also only matched numbered
+  `(pad "N" ...)` blocks, so unnumbered paste/mask pads were invisible
+  to it — this is why the paste-split bug passed the full suite;
+  `tests/test_pipeline_regression.py` now also collects and compares
+  unnumbered pads (sorted by position) against the real files. Also,
+  QFN-44's reference file was swapped during planning from the design
+  spec's original pick (`EP5.2x5.2mm`) to `EP5.15x5.15mm` — both real
+  files exist in the library and the spec's own escape hatch permits
+  this kind of in-bucket swap, noted here since it wasn't otherwise
+  recorded. And: QFN's silk corner-mark legs use the same fixed
+  `CORNER_MARK_MM = 0.3` approximation as LQFP (see the LQFP corner-
+  mark entry above) even though real QFN bracket legs actually run
+  0.475-0.725mm — an accepted approximation, not a QFN-specific bug.
+* QFN's pin-1 marker was replaced with a filled triangle matching real
+  KiCad's own convention, instead of inheriting the DIP/SOIC/SOT/LQFP
+  circle marker it wasn't designed around — real QFN reference files
+  (`Package_DFN_QFN.pretty`) draw a triangle pointing outward from pad
+  1 along whichever side pad 1 sits on (always the left side today),
+  not a circle above it. New `pin1_marker_style` param on `_add_outline`
+  (default `"circle"`, every other family unchanged) with a `"triangle"`
+  branch: apex sits `courtyard_margin + 0.01mm` past pad 1's own
+  outward edge, depth `0.33mm`, base spread `±0.24mm` — all three fixed
+  constants verified exactly against 11 real QFN files spanning 12-80
+  pins and 0.4/0.5/0.65mm pitch, including a custom-shaped pad 1. Side
+  detection reuses `_quad_side_groups`' own width>height convention, so
+  it generalizes to any of the four sides, not just QFN's left-side
+  convention. The corner-mark bracket leg real KiCad shortens at that
+  same corner (~0.02mm) is deliberately not reproduced — visually
+  negligible, and QFN's corner marks already carry a larger documented
+  approximation. See docs/superpowers/specs/2026-09-17-qfn-pin1-
+  triangle-marker-design.md.
+* Discovered while verifying the above (out of scope for this change,
+  tracked in TODO below): real KiCad's SOIC, SOT-23, and LQFP reference
+  footprints *also* carry their own filled-triangle pin-1 markers on
+  `F.SilkS`, at their own family-specific positions — this project's
+  circle marker isn't unique to matching KiCad's own convention, QFN
+  just happened to be the family where the mismatch was raised first.
+  The regression suite's new triangle check (`test_pipeline_regression.
+  py`) is deliberately scoped to QFN descriptors only, so it won't flag
+  these other families' still-circle markers as failures.
+* LQFP/QFN's F.SilkS corner-mark legs no longer use a fixed 0.3mm
+  length for every variant of both families — each leg now extends
+  inward exactly until it reaches the courtyard's own "jog" (the point
+  where the stepped F.CrtYd outline transitions from the plain body
+  corner to the adjacent side's own pad-arm edge), computed from the
+  same `_quad_side_groups` per-side rects the courtyard itself already
+  uses. No new yaml params or per-family opt-in — `_add_corner_marks`
+  is only ever reached by LQFP/QFN, so the fix applies everywhere it's
+  used. Direction is unchanged (still inward); only the length is now
+  exact instead of approximated. Coincidentally lands close to real
+  KiCad's own per-package lengths on the cases checked (LQFP-48: 0.46mm
+  computed vs. real KiCad's 0.45mm for that package, previously this
+  project's flat 0.3mm for every LQFP variant alike) without attempting
+  to match them exactly — still a deliberate, symbolic convention, not
+  real-KiCad matching (see the original corner-mark design spec's own
+  "not meant to pixel-match" framing). `_add_corner_marks` gained a
+  fixed-length fallback for a missing/absent side, not reachable today
+  since `quad_perimeter` always populates all four sides, but keeps the
+  function safe to call with partial data. See docs/superpowers/specs/
+  2026-09-17-corner-mark-extends-to-courtyard-jog-design.md.
+* Extended the pin-1 triangle marker (`pin1_marker_style: triangle`,
+  originally QFN-only) to SOIC and LQFP. Real KiCad's per-family
+  scripts each choose the marker's extension axis independently — QFN
+  extends along the same axis pad 1's lead points on (X), but SOIC and
+  LQFP extend perpendicular to it (Y) despite pad 1 having the same
+  wide-in-X shape in both cases — so `pin1_triangle_axis` makes that
+  choice explicit (`None` keeps QFN's old shape-inferred behavior,
+  zero yaml change needed there). There are also two real marker
+  sizes, not one: the existing `depth=0.33mm`/`half-width=0.24mm`
+  (`pin1_triangle_size: small`, QFN and SOIC's narrow class) and a
+  second `depth=0.47mm`/`half-width=0.34mm` pair (`"large"`, SOIC's
+  wide class and every LQFP variant regardless of body size).
+  SOIC/LQFP's perpendicular-axis position turned out to be anchored to
+  the true body edge, not to pad 1 — `apex = -(true_body_half_width +
+  constant)` — verified **exact, zero error** against every real
+  sample once `pad_lead_extension`'s effect on pad 1's own position
+  (which had made it look approximately, not exactly, pad-relative)
+  was correctly excluded; constants are `0.75mm` (LQFP), `0.65mm`
+  (SOIC narrow), `0.90mm` (SOIC wide) — a new `pin1_triangle_anchor_mm`
+  param drives this, unused (`None`) for QFN. The extension-axis
+  formula itself is unchanged from QFN's (`pad-edge - margin - 0.01mm`)
+  and holds almost exactly — 4 of LQFP's 8 variants match to the last
+  digit, the rest are off by exactly `0.01mm` in a way that didn't
+  resolve to a cleaner alternate constant, accepted as generator
+  rounding noise (same category already accepted for LQFP's corner
+  marks and SOIC's body-width formula). One genuine isolated anomaly
+  found and tracked (`KNOWN_TRIANGLE_ANOMALIES`, not chased further):
+  `SOIC-8-1EP_..._EP2.514x3.2mm`'s real file uniquely shifts its own
+  marker by 0.04mm, unlike every other EP variant (even ones with a
+  larger pad-row shift), which keeps the marker at the exact standard
+  body-anchored position this project's formula computes. See
+  docs/superpowers/specs/2026-09-17-soic-lqfp-pin1-triangle-marker-
+  design.md.
+* Fixed a real, previously-dead check while extending the above: the
+  regression suite's (`kicad_fpdb.footprint_diff.diff_footprint`)
+  pin-1-triangle comparison used `descriptor.split()[0] == "QFN"`,
+  which is always `False` for every actual descriptor (e.g.
+  `"QFN-12".split()[0]` is `"QFN-12"`, never `"QFN"`) — this check had
+  never actually executed since it was added. Fixed to
+  `descriptor.split()[0].split("-")[0]` (matching the family-head
+  extraction already used elsewhere, e.g. `render_png.py`) and
+  extended to cover SOIC/LQFP too (`TRIANGLE_MARKER_FAMILIES`). Also
+  replaced the old rounded-set-equality comparison with a numeric
+  per-point distance tolerance (`TRIANGLE_POINT_TOLERANCE_MM =
+  0.015mm`), needed to absorb LQFP's known ≤0.01mm residual without
+  loosening things enough to hide a real bug.
+* Extended the pin-1 triangle marker to SOT-23-6/-8 (and their
+  byte-identical TSOT-23-6/-8 aliases) — a pure reuse of SOIC's
+  narrow-class formula and constants (`axis="y"`, `size="small"`,
+  `anchor_mm=0.65`), verified exact (SOT-23-6) and near-exact
+  (SOT-23-8, the same ~0.005mm rounding-noise category already
+  accepted elsewhere) against both real reference files, with zero new
+  geometry needed. SOT-23 and SOT-23-5 (`pin1_marker: false`, their
+  asymmetric layouts are only placeable one way) are untouched — only
+  packages that can physically be placed backwards get a marker at
+  all, unchanged from before. One real bug fixed along the way: the
+  triangle's body-anchor calculation assumed `courtyard_body_size` was
+  always a plain number (true for QFN/LQFP), but SOT declares it as a
+  `[width, height]` tuple (a non-square true body) — now takes the
+  width specifically instead of raising `TypeError`. A second bug
+  caught before landing: the design spec's own draft assumed SOT-23/
+  SOT-23-5's real reference files had no triangle marker either
+  (matching this project's deliberate no-marker choice there) — they
+  actually do; `diff_footprint`'s triangle check now looks at whether
+  the *generated* output has any marker at all before applying
+  `TRIANGLE_MARKER_FAMILIES`, not just family membership, so those
+  stay correctly unflagged without asserting something false about the
+  real files. No family left has a circle marker any more (every
+  family that previously defaulted to one — SOIC, LQFP, QFN,
+  SOT-23-6/-8 — now uses the triangle; DIP/R/C/R-AXIAL/SOT-23/SOT-23-5
+  all have `pin1_marker: false`) — the circle mechanism itself is
+  still covered directly at the `_add_outline` level
+  (`test_add_outline_produces_pin1_marker_circle`), just no longer
+  exercised through any real family's `generate_footprint` call. See
+  docs/superpowers/specs/2026-09-17-sot23-pin1-triangle-marker-
+  design.md.
+* Replaced Reference/Value text's flat `0.7mm` + 1.27mm-grid-snap
+  placement with real KiCad's own (ungridded) placement. Real KiCad
+  never grid-aligns this at all — the snap was a deliberate stylistic
+  choice this project had made, not something real footprints do. The
+  actual gap is a small set of per-family-group flat constants: `0.7mm`
+  default (SOIC, LQFP, QFN, R, C, SOT-23, TSOT-23), `0.805mm` for
+  DIP/CERDIP/SMDIP, `0.745mm` for DIP's/CERDIP's `socket` modifier
+  specifically (with or without `longpads`), and `0.87mm` for R-AXIAL.
+  New `text_margin_mm` param on `_add_outline`'s neighbor
+  `_add_reference_and_value_text`, defaulting to the unchanged `0.7mm`
+  so most families need no yaml change at all.
+  `kicad_fpdb.footprint_diff.diff_footprint` now also compares real
+  vs. generated Reference/Value position (`0.01mm` tolerance). Two
+  constants in the *first* pass at this investigation (`0.94mm` for
+  socket, `1.0mm` for R-AXIAL) were wrong — a regex used `.*?` to find
+  each element's own `F.CrtYd` layer tag, which non-greedily crossed
+  into a different, later geometry element (socket's own extra
+  `F.SilkS` rectangle; R-AXIAL's `F.SilkS` body rect) whenever the
+  first element matched wasn't itself on that layer — the same DOTALL
+  block-crossing bug already hit twice earlier this session (the QFN
+  pin-1 triangle, the corner-mark jog work). Caught by the regression
+  suite once this new check actually ran against the real library;
+  corrected with a stricter, non-crossing regex before landing. Also
+  added `KNOWN_TEXT_POSITION_ANOMALIES` (`SOIC-14`/`-16`/`-20 w`/
+  `-24 w`): these inherit SOIC's own already-documented ~0.02-0.04mm
+  `courtyard_body_margin` averaging approximation via their
+  courtyard-relative text position — a pre-existing, accepted geometry
+  approximation surfacing through a new check, not a new bug. See
+  docs/superpowers/specs/2026-09-17-exact-reference-value-text-
+  position-design.md.
+* Added R-1210/1812/2010/2512 and C-1210/1812 chip passive sizes —
+  pure data addition, zero new code, using the exact same `two_pad_chip`
+  param set every existing chip-passive size already uses. `_HandSolder`
+  variants (wider pads) and `C-2010`/`C-2512` (no real file exists for
+  either) are out of scope. See docs/superpowers/specs/2026-09-17-chip-
+  passive-larger-sizes-design.md.
+* Added the `TSSOP` and `MSOP` families (25 descriptors: 4 MSOP + 21
+  TSSOP spanning 10 pin counts, each with a narrow/wide/xwide body
+  class where a real variant exists) — pure data addition to
+  `data/kicad-fpdb.yaml`, zero pipeline changes, reusing `dual_row_grid`
+  and every existing `_add_outline` mechanic (stepped courtyard,
+  `silk_two_lines`/`silk_segments`, `pin1_marker_style: triangle`,
+  `fab_outline`). Architecturally distinct from every prior width-class
+  family (DIP/SOIC/QFN): SOIC's `variants:`/`default_width:` root-level
+  dict can't express TSSOP's real data, because silk shape
+  (`silk_two_lines` vs `silk_segments` — different param *sets*, not
+  different values of one param) and pin-1 triangle axis (`x` vs `y`)
+  vary jointly by pin count *and* width class, with no formula relating
+  them — confirmed empirically against the real library, not derivable
+  from pin count/pitch/width alone. Fixed by making each pin count its
+  own independent child (flat params, no root-level width dict at all),
+  and adding a wider real variant as a child-level `modifiers:` block
+  (e.g. `TSSOP-24.modifiers.w`) carrying a fully self-contained,
+  independent parameter set rather than a partial override —
+  `family_tree.py`'s existing `_merge_modifiers`/`_deep_merge_into`
+  already support this with no code changes, since child-level
+  modifiers merge additively and a flat value does a plain overwrite.
+  `descriptive_suffix`'s `family in ("SOIC", "LQFP", "QFN")` branch
+  generalized to include `"TSSOP"`/`"MSOP"`, same mechanism as QFN's
+  own addition. Confirmed "largest available pitch per width class" as
+  the real per-combo pitch-selection rule (not an arbitrary choice) by
+  scanning the *entire* real `Package_SO.pretty` TSSOP file listing,
+  not just a sample: pitch only shrinks once the coarser option is
+  physically absent for that specific (pin_count, width) combo — more
+  pins mechanically require finer pitch to fit a JEDEC-standard body
+  length once the coarser pitch no longer does. Every one of the 25
+  values was independently re-verified against real courtyard/silk/pad
+  geometry (using a strict, non-DOTALL-crossing regex) before being
+  added rather than trusting the design spec's own transcribed numbers
+  — this caught 3 real transcription errors in the MSOP batch
+  (`courtyard_body_margin` off by ~0.02-0.03mm on MSOP-8/-12/-16); all
+  4 subsequent TSSOP batches matched on the first `verify_library` run
+  with no corrections needed. Per an explicit "split into two" scoping
+  decision, `-1EP` exposed-pad variants for both families are a
+  separate, not-yet-started follow-up (see TODO). See
+  docs/superpowers/specs/2026-09-17-tssop-msop-family-design.md and
+  docs/superpowers/plans/2026-09-17-tssop-msop-family.md.
+
+## TODO
+
+This is a running list of everything yet planned, updated at the end of
+each session, in roughly chronological order:
+
+* Generalize the pin-1 marker's "above pad 1" direction: every current
+  generator places pin 1 at the top, so the marker just offsets in -Y.
+  Real packages sometimes put pin 1 mid-side rather than at a corner
+  (already handled, since the marker anchors to pad 1 directly — see
+  memory `pin1-position-variation`), but a family with pin 1 on a
+  different edge entirely (not top) would need the offset direction
+  derived rather than assumed.
+* Expand `data/kicad-fpdb.yaml` coverage: more DIP/SOIC pitches and
+  widths, additional package families (BGA, SOD diodes, etc.) — each
+  needs its own hand-verified real-footprint regression case per the
+  existing pattern in `tests/test_pipeline_regression.py`. SOT-23/-5/
+  -6/-8, TSOT-23-5/-6/-8, QFN (20 generic single-EP variants), chip
+  passives through 1210/1812/2010/2512, and TSSOP/MSOP (25 base,
+  non-EP variants) are done.
+* TSSOP/MSOP `-1EP` exposed-pad variants (8 real TSSOP + 10 real MSOP
+  files): deliberately deferred, per an explicit "split into two"
+  scoping decision on the base-family work above — a natural follow-up
+  reusing the SOIC-8-1EP paste-split mechanism (`ep_size`,
+  `ep_paste_pads`), needs its own spec+plan. Not yet started.
+* TSSOP's 3mm-body 8-pin oddball, `TSSOP-4`, and HTSSOP/ETSSOP vendor
+  families: out of scope for the base TSSOP/MSOP work, noted but not
+  investigated.
+* QFN follow-ups deliberately excluded from the initial batch:
+  vendor-specific QFN variants (`HVQFN`, `VQFN`, `DHVQFN`, ...);
+  multi-EP QFN variants (`-2EP`/`-3EP`/`-4EP`/`-5EP` — not supported
+  by the current single-EP `ep_size` mechanism, which assumes exactly
+  one center pad); QFN `_ThermalVias` siblings (needs a real via-array
+  primitive — same deferred item as SOIC-8-1EP's own `_ThermalVias`
+  siblings above); and a possible future `dual_row_grid`-based
+  QFN-8-style 2-row QFN family (or similar) to cover the pin counts
+  (8, 42, 52) that don't fit `quad_perimeter`.
+* SOT-23W: a natural follow-up under the existing `SOT` root, but NOT a
+  mechanical addition like TSOT-23-5/6/8 was — its real reference
+  footprint uses a filled-triangle silk polygon for the pin-1 marker
+  and a chamfered-pentagon F.Fab outline, neither of which the current
+  outline generator supports (today's shapes are: notch, two-lines,
+  corner-marks, or plain rect for silk; plain-rect or single-corner-
+  chamfer for fab). Needs a small design pass for the new primitives
+  before it fits the existing pattern.
+* Descriptor grammar will need to grow to express more variation (see the
+  spec's "Expected evolution" note) — grow it deliberately, not organically.
+* SOIC-8-1EP's `_ThermalVias` siblings (8 real files): same EP/paste
+  layout as the plain EP variants already done, plus an actual via
+  array inside the thermal pad — a genuinely new primitive.
+* SOIC-32 (`SOIC-32_7.518x20.777mm_P1.27mm.kicad_mod`): looks like it
+  should fit the `wide` class but its pad width/pitch is subtly
+  different from the other six real `*W` files (4.7875mm vs 4.65mm
+  pad-x) — likely its own anomaly, needs its own investigation before
+  it can be added (same category as DIP-32_W7.62mm's rect-vs-roundrect
+  anomaly).
+* SOIC-10 (`SOIC-10_3.9x4.9mm_P1mm.kicad_mod`): a genuinely different
+  pitch (1mm, not 1.27mm) and its own row spacing — not a clean fit
+  under the existing narrow/wide classes without a custom-pitch case.
+* SOIC-14-16 and SOIC-5-6 (combined-pin-count files: one real footprint
+  populating two different pin counts via unpopulated pads) aren't
+  expressible in the current per-descriptor model — same unsupported
+  modeling quirk as DIP-24's RTC-module files below.
+* DIP: `SMDSocket` (51 files) — a third, distinct socket-adapter style
+  needing new design work beyond the existing thru-hole Socket.
+  Oddball partial-pin DIPs (`DIP-5-6`, `DIP-8-16`, `DIP-8-N6`,
+  `DIP-8-N7`, 13 files) need generator support for a non-full pin
+  population. `DIP-24_18.0mmx34.29mm_*` (4 files) is not a real DIP-24
+  variant at all — a distinct RTC/battery-module footprint using
+  `pcbnew`-generator-specific features (UUIDs, `unlocked` properties)
+  this project's writer doesn't support — out of scope.
+* SMDIP: a `Clearance8mm` modifier (10 files) and a `_W25.24mm` 5th
+  width tier (4 files) are still unconverted; plus 12 vendor one-off
+  footprints across the library that don't fit the family model at all.
+* SOT-23W: a natural follow-up under the existing `SOT` root, but NOT a
+  mechanical addition like TSOT-23-5/6/8 was — its real reference
+  footprint uses a filled-triangle silk polygon for the pin-1 marker
+  and a chamfered-pentagon F.Fab outline, neither of which the current
+  outline generator supports (today's shapes are: notch, two-lines,
+  corner-marks, or plain rect for silk; plain-rect or single-corner-
+  chamfer for fab). Needs a small design pass for the new primitives
+  before it fits the existing pattern.
+* Convert the entire existing KiCad footprint library into descriptor form
+  (separate future spec, per the original design spec's non-goals).
+* KiCad plugin/UI integration (separate future spec).
+* Contribution/moderation server (separate future spec).

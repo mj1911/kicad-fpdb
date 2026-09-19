@@ -2,7 +2,22 @@
 
 🚧 Under construction... 🚧
 
-* data/kicad-fpdb.yaml: 22,992 bytes (with loads of comments)
-* 230 real reference .kicad_mod files: 1,378,725 bytes combined
-* Our representation is **60.0× smaller** and would remove **230** files from disk
-* 230 of 15,450 real footprints currently defined (1.5% of entire library)
+Independent side projects exploring alternatives to KiCad's per-file
+footprint library — build footprints on demand instead of picking from
+thousands of near-duplicate static files:
+
+* [`kicad-fpdb/`](kicad-fpdb/) — reverse-engineered from real KiCad
+  library files: a descriptor language + family-tree YAML + shape
+  generators, validated to match KiCad's own footprints exactly.  Was
+  initally going to use just this, but decided to try a more algorthmic
+  approach, where no footprint data was stored locally.  Was able to
+  reduce file size by over 60x with a limited subset of footprints.
+* [`jedec-fpdb/`](jedec-fpdb/) — the opposite approach: footprints
+  generated purely from published JEDEC/IPC standards, independent of
+  any real KiCad file.  This seems more capable than the previous.  Of
+  course the default options will produce footprints very close to
+  established KiCAD references.
+
+See each subdirectory's own README for details.
+
+Expect everything to change here, often, as we try to nail this down.
