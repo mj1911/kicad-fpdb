@@ -12,9 +12,12 @@ CLI usage:
 """
 
 import argparse
+import os
 import re
+import signal
 import subprocess
 import tempfile
+import time
 import tkinter as tk
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -400,6 +403,48 @@ class ReviewApp:
         self.root.destroy()
 
 
+def _terminate_other_running_instances() -> None:
+    """SIGTERMs any other `python ... jedec_fpdb.visual_compare` process
+    still running, so re-launching (by hand, or via the VS Code task)
+    after a previous window never got closed doesn't pile up duplicate
+    viewer windows -- Linux-only (/proc), matching this project's
+    stated dev environment. Only matches actual python processes (via
+    /proc/<pid>/comm) rather than a plain substring match on cmdline
+    alone, so a shell that merely launched one with this string in its
+    own argv (e.g. `bash -c "python3 -m jedec_fpdb.visual_compare"`)
+    isn't mistaken for the process itself. A killed instance skips its
+    normal on_close summary -- acceptable, since pass/fail marks were
+    never persisted anyway."""
+    my_pid = os.getpid()
+    killed = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit() or int(entry.name) == my_pid:
+            continue
+        pid = int(entry.name)
+        try:
+            comm = (entry / "comm").read_text().strip()
+            if "python" not in comm:
+                continue
+            cmdline = (entry / "cmdline").read_bytes().decode(errors="replace")
+        except (FileNotFoundError, ProcessLookupError, PermissionError):
+            continue
+        if "jedec_fpdb.visual_compare" in cmdline:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                killed.append(pid)
+            except ProcessLookupError:
+                pass
+
+    # Best-effort wait so the old window is actually gone before the new
+    # one appears, rather than briefly overlapping -- a Tk process with
+    # no custom SIGTERM handler exits almost immediately, so this rarely
+    # uses its full budget.
+    deadline = time.monotonic() + 2.0
+    for pid in killed:
+        while Path(f"/proc/{pid}").exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+
+
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
         description="Interactively review generated vs. real KiCad DIP footprints."
@@ -409,6 +454,8 @@ def main(argv=None) -> None:
         help="Directory to write rendered PNGs into (default: renders/)",
     )
     args = parser.parse_args(argv)
+
+    _terminate_other_running_instances()
 
     output_dir = Path(args.output_dir)
     print(f"Rendering {len(CASES)} case(s)...")

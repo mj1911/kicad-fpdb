@@ -1,5 +1,7 @@
 import os
 import shutil
+import subprocess
+import time
 
 import pytest
 from PIL import Image
@@ -14,6 +16,7 @@ from jedec_fpdb.visual_compare import (
     _panel_placement,
     _scale_reference_background,
     _svg_size_mm,
+    _terminate_other_running_instances,
 )
 
 requires_tools = pytest.mark.skipif(
@@ -133,3 +136,35 @@ def test_render_comparison_writes_both_pngs(tmp_path):
     for px in (result["generated_pad1_px"], result["reference_pad1_px"]):
         assert 0 <= px[0] <= FRAME_PX
         assert 0 <= px[1] <= FRAME_PX
+
+
+def _spawn_marked_process(marker: str) -> subprocess.Popen:
+    """A real python subprocess whose cmdline contains `marker` -- put
+    literally in its -c script text, which becomes part of its own
+    argv/cmdline without actually needing to run visual_compare itself."""
+    proc = subprocess.Popen(["python3", "-c", f"import time; time.sleep(30)  # {marker}"])
+    time.sleep(0.3)  # let it actually start before we look for it
+    return proc
+
+
+def test_terminate_other_running_instances_kills_matching_process():
+    proc = _spawn_marked_process("jedec_fpdb.visual_compare")
+    try:
+        assert proc.poll() is None
+        _terminate_other_running_instances()
+        assert proc.wait(timeout=3) is not None
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+
+
+def test_terminate_other_running_instances_ignores_unrelated_process():
+    proc = _spawn_marked_process("some unrelated marker")
+    try:
+        _terminate_other_running_instances()
+        time.sleep(0.3)
+        assert proc.poll() is None
+    finally:
+        proc.kill()
+        proc.wait()
