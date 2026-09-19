@@ -15,6 +15,7 @@ import argparse
 import subprocess
 import tempfile
 import tkinter as tk
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageTk
@@ -162,25 +163,38 @@ def render_comparison(
     }
 
 
+def _render_case(job: tuple[str, int, str], output_dir: Path, kicad_dip_dir: str) -> dict:
+    width_class, pin_count, filename = job
+    name = f"{width_class}_{pin_count}"
+    reference_path = f"{kicad_dip_dir}/{filename}"
+    result = render_comparison(width_class, pin_count, "N", reference_path, output_dir, name)
+    return {
+        "name": name,
+        "descriptor": f"DIP-{pin_count} {width_class}",
+        "reference_relpath": filename,
+        # Both panels' grids share this one anchor -- the reference's own
+        # pad-1 position -- rather than each being anchored to its own
+        # pad 1, so a generated footprint whose pad 1 lands on a
+        # different grid dot than the reference is visibly wrong instead
+        # of trivially self-aligning.
+        "grid_anchor_px": result["reference_pad1_px"],
+        **result,
+    }
+
+
 def render_all_known_cases(output_dir: Path, kicad_dip_dir: str = KICAD_DIP_DIR) -> list[dict]:
-    cases = []
-    for width_class, pin_count, filename in CASES:
-        name = f"{width_class}_{pin_count}"
-        reference_path = f"{kicad_dip_dir}/{filename}"
-        result = render_comparison(width_class, pin_count, "N", reference_path, output_dir, name)
-        cases.append({
-            "name": name,
-            "descriptor": f"DIP-{pin_count} {width_class}",
-            "reference_relpath": filename,
-            # Both panels' grids share this one anchor -- the reference's
-            # own pad-1 position -- rather than each being anchored to its
-            # own pad 1, so a generated footprint whose pad 1 lands on a
-            # different grid dot than the reference is visibly wrong
-            # instead of trivially self-aligning.
-            "grid_anchor_px": result["reference_pad1_px"],
-            **result,
-        })
-    return cases
+    """Renders every case in CASES. Each case is 4 independent, purely
+    I/O-bound subprocess calls (kicad-cli x2, rsvg-convert x2) with no
+    shared state -- output_dir is the only thing cases have in common,
+    and each writes distinct, uniquely-named files into it -- so a
+    thread pool (GIL released while waiting on each subprocess) cuts
+    wall-clock time roughly to the slowest single case instead of the
+    sum of all of them."""
+    with ThreadPoolExecutor() as executor:
+        # map (not submit+as_completed) preserves CASES's own order in
+        # the result regardless of which case's subprocesses finish
+        # first, so the viewer's case order doesn't depend on scheduling.
+        return list(executor.map(lambda job: _render_case(job, output_dir, kicad_dip_dir), CASES))
 
 
 def _scale_reference_background(anchor_px: tuple[float, float] | None = None) -> Image.Image:
