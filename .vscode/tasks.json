@@ -1,0 +1,18 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "jedec-fpdb: Visual Review",
+            "type": "shell",
+            "command": "python3 -m jedec_fpdb.visual_compare",
+            "options": {
+                "cwd": "${workspaceFolder}/jedec-fpdb"
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
