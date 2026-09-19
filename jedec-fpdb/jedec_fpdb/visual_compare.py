@@ -230,47 +230,62 @@ def render_all_known_cases(output_dir: Path, kicad_dip_dir: str = KICAD_DIP_DIR)
         return list(executor.map(lambda job: _render_case(job, output_dir, kicad_dip_dir), CASES))
 
 
-def _scale_reference_background(anchor_px: tuple[float, float] | None = None) -> Image.Image:
+def _scale_reference_background(
+    anchor_px: tuple[float, float] | None = None, scale: float = 1.0,
+) -> Image.Image:
     """A FRAME_PX-square dark background with a checkerboard + dot-grid
     scale reference, matching kicad-fpdb's own review-viewer convention.
     anchor_px phases both layers so a dot-grid intersection (and a
     checker-square corner) sits exactly on that pixel -- defaults to the
-    frame's own (0, 0) corner, the old fixed phase, when omitted."""
+    frame's own (0, 0) corner, the old fixed phase, when omitted. scale
+    must match whatever _panel_placement chose for the footprint image
+    this background sits behind (1.0 unless that image overflows the
+    frame and gets downscaled to fit): CHECKER_PX/DOT_GRID_PX are real
+    physical pitches (0.5mm/2.54mm) only at the image's native
+    PX_PER_MM rendering -- a downscaled footprint needs its grid pitch
+    shrunk by the same factor, or the grid no longer lines up with the
+    footprint's own real features once panned across it (only the one
+    anchor pixel would still coincide, by construction, everywhere else
+    would drift). Confirmed on DIP-24 (taller than FRAME_PX, downscaled
+    ~0.73x): the fixed, unscaled grid pitch used before this only ever
+    looked right on a case small enough to render at 1:1."""
     ax, ay = anchor_px if anchor_px is not None else (0.0, 0.0)
+    checker_px = CHECKER_PX * scale
+    dot_grid_px = DOT_GRID_PX * scale
     bg = Image.new("RGB", (FRAME_PX, FRAME_PX), "black")
 
     checker = (255, 255, 255, 30)
     checker_layer = Image.new("RGBA", (FRAME_PX, FRAME_PX), (0, 0, 0, 0))
     checker_draw = ImageDraw.Draw(checker_layer)
-    phase_x, phase_y = ax % CHECKER_PX, ay % CHECKER_PX
-    x = phase_x - CHECKER_PX
+    phase_x, phase_y = ax % checker_px, ay % checker_px
+    x = phase_x - checker_px
     col = 0
     while x < FRAME_PX:
-        y = phase_y - CHECKER_PX
+        y = phase_y - checker_px
         row = 0
         while y < FRAME_PX:
             if (row + col) % 2 == 0:
                 checker_draw.rectangle(
-                    [x, y, x + CHECKER_PX, y + CHECKER_PX],
+                    [x, y, x + checker_px, y + checker_px],
                     fill=checker,
                 )
-            y += CHECKER_PX
+            y += checker_px
             row += 1
-        x += CHECKER_PX
+        x += checker_px
         col += 1
     bg = Image.alpha_composite(bg.convert("RGBA"), checker_layer).convert("RGB")
 
     dot_color = (255, 255, 255, 230)
     dot_layer = Image.new("RGBA", (FRAME_PX, FRAME_PX), (0, 0, 0, 0))
     dot_draw = ImageDraw.Draw(dot_layer)
-    phase_dx, phase_dy = ax % DOT_GRID_PX, ay % DOT_GRID_PX
-    x = phase_dx - DOT_GRID_PX
+    phase_dx, phase_dy = ax % dot_grid_px, ay % dot_grid_px
+    x = phase_dx - dot_grid_px
     while x < FRAME_PX:
-        y = phase_dy - DOT_GRID_PX
+        y = phase_dy - dot_grid_px
         while y < FRAME_PX:
             dot_draw.ellipse([x - 1, y - 1, x + 1, y + 1], fill=dot_color)
-            y += DOT_GRID_PX
-        x += DOT_GRID_PX
+            y += dot_grid_px
+        x += dot_grid_px
     bg = Image.alpha_composite(bg.convert("RGBA"), dot_layer).convert("RGB")
 
     return bg
@@ -279,18 +294,19 @@ def _scale_reference_background(anchor_px: tuple[float, float] | None = None) ->
 def compose_panel(footprint_png: Path, grid_anchor_px: tuple[float, float] | None = None) -> Image.Image:
     """A FRAME_PX-square panel: the scale-reference background (its grid
     phased to grid_anchor_px, shared across both panels of a case -- see
-    render_all_known_cases) with the footprint PNG centered on top. The
-    footprint image itself is still placed by its own bounding-box
-    center regardless of grid_anchor_px -- centering (rather than
-    pad-1-anchoring the image itself) is sufficient here since
-    jedec-fpdb's generator draws no extra ornament that could shift a
-    footprint's bounding box relative to its real counterpart, and DIP
-    bodies are symmetric; the shared grid anchor is what actually
-    surfaces a real pad-1 placement mismatch, by no longer trivially
-    self-aligning."""
-    bg = _scale_reference_background(grid_anchor_px).convert("RGBA")
+    render_all_known_cases; its pitch matched to this panel's own
+    downscale factor -- see _scale_reference_background) with the
+    footprint PNG centered on top. The footprint image itself is still
+    placed by its own bounding-box center regardless of grid_anchor_px
+    -- centering (rather than pad-1-anchoring the image itself) is
+    sufficient here since jedec-fpdb's generator draws no extra
+    ornament that could shift a footprint's bounding box relative to
+    its real counterpart, and DIP bodies are symmetric; the shared grid
+    anchor is what actually surfaces a real pad-1 placement mismatch, by
+    no longer trivially self-aligning."""
     fp_img = Image.open(footprint_png).convert("RGBA")
     (offset_x, offset_y), scale = _panel_placement(fp_img.size)
+    bg = _scale_reference_background(grid_anchor_px, scale).convert("RGBA")
     if scale != 1.0:
         fp_img = fp_img.resize((max(1, round(fp_img.width * scale)), max(1, round(fp_img.height * scale))))
     bg.paste(fp_img, (offset_x, offset_y), fp_img)

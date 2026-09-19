@@ -41,6 +41,38 @@ def test_scale_reference_background_dot_lands_on_anchor():
     assert all(channel > 200 for channel in bg.getpixel((x, y)))
 
 
+def _dot_center_x_positions(bg, y, min_brightness=200):
+    """x positions of each bright (dot-colored) run along row y -- used
+    to measure the actual on-screen spacing between grid dots."""
+    positions = []
+    run_start = None
+    for x in range(bg.width):
+        bright = all(c > min_brightness for c in bg.getpixel((x, y))[:3])
+        if bright and run_start is None:
+            run_start = x
+        elif not bright and run_start is not None:
+            positions.append((run_start + x - 1) / 2)
+            run_start = None
+    return positions
+
+
+def test_scale_reference_background_grid_pitch_matches_scale():
+    # A downscaled panel (e.g. DIP-24, taller than FRAME_PX) needs its
+    # grid pitch shrunk by the same factor the footprint image itself
+    # was shrunk by, or the grid stops representing real mm spacing on
+    # that panel -- only the one anchor pixel would still line up.
+    row = FRAME_PX // 2
+    anchor = (0.0, float(row))  # pins a dot row exactly at y=row
+    full = _scale_reference_background(anchor, scale=1.0)
+    half = _scale_reference_background(anchor, scale=0.5)
+    full_dots = _dot_center_x_positions(full, row)
+    half_dots = _dot_center_x_positions(half, row)
+    assert len(full_dots) >= 2 and len(half_dots) >= 2
+    full_spacing = full_dots[1] - full_dots[0]
+    half_spacing = half_dots[1] - half_dots[0]
+    assert half_spacing == pytest.approx(full_spacing / 2, abs=1.5)
+
+
 def test_panel_placement_centers_image_smaller_than_frame():
     offset, scale = _panel_placement((40, 60))
     assert scale == 1.0
