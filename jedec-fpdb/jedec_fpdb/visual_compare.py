@@ -20,6 +20,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageTk
 
 from jedec_fpdb import dip, writer
+from jedec_fpdb.compare import _PAD_RE
 from jedec_fpdb.reference_cases import CASES, KICAD_DIP_DIR
 
 # Pixels per millimeter for rasterizing both panels -- both use this same
@@ -61,16 +62,52 @@ def _export_svg(library_dir: Path, footprint_name: str, output_dir: Path) -> Pat
     return output_dir / f"{footprint_name}.svg"
 
 
-def _svg_size_mm(svg_path: Path) -> tuple[float, float]:
+def _svg_viewbox_mm(svg_path: Path) -> tuple[float, float, float, float]:
+    """(x0, y0, width, height) of the SVG's viewBox, in mm -- x0/y0 is the
+    coordinate-space origin kicad-cli picked for this file's own bounding
+    box, needed to place a pad's own footprint-local mm coordinate at its
+    correct pixel position within the rasterized image."""
     text = svg_path.read_text()
     start = text.index('viewBox="') + len('viewBox="')
     end = text.index('"', start)
-    _x, _y, w, h = (float(v) for v in text[start:end].split())
-    return w, h
+    x0, y0, w, h = (float(v) for v in text[start:end].split())
+    return x0, y0, w, h
+
+
+def _real_pad1_mm(text: str) -> tuple[float, float]:
+    """Pad "1"'s (x, y) position, in mm, from a real .kicad_mod file's raw
+    text -- reuses compare.py's own pad regex rather than duplicating it."""
+    for match in _PAD_RE.finditer(text):
+        if match.group(1) == "1":
+            return float(match.group(2)), float(match.group(3))
+    raise ValueError('no pad "1" found')
+
+
+def _panel_placement(image_size_px: tuple[int, int]) -> tuple[tuple[int, int], float]:
+    """How compose_panel places a footprint image of this pixel size
+    within the FRAME_PX square: the paste offset for the (possibly
+    downscaled) image, and the scale factor applied (1.0 unless the image
+    is larger than the frame on either axis)."""
+    fw, fh = image_size_px
+    scale = min(FRAME_PX / fw, FRAME_PX / fh, 1.0)
+    new_w, new_h = max(1, round(fw * scale)), max(1, round(fh * scale))
+    offset = ((FRAME_PX - new_w) // 2, (FRAME_PX - new_h) // 2)
+    return offset, scale
+
+
+def _pad1_frame_position_px(svg_path: Path, pad1_mm: tuple[float, float]) -> tuple[float, float]:
+    """Pad 1's pixel position within its FRAME_PX-square panel, once
+    compose_panel places this svg's rasterized image (centered, and
+    downscaled if it overflows the frame)."""
+    x0, y0, w, h = _svg_viewbox_mm(svg_path)
+    pad1_px_in_image = ((pad1_mm[0] - x0) * PX_PER_MM, (pad1_mm[1] - y0) * PX_PER_MM)
+    image_size_px = (round(w * PX_PER_MM), round(h * PX_PER_MM))
+    (offset_x, offset_y), scale = _panel_placement(image_size_px)
+    return offset_x + pad1_px_in_image[0] * scale, offset_y + pad1_px_in_image[1] * scale
 
 
 def _rasterize_svg(svg_path: Path, output_png: Path) -> Path:
-    width_mm, height_mm = _svg_size_mm(svg_path)
+    _x0, _y0, width_mm, height_mm = _svg_viewbox_mm(svg_path)
     result = subprocess.run(
         [
             "rsvg-convert",
@@ -88,11 +125,14 @@ def _rasterize_svg(svg_path: Path, output_png: Path) -> Path:
 def render_comparison(
     width_class: str, pin_count: int, density: str,
     reference_path: str, output_dir: Path, name: str,
-) -> tuple[Path, Path]:
+) -> dict:
     """Generates the footprint for (width_class, pin_count, density) and
     rasterizes it alongside the real footprint at reference_path. Writes
     <name>_generated.png / <name>_reference.png into output_dir and
-    returns their paths."""
+    returns a dict of both paths plus each panel's own pad-1 pixel
+    position (see _pad1_frame_position_px) -- the reference's is meant to
+    become the shared grid anchor both panels' backgrounds are drawn
+    with, see render_all_known_cases."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -101,16 +141,25 @@ def render_comparison(
         fp = dip.generate(width_class, pin_count, density)
         writer.write_footprint(fp, lib_dir / f"{fp.name}.kicad_mod")
         generated_svg = _export_svg(lib_dir, fp.name, Path(tmp) / "out")
+        pad1 = next(p for p in fp.pads if p.number == 1)
+        generated_pad1_px = _pad1_frame_position_px(generated_svg, (pad1.x_mm, pad1.y_mm))
         generated_png = output_dir / f"{name}_generated.png"
         _rasterize_svg(generated_svg, generated_png)
 
     ref_path = Path(reference_path)
+    ref_pad1_mm = _real_pad1_mm(ref_path.read_text())
     with tempfile.TemporaryDirectory() as tmp:
         reference_svg = _export_svg(ref_path.parent, ref_path.stem, Path(tmp) / "out")
+        reference_pad1_px = _pad1_frame_position_px(reference_svg, ref_pad1_mm)
         reference_png = output_dir / f"{name}_reference.png"
         _rasterize_svg(reference_svg, reference_png)
 
-    return generated_png, reference_png
+    return {
+        "generated_png": generated_png,
+        "reference_png": reference_png,
+        "generated_pad1_px": generated_pad1_px,
+        "reference_pad1_px": reference_pad1_px,
+    }
 
 
 def render_all_known_cases(output_dir: Path, kicad_dip_dir: str = KICAD_DIP_DIR) -> list[dict]:
@@ -118,37 +167,44 @@ def render_all_known_cases(output_dir: Path, kicad_dip_dir: str = KICAD_DIP_DIR)
     for width_class, pin_count, filename in CASES:
         name = f"{width_class}_{pin_count}"
         reference_path = f"{kicad_dip_dir}/{filename}"
-        generated_png, reference_png = render_comparison(
-            width_class, pin_count, "N", reference_path, output_dir, name,
-        )
+        result = render_comparison(width_class, pin_count, "N", reference_path, output_dir, name)
         cases.append({
             "name": name,
             "descriptor": f"DIP-{pin_count} {width_class}",
             "reference_relpath": filename,
-            "generated_png": generated_png,
-            "reference_png": reference_png,
+            # Both panels' grids share this one anchor -- the reference's
+            # own pad-1 position -- rather than each being anchored to its
+            # own pad 1, so a generated footprint whose pad 1 lands on a
+            # different grid dot than the reference is visibly wrong
+            # instead of trivially self-aligning.
+            "grid_anchor_px": result["reference_pad1_px"],
+            **result,
         })
     return cases
 
 
-def _scale_reference_background() -> Image.Image:
+def _scale_reference_background(anchor_px: tuple[float, float] | None = None) -> Image.Image:
     """A FRAME_PX-square dark background with a checkerboard + dot-grid
-    scale reference, matching kicad-fpdb's own review-viewer convention."""
+    scale reference, matching kicad-fpdb's own review-viewer convention.
+    anchor_px phases both layers so a dot-grid intersection (and a
+    checker-square corner) sits exactly on that pixel -- defaults to the
+    frame's own (0, 0) corner, the old fixed phase, when omitted."""
+    ax, ay = anchor_px if anchor_px is not None else (0.0, 0.0)
     bg = Image.new("RGB", (FRAME_PX, FRAME_PX), "black")
-    draw = ImageDraw.Draw(bg)
 
     checker = (255, 255, 255, 30)
     checker_layer = Image.new("RGBA", (FRAME_PX, FRAME_PX), (0, 0, 0, 0))
     checker_draw = ImageDraw.Draw(checker_layer)
-    x = 0.0
+    phase_x, phase_y = ax % CHECKER_PX, ay % CHECKER_PX
+    x = phase_x - CHECKER_PX
     col = 0
     while x < FRAME_PX:
-        y = 0.0
+        y = phase_y - CHECKER_PX
         row = 0
         while y < FRAME_PX:
             if (row + col) % 2 == 0:
                 checker_draw.rectangle(
-                    [x, y, min(x + CHECKER_PX, FRAME_PX), min(y + CHECKER_PX, FRAME_PX)],
+                    [x, y, x + CHECKER_PX, y + CHECKER_PX],
                     fill=checker,
                 )
             y += CHECKER_PX
@@ -157,13 +213,13 @@ def _scale_reference_background() -> Image.Image:
         col += 1
     bg = Image.alpha_composite(bg.convert("RGBA"), checker_layer).convert("RGB")
 
-    draw = ImageDraw.Draw(bg)
     dot_color = (255, 255, 255, 230)
     dot_layer = Image.new("RGBA", (FRAME_PX, FRAME_PX), (0, 0, 0, 0))
     dot_draw = ImageDraw.Draw(dot_layer)
-    x = 0.0
+    phase_dx, phase_dy = ax % DOT_GRID_PX, ay % DOT_GRID_PX
+    x = phase_dx - DOT_GRID_PX
     while x < FRAME_PX:
-        y = 0.0
+        y = phase_dy - DOT_GRID_PX
         while y < FRAME_PX:
             dot_draw.ellipse([x - 1, y - 1, x + 1, y + 1], fill=dot_color)
             y += DOT_GRID_PX
@@ -173,22 +229,24 @@ def _scale_reference_background() -> Image.Image:
     return bg
 
 
-def compose_panel(footprint_png: Path) -> Image.Image:
-    """A FRAME_PX-square panel: the scale-reference background with the
-    footprint PNG centered on top. Centering (rather than pad-1
-    anchoring, as kicad-fpdb's own HTML viewer does) is sufficient here
-    since jedec-fpdb's generator draws no extra ornament that could shift
-    a footprint's bounding box relative to its real counterpart, and DIP
-    bodies are symmetric."""
-    bg = _scale_reference_background().convert("RGBA")
+def compose_panel(footprint_png: Path, grid_anchor_px: tuple[float, float] | None = None) -> Image.Image:
+    """A FRAME_PX-square panel: the scale-reference background (its grid
+    phased to grid_anchor_px, shared across both panels of a case -- see
+    render_all_known_cases) with the footprint PNG centered on top. The
+    footprint image itself is still placed by its own bounding-box
+    center regardless of grid_anchor_px -- centering (rather than
+    pad-1-anchoring the image itself) is sufficient here since
+    jedec-fpdb's generator draws no extra ornament that could shift a
+    footprint's bounding box relative to its real counterpart, and DIP
+    bodies are symmetric; the shared grid anchor is what actually
+    surfaces a real pad-1 placement mismatch, by no longer trivially
+    self-aligning."""
+    bg = _scale_reference_background(grid_anchor_px).convert("RGBA")
     fp_img = Image.open(footprint_png).convert("RGBA")
-    fw, fh = fp_img.size
-    if fw > FRAME_PX or fh > FRAME_PX:
-        scale = min(FRAME_PX / fw, FRAME_PX / fh)
-        fp_img = fp_img.resize((max(1, int(fw * scale)), max(1, int(fh * scale))))
-        fw, fh = fp_img.size
-    offset = ((FRAME_PX - fw) // 2, (FRAME_PX - fh) // 2)
-    bg.paste(fp_img, offset, fp_img)
+    (offset_x, offset_y), scale = _panel_placement(fp_img.size)
+    if scale != 1.0:
+        fp_img = fp_img.resize((max(1, round(fp_img.width * scale)), max(1, round(fp_img.height * scale))))
+    bg.paste(fp_img, (offset_x, offset_y), fp_img)
     return bg.convert("RGB")
 
 
@@ -238,9 +296,9 @@ class ReviewApp:
 
         self.render()
 
-    def _photo(self, key: str, png_path: Path) -> ImageTk.PhotoImage:
+    def _photo(self, key: str, png_path: Path, grid_anchor_px: tuple[float, float]) -> ImageTk.PhotoImage:
         if key not in self._photo_cache:
-            self._photo_cache[key] = ImageTk.PhotoImage(compose_panel(png_path))
+            self._photo_cache[key] = ImageTk.PhotoImage(compose_panel(png_path, grid_anchor_px))
         return self._photo_cache[key]
 
     def render(self) -> None:
@@ -253,8 +311,9 @@ class ReviewApp:
         self.generated_header.config(text=f"Generator: {case['descriptor']}")
         self.reference_header.config(text=f"Reference: {case['reference_relpath']}")
 
-        gen_photo = self._photo(f"{case['name']}_g", case["generated_png"])
-        ref_photo = self._photo(f"{case['name']}_r", case["reference_png"])
+        anchor = case["grid_anchor_px"]
+        gen_photo = self._photo(f"{case['name']}_g", case["generated_png"], anchor)
+        ref_photo = self._photo(f"{case['name']}_r", case["reference_png"], anchor)
         self.generated_canvas.config(image=gen_photo)
         self.reference_canvas.config(image=ref_photo)
 
