@@ -3,49 +3,17 @@ import os
 import pytest
 
 from jedec_fpdb import compare, dip
-
-KICAD_DIP_DIR = "/usr/share/kicad/footprints/Package_DIP.pretty"
+from jedec_fpdb.reference_cases import CASES, KICAD_DIP_DIR
 
 pytestmark = pytest.mark.skipif(
     not os.path.isdir(KICAD_DIP_DIR),
     reason=f"{KICAD_DIP_DIR} not present on this machine",
 )
 
-# (width_class, pin_count, real filename). Drill/pad diameter tolerance
-# is looser than pitch/row_spacing since real KiCad uses generous,
-# round-number pad sizing -- 0.8mm drill / 1.6mm pad regardless of pin
-# count or width class -- that noticeably exceeds even IPC-7251's own
-# "Maximum" (Level A) density level; see the design spec.
-CASES = [
-    ("narrow", 4, "DIP-4_W7.62mm.kicad_mod"),
-    ("narrow", 6, "DIP-6_W7.62mm.kicad_mod"),
-    ("narrow", 8, "DIP-8_W7.62mm.kicad_mod"),
-    ("narrow", 14, "DIP-14_W7.62mm.kicad_mod"),
-    ("narrow", 16, "DIP-16_W7.62mm.kicad_mod"),
-    ("narrow", 24, "DIP-24_W7.62mm.kicad_mod"),
-    # regular (.400in / 10.16mm row spacing) -- N=22/24 come directly from
-    # MS-010's own table, the rest are regression extrapolation (see
-    # test_ms001_dip.py).
-    ("regular", 4, "DIP-4_W10.16mm.kicad_mod"),
-    ("regular", 6, "DIP-6_W10.16mm.kicad_mod"),
-    ("regular", 8, "DIP-8_W10.16mm.kicad_mod"),
-    ("regular", 10, "DIP-10_W10.16mm.kicad_mod"),
-    ("regular", 12, "DIP-12_W10.16mm.kicad_mod"),
-    ("regular", 14, "DIP-14_W10.16mm.kicad_mod"),
-    ("regular", 16, "DIP-16_W10.16mm.kicad_mod"),
-    ("regular", 22, "DIP-22_W10.16mm.kicad_mod"),
-    ("regular", 24, "DIP-24_W10.16mm.kicad_mod"),
-    # wide (.600in / 15.24mm row spacing) -- N=24/28/40/48 come directly
-    # from MS-011's own table, the rest are regression extrapolation.
-    ("wide", 24, "DIP-24_W15.24mm.kicad_mod"),
-    ("wide", 26, "DIP-26_W15.24mm.kicad_mod"),
-    ("wide", 28, "DIP-28_W15.24mm.kicad_mod"),
-    ("wide", 32, "DIP-32_W15.24mm.kicad_mod"),
-    ("wide", 40, "DIP-40_W15.24mm.kicad_mod"),
-    ("wide", 42, "DIP-42_W15.24mm.kicad_mod"),
-    ("wide", 48, "DIP-48_W15.24mm.kicad_mod"),
-    ("wide", 64, "DIP-64_W15.24mm.kicad_mod"),
-]
+# Drill/pad diameter tolerance is looser than pitch/row_spacing since real
+# KiCad uses generous, round-number pad sizing -- 0.8mm drill / 1.6mm pad
+# regardless of pin count or width class -- that noticeably exceeds even
+# IPC-7251's own "Maximum" (Level A) density level; see the design spec.
 
 
 @pytest.mark.parametrize("width_class,pin_count,filename", CASES)

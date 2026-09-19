@@ -36,6 +36,22 @@ reference files and is skipped automatically if
 `/usr/share/kicad/footprints/Package_DIP.pretty` isn't present on the
 machine.
 
+## Visual review
+
+```bash
+cd jedec-fpdb
+python -m jedec_fpdb.visual_compare
+```
+
+Opens an interactive Tkinter window cycling through every case in
+`jedec_fpdb/reference_cases.py`, rendering the generated footprint next
+to its real KiCad reference at matched physical scale (checkerboard +
+0.1in dot-grid background as a ruler). Prev/Next (buttons or Left/Right
+arrows), Pass/Fail (buttons or P/F) to mark each case; closing the
+window prints a summary of failed/unmarked cases to the terminal (marks
+aren't persisted to disk). Requires `kicad-cli` and `rsvg-convert` on
+PATH in addition to the real KiCad footprint library.
+
 ## Scope
 
 Fully independent of `kicad-fpdb`: no shared code, no shared data. See
