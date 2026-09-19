@@ -116,25 +116,42 @@ def _pad1_center_mm(svg_text: str) -> tuple[float, float]:
     return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
 
-def _panel_placement(image_size_px: tuple[int, int]) -> tuple[tuple[int, int], float]:
-    """How compose_panel places a footprint image of this pixel size
-    within the FRAME_PX square: the paste offset for the (possibly
-    downscaled) image, and the scale factor applied (1.0 unless the image
-    is larger than the frame on either axis)."""
+def _shared_scale(*image_sizes_px: tuple[int, int]) -> float:
+    """One downscale factor (<=1.0) used for every panel of a case,
+    rather than each panel computing its own independently from its own
+    image size. Generated and reference images are rarely the exact
+    same pixel size (jedec-fpdb's silk is simpler than a real file's,
+    with no REF**/Value text bulking out its bounding box), so
+    per-panel scaling would give each panel a different scale whenever
+    either overflows FRAME_PX -- silently breaking two things at once:
+    the "matched true physical scale" comparison this viewer is built
+    around (a real size difference would get scaled away instead of
+    staying visible), and the dot-grid pitch, which would then also
+    differ between panels since each is tied to its own panel's scale.
+    Takes the largest dimension across *all* given images and shrinks
+    by the one factor needed to fit that alone within FRAME_PX -- 1.0
+    (no shrinking at all) unless at least one image actually overflows."""
+    max_dim = max(dim for size in image_sizes_px for dim in size)
+    return min(1.0, FRAME_PX / max_dim)
+
+
+def _panel_offset(image_size_px: tuple[int, int], scale: float) -> tuple[int, int]:
+    """Where compose_panel pastes an image of this native pixel size,
+    once scaled by the case's shared scale (see _shared_scale), to
+    center it within the FRAME_PX square."""
     fw, fh = image_size_px
-    scale = min(FRAME_PX / fw, FRAME_PX / fh, 1.0)
     new_w, new_h = max(1, round(fw * scale)), max(1, round(fh * scale))
-    offset = ((FRAME_PX - new_w) // 2, (FRAME_PX - new_h) // 2)
-    return offset, scale
+    return (FRAME_PX - new_w) // 2, (FRAME_PX - new_h) // 2
 
 
-def _pad1_frame_position_px(svg_text: str, image_size_px: tuple[int, int]) -> tuple[float, float]:
+def _pad1_frame_position_px(svg_text: str, image_size_px: tuple[int, int], scale: float) -> tuple[float, float]:
     """Pad 1's pixel position within its FRAME_PX-square panel, once
-    compose_panel places this svg's rasterized image (centered, and
-    downscaled if it overflows the frame)."""
+    compose_panel places this svg's rasterized image at the case's
+    shared scale (centered, and downscaled if either panel's image
+    overflows the frame)."""
     center_mm = _pad1_center_mm(svg_text)
     pad1_px_in_image = (center_mm[0] * PX_PER_MM, center_mm[1] * PX_PER_MM)
-    (offset_x, offset_y), scale = _panel_placement(image_size_px)
+    offset_x, offset_y = _panel_offset(image_size_px, scale)
     return offset_x + pad1_px_in_image[0] * scale, offset_y + pad1_px_in_image[1] * scale
 
 
@@ -161,36 +178,40 @@ def render_comparison(
     """Generates the footprint for (width_class, pin_count, density) and
     rasterizes it alongside the real footprint at reference_path. Writes
     <name>_generated.png / <name>_reference.png into output_dir and
-    returns a dict of both paths plus each panel's own pad-1 pixel
-    position (see _pad1_frame_position_px) -- the reference's is meant to
-    become the shared grid anchor both panels' backgrounds are drawn
-    with, see render_all_known_cases."""
+    returns a dict of both paths, the one scale shared by both panels
+    (see _shared_scale), and each panel's own pad-1 pixel position (see
+    _pad1_frame_position_px) -- the reference's is meant to become the
+    shared grid anchor both panels' backgrounds are drawn with, see
+    render_all_known_cases."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    ref_path = Path(reference_path)
 
     with tempfile.TemporaryDirectory() as tmp:
         lib_dir = Path(tmp) / "lib"
         lib_dir.mkdir()
         fp = dip.generate(width_class, pin_count, density)
         writer.write_footprint(fp, lib_dir / f"{fp.name}.kicad_mod")
-        generated_svg = _export_svg(lib_dir, fp.name, Path(tmp) / "out")
+        generated_svg = _export_svg(lib_dir, fp.name, Path(tmp) / "gen_out")
         generated_svg_text = generated_svg.read_text()
         generated_image_size_px = tuple(round(v * PX_PER_MM) for v in _svg_size_mm(generated_svg))
-        generated_pad1_px = _pad1_frame_position_px(generated_svg_text, generated_image_size_px)
-        generated_png = output_dir / f"{name}_generated.png"
-        _rasterize_svg(generated_svg, generated_png)
 
-    ref_path = Path(reference_path)
-    with tempfile.TemporaryDirectory() as tmp:
-        reference_svg = _export_svg(ref_path.parent, ref_path.stem, Path(tmp) / "out")
+        reference_svg = _export_svg(ref_path.parent, ref_path.stem, Path(tmp) / "ref_out")
         reference_svg_text = reference_svg.read_text()
         reference_image_size_px = tuple(round(v * PX_PER_MM) for v in _svg_size_mm(reference_svg))
-        reference_pad1_px = _pad1_frame_position_px(reference_svg_text, reference_image_size_px)
+
+        scale = _shared_scale(generated_image_size_px, reference_image_size_px)
+        generated_pad1_px = _pad1_frame_position_px(generated_svg_text, generated_image_size_px, scale)
+        reference_pad1_px = _pad1_frame_position_px(reference_svg_text, reference_image_size_px, scale)
+
+        generated_png = output_dir / f"{name}_generated.png"
+        _rasterize_svg(generated_svg, generated_png)
         reference_png = output_dir / f"{name}_reference.png"
         _rasterize_svg(reference_svg, reference_png)
 
     return {
         "generated_png": generated_png,
         "reference_png": reference_png,
+        "scale": scale,
         "generated_pad1_px": generated_pad1_px,
         "reference_pad1_px": reference_pad1_px,
     }
@@ -291,21 +312,29 @@ def _scale_reference_background(
     return bg
 
 
-def compose_panel(footprint_png: Path, grid_anchor_px: tuple[float, float] | None = None) -> Image.Image:
+def compose_panel(
+    footprint_png: Path, scale: float = 1.0, grid_anchor_px: tuple[float, float] | None = None,
+) -> Image.Image:
     """A FRAME_PX-square panel: the scale-reference background (its grid
     phased to grid_anchor_px, shared across both panels of a case -- see
-    render_all_known_cases; its pitch matched to this panel's own
-    downscale factor -- see _scale_reference_background) with the
-    footprint PNG centered on top. The footprint image itself is still
-    placed by its own bounding-box center regardless of grid_anchor_px
-    -- centering (rather than pad-1-anchoring the image itself) is
-    sufficient here since jedec-fpdb's generator draws no extra
-    ornament that could shift a footprint's bounding box relative to
-    its real counterpart, and DIP bodies are symmetric; the shared grid
-    anchor is what actually surfaces a real pad-1 placement mismatch, by
-    no longer trivially self-aligning."""
+    render_all_known_cases; its pitch matched to the case's own shared
+    scale -- see _scale_reference_background/_shared_scale) with the
+    footprint PNG centered on top, at that same scale. The footprint
+    image itself is still placed by its own bounding-box center
+    regardless of grid_anchor_px -- centering (rather than
+    pad-1-anchoring the image itself) is sufficient here since
+    jedec-fpdb's generator draws no extra ornament that could shift a
+    footprint's bounding box relative to its real counterpart, and DIP
+    bodies are symmetric; the shared grid anchor is what actually
+    surfaces a real pad-1 placement mismatch, by no longer trivially
+    self-aligning. `scale` must be the case's one shared scale (see
+    _shared_scale), not recomputed from this image's own size alone --
+    generated and reference images are rarely the same pixel size, so
+    doing that would give the two panels of one case different scales
+    (and thus different grid pitches) whenever either overflows the
+    frame."""
     fp_img = Image.open(footprint_png).convert("RGBA")
-    (offset_x, offset_y), scale = _panel_placement(fp_img.size)
+    offset_x, offset_y = _panel_offset(fp_img.size, scale)
     bg = _scale_reference_background(grid_anchor_px, scale).convert("RGBA")
     if scale != 1.0:
         fp_img = fp_img.resize((max(1, round(fp_img.width * scale)), max(1, round(fp_img.height * scale))))
@@ -359,9 +388,11 @@ class ReviewApp:
 
         self.render()
 
-    def _photo(self, key: str, png_path: Path, grid_anchor_px: tuple[float, float]) -> ImageTk.PhotoImage:
+    def _photo(
+        self, key: str, png_path: Path, scale: float, grid_anchor_px: tuple[float, float],
+    ) -> ImageTk.PhotoImage:
         if key not in self._photo_cache:
-            self._photo_cache[key] = ImageTk.PhotoImage(compose_panel(png_path, grid_anchor_px))
+            self._photo_cache[key] = ImageTk.PhotoImage(compose_panel(png_path, scale, grid_anchor_px))
         return self._photo_cache[key]
 
     def render(self) -> None:
@@ -375,8 +406,9 @@ class ReviewApp:
         self.reference_header.config(text=f"Reference: {case['reference_relpath']}")
 
         anchor = case["grid_anchor_px"]
-        gen_photo = self._photo(f"{case['name']}_g", case["generated_png"], anchor)
-        ref_photo = self._photo(f"{case['name']}_r", case["reference_png"], anchor)
+        scale = case["scale"]
+        gen_photo = self._photo(f"{case['name']}_g", case["generated_png"], scale, anchor)
+        ref_photo = self._photo(f"{case['name']}_r", case["reference_png"], scale, anchor)
         self.generated_canvas.config(image=gen_photo)
         self.reference_canvas.config(image=ref_photo)
 

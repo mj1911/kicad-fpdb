@@ -13,8 +13,9 @@ from jedec_fpdb.visual_compare import (
     render_comparison,
     _pad1_center_mm,
     _pad1_frame_position_px,
-    _panel_placement,
+    _panel_offset,
     _scale_reference_background,
+    _shared_scale,
     _svg_size_mm,
     _terminate_other_running_instances,
 )
@@ -73,15 +74,25 @@ def test_scale_reference_background_grid_pitch_matches_scale():
     assert half_spacing == pytest.approx(full_spacing / 2, abs=1.5)
 
 
-def test_panel_placement_centers_image_smaller_than_frame():
-    offset, scale = _panel_placement((40, 60))
-    assert scale == 1.0
+def test_shared_scale_is_1_when_everything_fits():
+    assert _shared_scale((40, 60), (100, 90)) == 1.0
+
+
+def test_shared_scale_shrinks_for_the_larger_of_two_images():
+    # Only the reference overflows -- the shared scale must still come
+    # from it, not from the (already-fitting) generated image alone.
+    scale = _shared_scale((40, 60), (FRAME_PX + 100, FRAME_PX + 50))
+    assert scale < 1.0
+    assert scale == FRAME_PX / (FRAME_PX + 100)
+
+
+def test_panel_offset_centers_image_smaller_than_frame():
+    offset = _panel_offset((40, 60), scale=1.0)
     assert offset == ((FRAME_PX - 40) // 2, (FRAME_PX - 60) // 2)
 
 
-def test_panel_placement_downscales_image_larger_than_frame():
-    offset, scale = _panel_placement((FRAME_PX + 100, FRAME_PX + 50))
-    assert scale < 1.0
+def test_panel_offset_centers_image_at_given_scale():
+    offset = _panel_offset((FRAME_PX + 100, FRAME_PX + 50), scale=0.5)
     assert 0 <= offset[0] < FRAME_PX
     assert 0 <= offset[1] < FRAME_PX
 
@@ -127,10 +138,19 @@ def test_pad1_center_mm_raises_when_no_copper_fill_found():
 
 def test_pad1_frame_position_px_scales_and_centers():
     # pad 1's own center at (3, 4)mm in a 10x10mm image -- pixel-in-image
-    # is (60, 80) at PX_PER_MM(20), then centered by _panel_placement.
-    px = _pad1_frame_position_px(_PAD1_PATH_SVG, (200, 200))
-    offset, _scale = _panel_placement((200, 200))
+    # is (60, 80) at PX_PER_MM(20), then centered by _panel_offset.
+    px = _pad1_frame_position_px(_PAD1_PATH_SVG, (200, 200), scale=1.0)
+    offset = _panel_offset((200, 200), scale=1.0)
     assert px == (offset[0] + 60.0, offset[1] + 80.0)
+
+
+def test_pad1_frame_position_px_honors_given_scale_not_own_image_size():
+    # At scale=0.5 (as if this image were the smaller of a case's two
+    # panels, with the shared scale coming from the *other* one), the
+    # pixel-in-image position must be halved too, not just re-centered.
+    px = _pad1_frame_position_px(_PAD1_PATH_SVG, (200, 200), scale=0.5)
+    offset = _panel_offset((200, 200), scale=0.5)
+    assert px == (offset[0] + 30.0, offset[1] + 40.0)
 
 
 def test_compose_panel_centers_small_footprint_on_frame(tmp_path):
@@ -145,12 +165,12 @@ def test_compose_panel_centers_small_footprint_on_frame(tmp_path):
     assert panel.getpixel((center_x, center_y)) == (200, 52, 52)
 
 
-def test_compose_panel_downscales_footprint_larger_than_frame(tmp_path):
+def test_compose_panel_downscales_footprint_at_given_scale(tmp_path):
     big = Image.new("RGBA", (FRAME_PX + 100, FRAME_PX + 50), (200, 52, 52, 255))
     png_path = tmp_path / "big.png"
     big.save(png_path)
 
-    panel = compose_panel(png_path)
+    panel = compose_panel(png_path, scale=_shared_scale((FRAME_PX + 100, FRAME_PX + 50)))
 
     assert panel.size == (FRAME_PX, FRAME_PX)
 
@@ -168,6 +188,24 @@ def test_render_comparison_writes_both_pngs(tmp_path):
     for px in (result["generated_pad1_px"], result["reference_pad1_px"]):
         assert 0 <= px[0] <= FRAME_PX
         assert 0 <= px[1] <= FRAME_PX
+
+
+@requires_tools
+def test_render_comparison_shares_one_scale_across_differently_sized_panels(tmp_path):
+    # DIP-24: the real regression case where this broke. Generated and
+    # reference render to different pixel sizes (jedec-fpdb's silk is
+    # simpler, no REF**/Value text bulking out its bounding box like the
+    # real file's does), and the taller one (686px) overflows FRAME_PX --
+    # exactly the combination where each panel computing its own scale
+    # independently used to give the two panels different grid pitches.
+    result = render_comparison(
+        "narrow", 24, "N", f"{KICAD_DIP_DIR}/DIP-24_W7.62mm.kicad_mod", tmp_path, "narrow_24",
+    )
+    with Image.open(result["generated_png"]) as gen_im, Image.open(result["reference_png"]) as ref_im:
+        gen_size, ref_size = gen_im.size, ref_im.size
+    assert gen_size != ref_size, "test no longer exercises the shared-scale path"
+    assert result["scale"] == _shared_scale(gen_size, ref_size)
+    assert result["scale"] < 1.0
 
 
 def _spawn_marked_process(marker: str) -> subprocess.Popen:
